@@ -1,0 +1,272 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Vendas - GasManagementApp{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendas/css/index.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="vendas-header">
+    <h2>Gestão de Vendas</h2>
+    <button class="btn-primary" id="btn-nova-venda">Nova Venda</button>
+</div>
+
+<!-- Sistema de Abas -->
+<div class="tabs-container">
+    <div class="tabs-nav">
+        <button class="tab-btn active" data-target="tab-dashboard">Dashboard</button>
+        <button class="tab-btn" data-target="tab-pendentes">Pendentes</button>
+        <button class="tab-btn" data-target="tab-finalizadas">Finalizadas</button>
+    </div>
+
+    <div class="tabs-content">
+        <!-- Aba 1: Dashboard -->
+        <div id="tab-dashboard" class="tab-pane active">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0;">Faturamento (Mês)</h4>
+                        <div style="background: rgba(16, 185, 129, 0.1); padding: 8px; border-radius: 8px; color: #10b981;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        </div>
+                    </div>
+                    <p id="metric-faturamento">Carregando...</p>
+                </div>
+                <div class="metric-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0;">Vendas Realizadas</h4>
+                        <div style="background: rgba(59, 130, 246, 0.1); padding: 8px; border-radius: 8px; color: #3b82f6;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+                        </div>
+                    </div>
+                    <p id="metric-total-vendas">Carregando...</p>
+                </div>
+                <div class="metric-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0;">Pendentes</h4>
+                        <div style="background: rgba(245, 158, 11, 0.1); padding: 8px; border-radius: 8px; color: #f59e0b;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        </div>
+                    </div>
+                    <p id="metric-pendentes">Carregando...</p>
+                </div>
+                <div class="metric-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0;">Em Entrega</h4>
+                        <div style="background: rgba(139, 92, 246, 0.1); padding: 8px; border-radius: 8px; color: #8b5cf6;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                        </div>
+                    </div>
+                    <p id="metric-entrega">Carregando...</p>
+                </div>
+            </div>
+            
+            <div class="dashboard-row-2">
+                <!-- Gráfico de Evolução -->
+                <div class="chart-box" style="flex: 2;">
+                    <h3 style="margin-top: 0; color: var(--color-text); font-size: 1rem; margin-bottom: 16px;">Evolução de Vendas</h3>
+                    <div style="height: 260px; position: relative;">
+                        <canvas id="vendasChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Gráfico de Categoria -->
+                <div class="chart-box" style="flex: 1;">
+                    <h3 style="margin-top: 0; color: var(--color-text); font-size: 1rem; margin-bottom: 16px;">Por Categoria</h3>
+                    <div style="height: 260px; position: relative; display: flex; justify-content: center;">
+                        <canvas id="categoriaChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Analytics Inteligência -->
+                <div class="info-box" style="flex: 1;">
+                    <h3 style="margin-top: 0; color: var(--color-text); font-size: 1rem; margin-bottom: 16px;">Inteligência</h3>
+                    
+                    <div class="info-card" style="background: var(--color-hover); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                        <span style="font-size: 0.8rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Ticket Médio</span>
+                        <div id="metric-ticket-medio" style="font-size: 1.5rem; font-weight: 700; color: var(--color-primary); margin-top: 4px;">Carregando...</div>
+                    </div>
+                    
+                    <div>
+                        <span style="font-size: 0.8rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Top 3 Mais Vendidos</span>
+                        <ul id="lista-top-produtos" style="list-style: none; padding: 0; margin: 10px 0 0 0; display: flex; flex-direction: column; gap: 8px;">
+                            <li style="font-size: 0.9rem; color: var(--color-text-muted);">Carregando...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aba 2: Pendentes -->
+        <div id="tab-pendentes" class="tab-pane">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Cliente</th>
+                            <th>Total (R$)</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-pendentes">
+                        <!-- Carregado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Aba 4: Finalizadas -->
+        <div id="tab-finalizadas" class="tab-pane">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Cliente</th>
+                            <th>Total (R$)</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-finalizadas">
+                        <!-- Carregado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova Venda (Simplificado para o plano) -->
+<div class="modal-overlay" id="modal-venda">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3>Registrar Nova Venda</h3>
+            <button class="close-modal" id="btn-fechar-modal-venda">&times;</button>
+        </div>
+        <form id="form-venda">
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label for="cliente">Cliente</label>
+                    <select id="cliente" name="cliente" required>
+                        <option value="">Selecione um cliente...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--color-border);">
+            <h4>Itens da Venda</h4>
+            <div id="itens-container">
+                <div class="item-row" style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div class="form-group" style="flex:2;">
+                        <label>Produto (Cilindro)</label>
+                        <select class="produto-select" required>
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Qtd.</label>
+                        <input type="number" class="item-qtd" value="1" min="1" required>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn-secondary" id="btn-add-item" style="margin-bottom: 20px;">+ Adicionar Produto</button>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="btn-cancelar-venda">Cancelar</button>
+                <button type="submit" class="btn-primary">Registrar Venda</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Detalhes da Venda (Nota Fiscal) -->
+<div class="modal-overlay" id="modal-detalhes-venda">
+    <div class="modal-content" style="max-width: 800px; padding: 30px; background: var(--color-surface); color: black; font-family: 'Courier New', Courier, monospace; border-radius: 0;" id="conteudo-recibo">
+        <!-- Action buttons -->
+        <div class="modal-header" id="detalhes-header" style="border-bottom: none; margin-bottom: 0; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <button class="btn-primary" style="background:#10b981; font-size:12px; padding:6px 12px; font-family: sans-serif;" onclick="gerarPDF()">Gerar Recibo PDF (A4)</button>
+            </div>
+            <button class="close-modal" id="btn-fechar-detalhes" style="font-family: sans-serif; font-size: 24px;">&times;</button>
+        </div>
+
+        <!-- Invoice Header -->
+        <div style="border: 2px solid #000; padding: 10px; margin-top: 10px; margin-bottom: 10px; display: flex; justify-content: space-between;">
+            <div style="width: 60%;">
+                <h2 style="margin: 0; font-size: 22px; text-transform: uppercase;">GasManagement</h2>
+                <p style="margin: 5px 0 0 0; font-size: 14px;">Distribuidora de Gases Industriais</p>
+                <p style="margin: 0; font-size: 12px;">CNPJ: 00.000.000/0001-00</p>
+            </div>
+            <div style="width: 38%; border-left: 2px solid #000; padding-left: 10px;">
+                <h3 style="margin: 0; font-size: 18px;">RECIBO DE VENDA</h3>
+                <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Nº Documento:</strong> <span id="detalhe-id"></span></p>
+                <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Emissão:</strong> <span id="detalhe-data"></span></p>
+            </div>
+        </div>
+
+        <!-- Client Info -->
+        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 10px;">
+            <h4 style="margin: 0 0 5px 0; font-size: 14px; text-transform: uppercase; border-bottom: 1px dotted #000; padding-bottom: 5px;">Dados do Cliente</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                <p style="margin: 0; width: 60%; font-size: 14px;"><strong>Razão Social:</strong> <span id="detalhe-cliente"></span></p>
+                <p style="margin: 0; width: 35%; font-size: 14px;"><strong>CNPJ/CPF:</strong> <span id="detalhe-cnpj"></span></p>
+            </div>
+        </div>
+
+        <!-- Additional Info -->
+        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 10px; display: flex;">
+            <div style="width: 33%;">
+                <p style="margin: 0; font-size: 14px;"><strong>Status:</strong> <span id="detalhe-status"></span></p>
+            </div>
+            <div style="width: 33%; border-left: 1px solid #000; padding-left: 10px;">
+                <p style="margin: 0; font-size: 14px;"><strong>Prazo Entrega:</strong> <span id="detalhe-prazo"></span></p>
+            </div>
+            <div style="width: 33%; border-left: 1px solid #000; padding-left: 10px;">
+                <p style="margin: 0; font-size: 14px;"><strong>Entrega Efetiva:</strong> <span id="detalhe-efetiva"></span></p>
+            </div>
+        </div>
+
+        <!-- Products Table -->
+        <div style="border: 1px solid #000; margin-bottom: 10px;">
+            <h4 style="margin: 10px; font-size: 14px; text-transform: uppercase;">Descrição dos Produtos</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; border-top: 1px solid #000;">
+                <thead>
+                    <tr style="background: #f9f9f9;">
+                        <th style="padding: 6px; text-align: left; border-right: 1px solid #000; border-bottom: 1px solid #000;">PRODUTO</th>
+                        <th style="padding: 6px; text-align: center; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 10%;">QTD</th>
+                        <th style="padding: 6px; text-align: right; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 20%;">V. UNITÁRIO</th>
+                        <th style="padding: 6px; text-align: right; border-bottom: 1px solid #000; width: 20%;">V. TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody id="detalhe-itens-tbody">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Total -->
+        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 30px; text-align: right; background: #f9f9f9;">
+            <p style="margin: 0; font-size: 18px;"><strong>VALOR TOTAL DA NOTA: <span id="detalhe-total"></span></strong></p>
+        </div>
+
+        <!-- Signatures -->
+        <div style="display: flex; justify-content: space-between; margin-top: 40px; padding: 0 20px;">
+            <div style="width: 40%; text-align: center;">
+                <div style="border-top: 1px solid #000; padding-top: 5px; font-size: 12px;">Assinatura do Emitente</div>
+            </div>
+            <div style="width: 40%; text-align: center;">
+                <div style="border-top: 1px solid #000; padding-top: 5px; font-size: 12px;">Assinatura do Recebedor</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'vendas/js/index.js' %}"></script>
+{% endblock %}

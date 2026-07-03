@@ -1,0 +1,183 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Clientes - GasManagementApp{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'clientes/css/index.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+    <div class="clientes-header">
+        <h2>Clientes</h2>
+        <button class="btn-primary" id="btn-novo-cliente">Novo Cliente</button>
+    </div>
+    <div class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="tab-btn" onclick="switchTab('pj')">Clientes PJ</button>
+        <button class="tab-btn" onclick="switchTab('gov')">Governamental</button>
+    </div>
+    
+    <div class="tab-content">
+        <!-- Dashboard Tab -->
+        <div id="tab-dashboard" class="tab-pane" style="display: block;">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h4>Total de Clientes</h4>
+                    <p id="metric-total">0</p>
+                </div>
+                <div class="metric-card">
+                    <h4>Clientes PJ</h4>
+                    <p id="metric-pj">0</p>
+                </div>
+                <div class="metric-card">
+                    <h4>Governamental</h4>
+                    <p id="metric-gov">0</p>
+                </div>
+            </div>
+            
+            <div class="dashboard-row-2">
+                <div class="chart-box" style="flex: 1;">
+                    <h3 style="margin-top:0;">Top Clientes (Faturamento)</h3>
+                    <div class="table-container" style="box-shadow: none; border: 1px solid var(--color-border); margin-top: 16px;">
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th>CNPJ</th>
+                                    <th>Nome</th>
+                                    <th>Total Comprado (R$)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="top-clientes-tbody">
+                                <tr><td colspan="3" style="text-align:center;">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- PJ Tab -->
+        <div id="tab-pj" class="tab-pane" style="display: none;">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>CNPJ</th>
+                            <th>Nome</th>
+                            <th>Cidade/UF</th>
+                            <th>Telefone</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientes-pj-tbody">
+                        <tr><td colspan="5" style="text-align:center;">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Gov Tab -->
+        <div id="tab-gov" class="tab-pane" style="display: none;">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>CNPJ</th>
+                            <th>Nome</th>
+                            <th>Cidade/UF</th>
+                            <th>Telefone</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientes-gov-tbody">
+                        <tr><td colspan="5" style="text-align:center;">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Novo Cliente -->
+    <div class="modal-overlay" id="modal-cliente">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cadastro de Cliente</h3>
+                <button class="close-modal" id="btn-fechar-modal">&times;</button>
+            </div>
+            <form id="form-cliente">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="tipo_cliente">Tipo de Cliente</label>
+                        <select id="tipo_cliente" name="tipo_cliente" required>
+                            <option value="PJ">Pessoa Jurídica (Privada)</option>
+                            <option value="GOV">Governamental</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="nome">Razão Social / Órgão</label>
+                        <input type="text" id="nome" name="nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cnpj">CNPJ</label>
+                        <input type="text" id="cnpj" name="cnpj" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="proprietario">Proprietário</label>
+                        <input type="text" id="proprietario" name="proprietario" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="endereco">Endereço</label>
+                        <input type="text" id="endereco" name="endereco" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cidade">Cidade</label>
+                        <input type="text" id="cidade" name="cidade" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="estado">Estado (UF)</label>
+                        <input type="text" id="estado" name="estado" maxlength="2" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="telefone">Telefone</label>
+                        <input type="text" id="telefone" name="telefone" required>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Detalhes do Cliente -->
+    <div class="modal-overlay" id="modal-detalhes-cliente">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Detalhes do Cliente</h3>
+                <button class="close-modal" id="btn-fechar-detalhes-cliente">&times;</button>
+            </div>
+            <div class="modal-body" style="margin-top: 15px;">
+                <div style="background:var(--color-hover); padding:15px; border-radius:8px; border:1px solid var(--color-border); margin-bottom: 15px;">
+                    <h4 style="margin-top:0; color:var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:5px;">Dados Principais</h4>
+                    <p style="margin-bottom: 8px;"><strong>Tipo:</strong> <span class="badge" id="det-cli-tipo" style="font-size:0.7rem; padding: 2px 6px;"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>Razão Social/Nome:</strong> <span id="det-cli-nome"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>CNPJ/CPF:</strong> <span id="det-cli-cnpj"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>Proprietário/Contato:</strong> <span id="det-cli-prop"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>Telefone:</strong> <span id="det-cli-tel"></span></p>
+                </div>
+                <div style="background:var(--color-hover); padding:15px; border-radius:8px; border:1px solid var(--color-border);">
+                    <h4 style="margin-top:0; color:var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:5px;">Localização</h4>
+                    <p style="margin-bottom: 8px;"><strong>Endereço:</strong> <span id="det-cli-end"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>Cidade:</strong> <span id="det-cli-cid"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>Estado (UF):</strong> <span id="det-cli-uf"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'clientes/js/index.js' %}"></script>
+{% endblock %}

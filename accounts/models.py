@@ -26,6 +26,7 @@ class UserProfile(models.Model):
     
     birth_date = models.DateField(null=True, blank=True)
     telefone = models.CharField(max_length=15, blank=True)
+    foto_perfil = models.ImageField(upload_to='fotos_perfil/', null=True, blank=True)
 
     def __str__(self):
         return self.user.username

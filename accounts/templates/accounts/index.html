@@ -1,0 +1,210 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Pessoal - GasManagementApp{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'accounts/css/index.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="accounts-header">
+    <h2>Gestão de Pessoal</h2>
+    <button class="btn-primary" id="btn-novo-funcionario">Novo Funcionário</button>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Usuário / Nome</th>
+                <th>Cargo / Função</th>
+                <th>Permissão (Nível)</th>
+                <th>Admissão</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="funcionarios-tbody">
+            <tr><td colspan="5" style="text-align:center;">Carregando...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Novo Funcionário -->
+<div class="modal-overlay" id="modal-funcionario">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3>Cadastrar Novo Funcionário</h3>
+            <button class="close-modal" id="btn-fechar-modal">&times;</button>
+        </div>
+        <form id="form-funcionario" enctype="multipart/form-data">
+            <!-- Dados de Login (User) -->
+            <h4>Dados de Acesso (Login)</h4>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Nome de Usuário (Login)*</label>
+                    <input type="text" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Senha*</label>
+                    <input type="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" name="email">
+                </div>
+                <div class="form-group">
+                    <label>Nível de Acesso*</label>
+                    <select name="tipo_usuario" required>
+                        <option value="ADMIN">Admin</option>
+                        <option value="GERENTE">Gerente</option>
+                        <option value="SUPERVISOR">Supervisor</option>
+                        <option value="VENDEDOR" selected>Vendedor</option>
+                        <option value="ATENDENTE">Atendente</option>
+                        <option value="CARREGADOR">Carregador</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Dados Pessoais (UserProfile) -->
+            <hr style="margin:20px 0; border:0; border-top:1px solid var(--color-border);">
+            <h4>Dados Pessoais</h4>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Primeiro Nome*</label>
+                    <input type="text" name="first_name" required>
+                </div>
+                <div class="form-group">
+                    <label>Sobrenome*</label>
+                    <input type="text" name="last_name" required>
+                </div>
+                <div class="form-group">
+                    <label>CPF*</label>
+                    <input type="text" name="cpf" maxlength="11" required>
+                </div>
+                <div class="form-group">
+                    <label>RG*</label>
+                    <input type="text" name="rg" maxlength="9" required>
+                </div>
+                <div class="form-group">
+                    <label>Data de Nascimento</label>
+                    <input type="date" name="birth_date">
+                </div>
+                <div class="form-group">
+                    <label>Telefone</label>
+                    <input type="text" name="telefone">
+                </div>
+                <div class="form-group full-width">
+                    <label>Foto de Perfil</label>
+                    <input type="file" name="foto_perfil" accept="image/*">
+                </div>
+            </div>
+
+            <!-- Dados Trabalhistas -->
+            <hr style="margin:20px 0; border:0; border-top:1px solid var(--color-border);">
+            <h4>Dados Trabalhistas</h4>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Matrícula*</label>
+                    <input type="text" name="matricula" required>
+                </div>
+                <div class="form-group">
+                    <label>Cargo*</label>
+                    <input type="text" name="cargo" required>
+                </div>
+                <div class="form-group">
+                    <label>Lotação</label>
+                    <input type="text" name="lotacao">
+                </div>
+                <div class="form-group">
+                    <label>Salário (R$)</label>
+                    <input type="number" step="0.01" name="salario">
+                </div>
+                <div class="form-group">
+                    <label>Data de Admissão</label>
+                    <input type="date" name="data_admissao">
+                </div>
+                <div class="form-group">
+                    <label>Empresa de Registro</label>
+                    <input type="text" name="empresa">
+                </div>
+            </div>
+
+                <div class="form-actions">
+                <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar Funcionário</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Detalhes do Funcionário -->
+<div class="modal-overlay" id="modal-detalhes-funcionario">
+    <div class="modal-content" style="max-width: 500px; padding: 0; overflow: hidden; background: var(--color-surface); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+        <!-- Crachá Header -->
+        <div style="background: var(--color-primary); color: white; padding: 25px 20px 20px; text-align: center; position: relative;">
+            <button class="close-modal" id="btn-fechar-detalhes-funcionario" style="position: absolute; top: 15px; right: 15px; color: white; opacity: 0.8; transition: opacity 0.2s;">&times;</button>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 20px; opacity: 0.9;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"></path>
+                </svg>
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.5px;">GasManagementApp</h3>
+            </div>
+            
+            <div style="width: 110px; height: 110px; border-radius: 50%; background: white; margin: 0 auto; overflow: hidden; border: 4px solid rgba(255,255,255,0.2); display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <img id="det-func-foto" src="" alt="Foto" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                <svg id="det-func-avatar" style="width: 60%; height: 60%; color: #9ca3af;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
+                </svg>
+            </div>
+            
+            <h2 id="det-func-nome" style="margin: 15px 0 2px 0; font-size: 1.5rem; font-weight: 700;">-</h2>
+            <p style="margin: 0 0 5px 0; font-size: 0.85rem; opacity: 0.8;">@<span id="det-func-user"></span></p>
+            <p id="det-func-cargo" style="margin: 0; opacity: 0.9; font-weight: 500; font-size: 1rem;">-</p>
+            <div style="margin-top: 12px;">
+                <span id="det-func-role" style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">-</span>
+            </div>
+        </div>
+
+        <!-- Dados Corpo -->
+        <div class="modal-body" style="padding: 24px; background: var(--color-surface);">
+            
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin: 0 0 12px 0; color: var(--color-primary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--color-border); padding-bottom: 5px; font-weight: 600;">Dados de Contato</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">E-mail</span><div id="det-func-email" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem; word-break: break-all;"></div></div>
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">Telefone</span><div id="det-func-tel" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem;"></div></div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin: 0 0 12px 0; color: var(--color-primary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--color-border); padding-bottom: 5px; font-weight: 600;">Documentação</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">CPF</span><div id="det-func-cpf" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem;"></div></div>
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">RG</span><div id="det-func-rg" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem;"></div></div>
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">Data Nasc.</span><div id="det-func-nasc" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem;"></div></div>
+                </div>
+            </div>
+
+            <div>
+                <h4 style="margin: 0 0 12px 0; color: var(--color-primary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--color-border); padding-bottom: 5px; font-weight: 600;">Dados Trabalhistas</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">Matrícula</span><div id="det-func-mat" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem;"></div></div>
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">Admissão</span><div id="det-func-adm" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem;"></div></div>
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">Lotação</span><div id="det-func-lot" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem;"></div></div>
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">Empresa</span><div id="det-func-emp" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem;"></div></div>
+                    <div><span style="font-size: 0.75rem; color: var(--color-text-muted);">Salário</span><div id="det-func-sal" style="font-weight: 500; color: var(--color-text); font-size: 0.95rem;"></div></div>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px; text-align: center;">
+                <button class="btn-secondary" style="width: 100%;" onclick="document.getElementById('modal-detalhes-funcionario').classList.remove('active')">Fechar Perfil</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'accounts/js/index.js' %}"></script>
+{% endblock %}

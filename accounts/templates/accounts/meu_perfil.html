@@ -1,0 +1,87 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Meu Perfil - GasManagementApp{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-header">
+    <h2>Meu Perfil</h2>
+    <p>Informações e configurações da sua conta de usuário.</p>
+</div>
+
+<div class="profile-container" style="max-width: 800px; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e5e7eb;">
+    <div class="profile-header" style="background-color: #f8fafc; padding: 30px; display: flex; align-items: center; gap: 24px; border-bottom: 1px solid #e5e7eb;">
+        <div class="profile-avatar" style="width: 80px; height: 80px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #475569;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        </div>
+        <div>
+            <h3 style="margin: 0; font-size: 1.5rem; color: #0f172a;">{{ user_obj.first_name }} {{ user_obj.last_name }}</h3>
+            <p style="margin: 5px 0 0; color: #64748b; font-size: 1rem;">@{{ user_obj.username }} - {{ user_obj.tipo_usuario }}</p>
+        </div>
+    </div>
+    
+    <div class="profile-body" style="padding: 30px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+            <!-- Dados da Conta -->
+            <div>
+                <h4 style="font-size: 1.1rem; color: #334155; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">Dados da Conta</h4>
+                <div style="margin-bottom: 10px;">
+                    <strong style="display: block; color: #64748b; font-size: 0.85rem;">Nome de Usuário</strong>
+                    <span style="color: #0f172a; font-weight: 500;">{{ user_obj.username }}</span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong style="display: block; color: #64748b; font-size: 0.85rem;">E-mail</strong>
+                    <span style="color: #0f172a; font-weight: 500;">{{ user_obj.email|default:"Não informado" }}</span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong style="display: block; color: #64748b; font-size: 0.85rem;">Nível de Acesso</strong>
+                    <span style="color: #0f172a; font-weight: 500;">{{ user_obj.get_tipo_usuario_display|default:user_obj.tipo_usuario }}</span>
+                </div>
+            </div>
+
+            <!-- Dados Pessoais -->
+            <div>
+                <h4 style="font-size: 1.1rem; color: #334155; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">Informações Pessoais</h4>
+                <div style="margin-bottom: 10px;">
+                    <strong style="display: block; color: #64748b; font-size: 0.85rem;">CPF</strong>
+                    <span style="color: #0f172a; font-weight: 500;">{{ profile.cpf|default:"Não informado" }}</span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong style="display: block; color: #64748b; font-size: 0.85rem;">Telefone</strong>
+                    <span style="color: #0f172a; font-weight: 500;">{{ profile.telefone|default:"Não informado" }}</span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong style="display: block; color: #64748b; font-size: 0.85rem;">Data de Nascimento</strong>
+                    <span style="color: #0f172a; font-weight: 500;">{{ profile.birth_date|date:"d/m/Y"|default:"Não informada" }}</span>
+                </div>
+            </div>
+            
+            <!-- Dados Trabalhistas -->
+            {% if dados %}
+            <div style="grid-column: 1 / -1;">
+                <h4 style="font-size: 1.1rem; color: #334155; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">Dados Trabalhistas</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                    <div>
+                        <strong style="display: block; color: #64748b; font-size: 0.85rem;">Empresa</strong>
+                        <span style="color: #0f172a; font-weight: 500;">{{ dados.empresa|default:"Não informada" }}</span>
+                    </div>
+                    <div>
+                        <strong style="display: block; color: #64748b; font-size: 0.85rem;">Lotação</strong>
+                        <span style="color: #0f172a; font-weight: 500;">{{ dados.lotacao|default:"Não informada" }}</span>
+                    </div>
+                    <div>
+                        <strong style="display: block; color: #64748b; font-size: 0.85rem;">Cargo</strong>
+                        <span style="color: #0f172a; font-weight: 500;">{{ dados.cargo|default:"Não informado" }}</span>
+                    </div>
+                    <div>
+                        <strong style="display: block; color: #64748b; font-size: 0.85rem;">Matrícula</strong>
+                        <span style="color: #0f172a; font-weight: 500;">{{ dados.matricula|default:"Não informada" }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Produtos - GasManagementApp{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'produtos/css/index.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+    <div class="produtos-header">
+        <h2>Gases e Cilindros</h2>
+        <button class="btn-primary" id="btn-novo-produto">Novo Produto</button>
+    </div>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>SKU/Código</th>
+                    <th>Gás</th>
+                    <th>Categoria</th>
+                    <th>Capacidade</th>
+                    <th>Preço (R$)</th>
+                    <th>Estoque</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="produtos-tbody">
+                <tr>
+                    <td colspan="7" style="text-align:center;">Carregando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal Novo Produto -->
+    <div class="modal-overlay" id="modal-produto">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cadastro de Cilindro (Gás)</h3>
+                <button class="close-modal" id="btn-fechar-modal">&times;</button>
+            </div>
+            <form id="form-produto">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="nome">Nome do Gás (ex: Oxigênio, Mistura para Solda)</label>
+                        <input type="text" id="nome" name="nome" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="categoria">Categoria</label>
+                        <select id="categoria" name="categoria" required>
+                            <option value="Medicinal">Medicinal</option>
+                            <option value="Industrial">Industrial</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="codigo_barras">Código / SKU (Opcional)</label>
+                        <input type="text" id="codigo_barras" name="codigo_barras">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="capacidade">Capacidade/Peso</label>
+                        <input type="number" step="0.01" id="capacidade" name="capacidade" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="unidade_medida">Unidade de Medida</label>
+                        <select id="unidade_medida" name="unidade_medida" required>
+                            <option value="m³">Metros Cúbicos (m³)</option>
+                            <option value="kg">Quilogramas (kg)</option>
+                            <option value="litros">Litros</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="preco">Preço de Venda (R$)</label>
+                        <input type="number" step="0.01" id="preco" name="preco" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="estoque">Estoque Inicial (Cilindros Cheios)</label>
+                        <input type="number" id="estoque" name="estoque" required value="0">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Produto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Detalhes do Produto -->
+    <div class="modal-overlay" id="modal-detalhes-produto">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Detalhes do Produto</h3>
+                <button class="close-modal" id="btn-fechar-detalhes-produto">&times;</button>
+            </div>
+            <div class="modal-body" style="margin-top: 15px;">
+                <div style="background:var(--color-hover); padding:15px; border-radius:8px; border:1px solid var(--color-border); margin-bottom: 15px;">
+                    <h4 style="margin-top:0; color:var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:5px;">Dados Principais</h4>
+                    <p style="margin-bottom: 8px;"><strong>Produto (Gás):</strong> <span id="det-prod-nome"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>Categoria:</strong> <span id="det-prod-cat"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>SKU/Código:</strong> <span id="det-prod-sku"></span></p>
+                </div>
+                <div style="background:var(--color-hover); padding:15px; border-radius:8px; border:1px solid var(--color-border);">
+                    <h4 style="margin-top:0; color:var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:5px;">Especificações e Valores</h4>
+                    <p style="margin-bottom: 8px;"><strong>Capacidade:</strong> <span id="det-prod-cap"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>Preço de Venda:</strong> <span id="det-prod-preco"></span></p>
+                    <p style="margin-bottom: 8px;"><strong>Estoque Atual:</strong> <span id="det-prod-est"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'produtos/js/index.js' %}"></script>
+{% endblock %}

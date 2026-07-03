@@ -1,0 +1,79 @@
+.accounts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.btn-primary {
+    background-color: var(--color-primary);
+    color: var(--color-surface);
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+}
+.btn-primary:hover { background-color: var(--color-primary-dark); }
+
+.btn-secondary {
+    background-color: var(--color-border);
+    color: var(--color-text);
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* Modals */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--modal-overlay);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+.modal-overlay.active { display: flex; }
+.modal-content {
+    background: var(--color-surface);
+    padding: 24px;
+    border-radius: 8px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.modal-header h3 { margin: 0; font-size: 1.25rem; }
+.close-modal { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+
+h4 {
+    margin: 10px 0 16px 0;
+    color: var(--color-text);
+    font-size: 1.1rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 0.875rem; font-weight: 500; }
+.form-group input, .form-group select { padding: 8px; border: 1px solid var(--color-border); border-radius: 6px; }
+
+.form-actions { margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; }
+
+.table-container { background: var(--color-surface); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+table { width: 100%; border-collapse: collapse; text-align: left; }
+th, td { padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
+th { background-color: var(--color-hover); font-size: 0.875rem; color: var(--color-text-muted); }
+.badge { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: var(--color-border); color: var(--color-text); }
+.badge-admin { background-color: #fee2e2; color: #b91c1c; }

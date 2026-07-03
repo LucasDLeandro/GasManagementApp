@@ -1,0 +1,256 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Logística - GasManagementApp{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'logistica/css/index.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="logistica-header">
+    <h2>Gestão de Logística</h2>
+</div>
+
+<!-- Sistema de Abas -->
+<div class="tabs-container">
+    <div class="tabs-nav">
+        <button class="tab-btn active" data-target="tab-entregas">Quadro de Entregas</button>
+        <button class="tab-btn" data-target="tab-veiculos">Frota / Veículos</button>
+        <button class="tab-btn" data-target="tab-rotas">Rotas / Fretes</button>
+    </div>
+
+    <div class="tabs-content">
+        <!-- Aba 1: Kanban Entregas -->
+        <div id="tab-entregas" class="tab-pane active">
+            <div class="kanban-board">
+                <div class="kanban-column" id="col-separacao">
+                    <h3>Em Separação</h3>
+                    <div class="kanban-items"></div>
+                </div>
+                <div class="kanban-column" id="col-rota">
+                    <h3>Em Rota de Entrega</h3>
+                    <div class="kanban-items"></div>
+                </div>
+                <div class="kanban-column" id="col-entregue">
+                    <h3>Entregues</h3>
+                    <div class="kanban-items"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aba 2: Veículos -->
+        <div id="tab-veiculos" class="tab-pane">
+            <div style="margin-bottom: 15px; text-align: right;">
+                <button class="btn-primary" id="btn-novo-veiculo">Cadastrar Veículo</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Placa</th>
+                            <th>Modelo / Marca</th>
+                            <th>Ano</th>
+                            <th>Capacidade (kg)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-veiculos">
+                        <tr><td colspan="5" style="text-align:center;">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Aba 3: Rotas -->
+        <div id="tab-rotas" class="tab-pane">
+            <div style="margin-bottom: 15px; text-align: right;">
+                <button class="btn-primary" id="btn-nova-rota">Cadastrar Rota</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome da Rota</th>
+                            <th>Origem</th>
+                            <th>Destino</th>
+                            <th>Distância (km)</th>
+                            <th>Tempo Est. (h)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-rotas">
+                        <tr><td colspan="5" style="text-align:center;">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo Veículo -->
+<div class="modal-overlay" id="modal-veiculo">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Cadastrar Veículo</h3>
+            <button class="close-modal" id="btn-fechar-modal-veiculo">&times;</button>
+        </div>
+        <form id="form-veiculo">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Placa</label>
+                    <input type="text" name="placa" required>
+                </div>
+                <div class="form-group">
+                    <label>Modelo</label>
+                    <input type="text" name="modelo" required>
+                </div>
+                <div class="form-group">
+                    <label>Marca</label>
+                    <input type="text" name="marca" required>
+                </div>
+                <div class="form-group">
+                    <label>Ano</label>
+                    <input type="number" name="ano" required>
+                </div>
+                <div class="form-group">
+                    <label>Capacidade Carga (kg)</label>
+                    <input type="number" step="0.01" name="capacidade_carga" required>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="Ativo">Ativo</option>
+                        <option value="Em Manutenção">Em Manutenção</option>
+                        <option value="Inativo">Inativo</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Salvar Veículo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Nova Rota -->
+<div class="modal-overlay" id="modal-rota">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Cadastrar Rota</h3>
+            <button class="close-modal" id="btn-fechar-modal-rota">&times;</button>
+        </div>
+        <form id="form-rota">
+            <div class="form-group full-width">
+                <label>Nome da Rota</label>
+                <input type="text" name="nome" required>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Origem</label>
+                    <input type="text" name="origem" required>
+                </div>
+                <div class="form-group">
+                    <label>Destino</label>
+                    <input type="text" name="destino" required>
+                </div>
+                <div class="form-group">
+                    <label>Distância (km)</label>
+                    <input type="number" step="0.01" name="distancia_km" required>
+                </div>
+                <div class="form-group">
+                    <label>Tempo Estimado (h)</label>
+                    <input type="number" step="0.01" name="tempo_estimado_horas" required>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Salvar Rota</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Detalhes da Venda (Romaneio) -->
+<div class="modal-overlay" id="modal-detalhes-venda">
+    <div class="modal-content" style="max-width: 800px; padding: 30px; background: var(--color-surface); color: black; font-family: 'Courier New', Courier, monospace; border-radius: 0;" id="conteudo-recibo">
+        <!-- Action buttons -->
+        <div class="modal-header" id="detalhes-header" style="border-bottom: none; margin-bottom: 0; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <button class="btn-primary" style="background:#10b981; font-size:12px; padding:6px 12px; font-family: sans-serif;" onclick="gerarPDF()">Imprimir Romaneio PDF (A4)</button>
+            </div>
+            <button class="close-modal" id="btn-fechar-detalhes" style="font-family: sans-serif; font-size: 24px;">&times;</button>
+        </div>
+
+        <!-- Invoice Header -->
+        <div style="border: 2px solid #000; padding: 10px; margin-top: 10px; margin-bottom: 10px; display: flex; justify-content: space-between;">
+            <div style="width: 60%;">
+                <h2 style="margin: 0; font-size: 22px; text-transform: uppercase;">GasManagement</h2>
+                <p style="margin: 5px 0 0 0; font-size: 14px;">Distribuidora de Gases Industriais</p>
+                <p style="margin: 0; font-size: 12px;">CNPJ: 00.000.000/0001-00</p>
+            </div>
+            <div style="width: 38%; border-left: 2px solid #000; padding-left: 10px;">
+                <h3 style="margin: 0; font-size: 18px;">ROMANEIO DE ENTREGA</h3>
+                <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Nº Documento:</strong> <span id="detalhe-id"></span></p>
+                <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Emissão:</strong> <span id="detalhe-data"></span></p>
+            </div>
+        </div>
+
+        <!-- Client Info -->
+        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 10px;">
+            <h4 style="margin: 0 0 5px 0; font-size: 14px; text-transform: uppercase; border-bottom: 1px dotted #000; padding-bottom: 5px;">Dados do Destinatário</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                <p style="margin: 0; width: 60%; font-size: 14px;"><strong>Razão Social:</strong> <span id="detalhe-cliente"></span></p>
+                <p style="margin: 0; width: 35%; font-size: 14px;"><strong>CNPJ/CPF:</strong> <span id="detalhe-cnpj"></span></p>
+            </div>
+        </div>
+
+        <!-- Additional Info -->
+        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 10px; display: flex;">
+            <div style="width: 33%;">
+                <p style="margin: 0; font-size: 14px;"><strong>Status:</strong> <span id="detalhe-status"></span></p>
+            </div>
+            <div style="width: 33%; border-left: 1px solid #000; padding-left: 10px;">
+                <p style="margin: 0; font-size: 14px;"><strong>Prazo Entrega:</strong> <span id="detalhe-prazo"></span></p>
+            </div>
+            <div style="width: 33%; border-left: 1px solid #000; padding-left: 10px;">
+                <p style="margin: 0; font-size: 14px;"><strong>Entrega Efetiva:</strong> <span id="detalhe-efetiva"></span></p>
+            </div>
+        </div>
+
+        <!-- Products Table -->
+        <div style="border: 1px solid #000; margin-bottom: 10px;">
+            <h4 style="margin: 10px; font-size: 14px; text-transform: uppercase;">Descrição da Carga</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; border-top: 1px solid #000;">
+                <thead>
+                    <tr style="background: #f9f9f9;">
+                        <th style="padding: 6px; text-align: left; border-right: 1px solid #000; border-bottom: 1px solid #000;">PRODUTO</th>
+                        <th style="padding: 6px; text-align: center; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 10%;">QTD</th>
+                        <th style="padding: 6px; text-align: right; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 20%;">V. UNITÁRIO</th>
+                        <th style="padding: 6px; text-align: right; border-bottom: 1px solid #000; width: 20%;">V. TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody id="detalhe-itens-tbody">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Total -->
+        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 30px; text-align: right; background: #f9f9f9;">
+            <p style="margin: 0; font-size: 18px;"><strong>VALOR TOTAL DA CARGA: <span id="detalhe-total"></span></strong></p>
+        </div>
+
+        <!-- Signatures -->
+        <div style="display: flex; justify-content: space-between; margin-top: 40px; padding: 0 20px;">
+            <div style="width: 40%; text-align: center;">
+                <div style="border-top: 1px solid #000; padding-top: 5px; font-size: 12px;">Assinatura do Motorista/Entregador</div>
+            </div>
+            <div style="width: 40%; text-align: center;">
+                <div style="border-top: 1px solid #000; padding-top: 5px; font-size: 12px;">Assinatura do Recebedor</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'logistica/js/index.js' %}"></script>
+{% endblock %}

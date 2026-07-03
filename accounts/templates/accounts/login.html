@@ -1,0 +1,48 @@
+{% extends 'accounts/base_accounts.html' %}
+{% load static %}
+
+{% block title %}Login - Gestão de Gás{% endblock %}
+
+{% block accounts_css %}
+    <link rel="stylesheet" href="{% static 'accounts/css/login.css' %}">
+{% endblock %}
+
+{% block accounts_content %}
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h2>Gestão de Gás</h2>
+                <p>Faça login para acessar o sistema</p>
+            </div>
+            
+            <form method="post" class="login-form" id="login-form">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="username">Usuário</label>
+                    <input type="text" id="username" name="username" placeholder="Digite seu usuário" required autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Senha</label>
+                    <input type="password" id="password" name="password" placeholder="Digite sua senha" required>
+                </div>
+
+                <div class="form-options">
+                    <label class="remember-me">
+                        <input type="checkbox" name="remember">
+                        <span>Lembrar de mim</span>
+                    </label>
+                    <a href="#" class="forgot-password">Esqueceu a senha?</a>
+                </div>
+                
+                <button type="submit" class="login-btn">Entrar</button>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block accounts_js %}
+    
+    <script src="{% static 'accounts/js/login.js' %}"></script>
+{% endblock %}

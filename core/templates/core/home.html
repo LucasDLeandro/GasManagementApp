@@ -1,0 +1,92 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Dashboard Premium - GasManagementApp{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'core/css/dashboard.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-header">
+    <h2>Visão Geral Executiva</h2>
+    <p>Acompanhe os principais indicadores do seu negócio em tempo real.</p>
+</div>
+
+<!-- Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon bg-blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        </div>
+        <div class="stat-info">
+            <span class="stat-title">Faturamento Mensal</span>
+            <h3 id="dash-faturamento">Carregando...</h3>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </div>
+        <div class="stat-info">
+            <span class="stat-title">Clientes Ativos</span>
+            <h3 id="dash-clientes">-</h3>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-yellow">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+        </div>
+        <div class="stat-info">
+            <span class="stat-title">Entregas Pendentes</span>
+            <h3 id="dash-pendentes">-</h3>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon bg-red">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+        </div>
+        <div class="stat-info">
+            <span class="stat-title">Frota em Manutenção</span>
+            <h3 id="dash-frota">-</h3>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-widgets-grid">
+    <div class="widget-box chart-box">
+        <h3>Vendas Diárias (Últimos 7 dias)</h3>
+        <div style="position: relative; height:300px; width:100%">
+            <canvas id="vendasChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="widget-box alert-box">
+        <h3>Alertas de Sistema</h3>
+        <div class="alert-item error">
+            <div class="alert-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            <div class="alert-content">
+                <strong>Estoque Crítico</strong>
+                <p><span id="dash-estoque">0</span> cilindro(s) estão no nível mínimo e precisam de reposição.</p>
+            </div>
+        </div>
+        
+        <div class="alert-item warning">
+            <div class="alert-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+            <div class="alert-content">
+                <strong>Atenção com a Frota</strong>
+                <p><span id="dash-frota-alerta">0</span> veículo(s) indisponível(is) para entrega no momento.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'core/js/dashboard.js' %}"></script>
+{% endblock %}

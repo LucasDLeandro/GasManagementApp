@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block css %}
+    <!-- CSS compartilhado para todas as telas do app Accounts (Login, Cadastro, Recuperar Senha) -->
+    {% block accounts_css %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+    <!-- Wrapper padrão para telas do app accounts -->
+    <div class="accounts-wrapper">
+        {% block accounts_content %}
+        {% endblock %}
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- JS compartilhado para telas do app accounts -->
+    {% block accounts_js %}{% endblock %}
+{% endblock %}

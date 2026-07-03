@@ -1,0 +1,45 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Gestão de Gás{% endblock %}</title>
+    
+    <!-- Fonte Moderna Padrão do Sistema -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Estilos globais e específicos de outras páginas -->
+    {% block css %}{% endblock %}
+</head>
+<body>
+    
+    <!-- Opcional: Estrutura para alertas/messages do Django (toast/snackbar) -->
+    {% if messages %}
+    <div class="messages-container">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- O header será injetado aqui (útil para o sistema pós-login) -->
+    {% block header %}{% endblock %}
+
+    <!-- Conteúdo principal de cada página -->
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+    
+    <!-- O footer será injetado aqui -->
+    {% block footer %}{% endblock %}
+
+    <!-- Scripts globais e específicos -->
+    {% block js %}
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    {% endblock %}
+</body>
+</html>
