@@ -44,7 +44,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
         })
 
 
-class ClienteTemplateView(TemplateView):
+class ClienteTemplateView(LoginRequiredMixin, TemplateView):
     """
     View to render the Cliente frontend page with modal.
     """

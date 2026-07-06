@@ -154,21 +154,30 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 const tbody = document.getElementById('tbody-pendentes');
                 tbody.innerHTML = '';
-                if(data.length === 0) return tbody.innerHTML = '<tr><td colspan="5">Nenhuma venda pendente.</td></tr>';
+                if(data.length === 0) return tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--color-text-muted);">Nenhuma venda pendente.</td></tr>';
                 
                 data.forEach(v => {
                     let badgeClass = 'badge-pendente';
                     if (v.status === 'Em Separação') badgeClass = 'badge-separacao';
                     
+                    const totalQtdItens = v.itens ? v.itens.reduce((acc, item) => acc + item.quantidade, 0) : 0;
+                    const entregaInfo = v.entrega ? `<span style="color:#2563eb; font-weight:600; font-size:0.8rem; background: rgba(59, 130, 246, 0.1); padding: 2px 6px; border-radius: 4px;">Entrega #${v.entrega}</span>` : `<span style="color:var(--color-text-muted); font-size:0.8rem;">Não alocada</span>`;
+                    
                     tbody.innerHTML += `
                         <tr>
-                            <td><span style="font-weight: 500; color: var(--color-text-muted);">${formatDate(v.data_venda)}</span></td>
-                            <td style="font-weight: 500;">${v.cliente_nome}</td>
-                            <td style="font-weight: 600;">${formatCurrency(v.valor_total)}</td>
+                            <td><span style="font-weight: 700; color: var(--color-text);">#${v.id}</span></td>
+                            <td><span style="font-weight: 500; color: var(--color-text-muted); font-size: 0.85rem;">${formatDate(v.data_venda)}</span></td>
+                            <td>
+                                <div style="font-weight: 600; color: var(--color-text);">${v.cliente_nome}</div>
+                                <div style="font-size: 0.75rem; color: var(--color-text-muted);">${v.cliente_cnpj || ''}</div>
+                            </td>
+                            <td>${entregaInfo}</td>
+                            <td><span style="background: var(--color-hover); padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">${totalQtdItens} un</span></td>
+                            <td style="font-weight: 700; color: var(--color-primary);">${formatCurrency(v.valor_total)}</td>
                             <td><span class="badge ${badgeClass}">${v.status}</span></td>
                             <td>
                                 <button class="btn-outline" style="margin-right: 8px;" onclick="abrirDetalhes(${v.id})">Detalhes</button>
-                                <button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="iniciarSeparacao(${v.id})">Iniciar Separação</button>
+                                ${v.status === 'Pendente' ? `<button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="iniciarSeparacao(${v.id})">Iniciar Separação</button>` : ''}
                             </td>
                         </tr>
                     `;
@@ -187,14 +196,23 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 const tbody = document.getElementById('tbody-finalizadas');
                 tbody.innerHTML = '';
-                if(data.length === 0) return tbody.innerHTML = '<tr><td colspan="4">Nenhuma venda finalizada.</td></tr>';
+                if(data.length === 0) return tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--color-text-muted);">Nenhuma venda finalizada.</td></tr>';
                 
                 data.forEach(v => {
+                    const totalQtdItens = v.itens ? v.itens.reduce((acc, item) => acc + item.quantidade, 0) : 0;
+                    const entregaInfo = v.entrega ? `<span style="color:#059669; font-weight:600; font-size:0.8rem; background: rgba(16, 185, 129, 0.1); padding: 2px 6px; border-radius: 4px;">Entrega #${v.entrega}</span>` : `<span style="color:var(--color-text-muted); font-size:0.8rem;">S/ Entrega</span>`;
+                    
                     tbody.innerHTML += `
                         <tr>
-                            <td><span style="font-weight: 500; color: var(--color-text-muted);">${formatDate(v.data_venda)}</span></td>
-                            <td style="font-weight: 500;">${v.cliente_nome}</td>
-                            <td style="font-weight: 600;">${formatCurrency(v.valor_total)}</td>
+                            <td><span style="font-weight: 700; color: var(--color-text);">#${v.id}</span></td>
+                            <td><span style="font-weight: 500; color: var(--color-text-muted); font-size: 0.85rem;">${formatDate(v.data_venda)}</span></td>
+                            <td>
+                                <div style="font-weight: 600; color: var(--color-text);">${v.cliente_nome}</div>
+                                <div style="font-size: 0.75rem; color: var(--color-text-muted);">${v.cliente_cnpj || ''}</div>
+                            </td>
+                            <td>${entregaInfo}</td>
+                            <td><span style="background: var(--color-hover); padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">${totalQtdItens} un</span></td>
+                            <td style="font-weight: 700; color: var(--color-primary);">${formatCurrency(v.valor_total)}</td>
                             <td><span class="badge badge-finalizada">${v.status}</span></td>
                             <td>
                                 <button class="btn-outline" onclick="abrirDetalhes(${v.id})">Detalhes</button>
@@ -311,6 +329,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnAddItem = document.getElementById('btn-add-item');
     const itensContainer = document.getElementById('itens-container');
 
+    itensContainer.addEventListener('change', (e) => {
+        if(e.target.classList.contains('produto-select')) {
+            const row = e.target.closest('.item-row');
+            const option = e.target.options[e.target.selectedIndex];
+            const valorInput = row.querySelector('.item-valor');
+            if (valorInput && option && option.value) {
+                valorInput.value = option.getAttribute('data-preco') || '';
+            }
+        }
+    });
+
     // Listas pré-carregadas para o select
     let produtosDisponiveis = [];
 
@@ -354,7 +383,6 @@ document.addEventListener('DOMContentLoaded', function() {
     btnAddItem.addEventListener('click', () => {
         const itemRow = document.createElement('div');
         itemRow.className = 'item-row';
-        itemRow.style.cssText = 'display:flex; gap:10px; margin-bottom:10px;';
         
         let optionsHtml = '<option value="">Selecione...</option>';
         produtosDisponiveis.forEach(p => {
@@ -367,10 +395,19 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="form-group" style="flex:2;">
                 <select class="produto-select" required>${optionsHtml}</select>
             </div>
+            <div class="form-group" style="flex:1.5;">
+                <select class="forma-faturamento" required>
+                    <option value="cilindro">Por Cilindro</option>
+                    <option value="medida">Por Medida (m³/kg)</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <input type="number" step="0.01" class="item-valor" required placeholder="0.00">
+            </div>
             <div class="form-group" style="flex:1;">
                 <input type="number" class="item-qtd" value="1" min="1" required>
             </div>
-            <button type="button" class="btn-remove-item" style="background:#ef4444; color:var(--color-surface); border:none; border-radius:6px; cursor:pointer; padding:0 10px;">X</button>
+            <button type="button" class="btn-remove-item">X</button>
         `;
         itensContainer.appendChild(itemRow);
 
@@ -386,15 +423,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         rows.forEach(row => {
             const select = row.querySelector('.produto-select');
+            const formaFat = row.querySelector('.forma-faturamento');
+            const valorInput = row.querySelector('.item-valor');
             const qtd = row.querySelector('.item-qtd').value;
             const option = select.options[select.selectedIndex];
             
             if (select.value) {
                 itens.push({
                     produto: select.value,
+                    forma_faturamento: formaFat.value,
                     quantidade: parseInt(qtd),
                     peso_unitario: parseFloat(option.getAttribute('data-peso') || 0),
-                    valor_unitario: parseFloat(option.getAttribute('data-preco') || 0)
+                    valor_unitario: parseFloat(valorInput.value || 0)
                 });
             }
         });

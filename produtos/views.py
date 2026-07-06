@@ -1,5 +1,6 @@
 from rest_framework import viewsets
 from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.permissions import IsAuthenticated
 
 from .models import Produto
@@ -13,7 +14,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
     serializer_class = ProdutoSerializer
     # permission_classes = [IsAuthenticated] # Podemos descomentar se houver auth estrita
 
-class ProdutoTemplateView(TemplateView):
+class ProdutoTemplateView(LoginRequiredMixin, TemplateView):
     """
     View to render the Produto frontend page with modal.
     """

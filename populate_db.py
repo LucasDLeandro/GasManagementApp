@@ -59,55 +59,63 @@ def run():
         rota, _ = Rota.objects.get_or_create(nome=rd['nome'], defaults=rd)
         rotas.append(rota)
 
+    from logistica.models import Entrega
+
     print("Garantindo Vendedor...")
     vendedor = User.objects.filter(is_superuser=True).first()
     if not vendedor:
         vendedor = User.objects.create_superuser('admin', 'admin@example.com', 'admin')
+
+    print("Criando Entregas...")
+    entregas = []
+    for i in range(5):
+        entrega = Entrega.objects.create(
+            veiculo=random.choice(veiculos),
+            rota=random.choice(rotas),
+            status=random.choice(['Agendada', 'Em Produção', 'Em Rota', 'Concluída'])
+        )
+        entregas.append(entrega)
 
     print("Criando Vendas (Histórico e Pendentes)...")
     status_list = ['Pendente', 'Em Separação', 'Em Rota', 'Entregue', 'Finalizada']
     for i in range(15):
         cliente = random.choice(clientes)
         
-        # Definir status e, se fizer sentido, atrelar veiculo e rota
         status = random.choice(status_list)
-        if status in ['Em Rota', 'Entregue']:
-            veiculo = random.choice(veiculos)
-            rota = random.choice(rotas)
-        elif status == 'Em Separação' and random.random() > 0.5:
-            veiculo = random.choice(veiculos)
-            rota = random.choice(rotas)
+        if status in ['Em Rota', 'Entregue', 'Em Separação']:
+            entrega = random.choice(entregas)
         else:
-            veiculo = None
-            rota = None
+            entrega = None
             
         venda = Venda.objects.create(
             cliente=cliente,
             vendedor=vendedor,
-            veiculo=veiculo,
-            rota=rota,
+            entrega=entrega,
             status=status
         )
         
         # Criar itens da venda
         num_itens = random.randint(1, 3)
-        total_venda = Decimal("0.00")
         for _ in range(num_itens):
             produto = random.choice(produtos)
             qtd = random.randint(1, 5)
-            valor_item = produto.preco * qtd
-            ItemVenda.objects.create(
+            forma = random.choice(['cilindro', 'medida'])
+            
+            # Ajusta o valor_unitario baseado na forma para simular dados reais
+            valor_unitario = produto.preco if forma == 'cilindro' else (produto.preco / produto.capacidade)
+            
+            # O save do ItemVenda já calcula o valor_total usando a forma_faturamento
+            item = ItemVenda(
                 venda=venda,
                 produto=produto,
                 quantidade=qtd,
+                forma_faturamento=forma,
                 peso_unitario=produto.capacidade,
-                valor_unitario=produto.preco,
-                valor_total=valor_item
+                valor_unitario=valor_unitario
             )
-            total_venda += valor_item
+            item.save()
             
-        venda.valor_total = total_venda
-        venda.save()
+        venda.calcular_total()
 
     print("Dados inseridos com sucesso!")
 

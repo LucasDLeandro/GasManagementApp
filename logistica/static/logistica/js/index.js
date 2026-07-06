@@ -27,40 +27,107 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ---- 1. Kanban de Entregas (Lendo do app Vendas) ----
+    // ---- 1. Kanban Híbrido ----
     function formatCurrency(value) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value); }
     function formatDate(dateStr) { return new Date(dateStr).toLocaleString('pt-BR'); }
 
     function loadKanban() {
-        fetch('/vendas/api/?status=Em Separação,Em Rota,Entregue', { headers: getAuthHeaders() })
+        // Coluna 1: Pedidos em Separação (Sem Romaneio)
+        fetch('/vendas/api/?status=Pendente,Em Separação&entrega__isnull=true', { headers: getAuthHeaders() })
             .then(res => res.json())
             .then(data => {
                 const colSep = document.querySelector('#col-separacao .kanban-items');
-                const colRota = document.querySelector('#col-rota .kanban-items');
-                const colEntregue = document.querySelector('#col-entregue .kanban-items');
-
-                colSep.innerHTML = ''; colRota.innerHTML = ''; colEntregue.innerHTML = '';
-
+                colSep.innerHTML = '';
+                if(data.length === 0) colSep.innerHTML = '<div style="text-align:center; color:var(--color-text-muted);">Nenhum pedido pendente.</div>';
                 data.forEach(v => {
-                    const card = `
+                    colSep.innerHTML += `
                         <div class="kanban-item">
-                            <strong>#${v.id} - ${v.cliente_nome}</strong><br>
-                            <small>${formatDate(v.data_venda)}</small><br>
-                            <strong>${formatCurrency(v.valor_total)}</strong>
-                            <div style="margin-top:10px;">
-                                <button class="btn-primary" style="width:100%; padding:4px; margin-bottom:5px; background:var(--color-text-muted);" onclick="abrirDetalhes(${v.id})">Ver Detalhes</button>
-                                ${v.status === 'Em Separação' ? `<button class="btn-primary" style="width:100%; padding:4px;" onclick="mudarStatusVenda(${v.id}, 'Em Rota')">Enviar p/ Rota</button>` : ''}
-                                ${v.status === 'Em Rota' ? `<button class="btn-primary" style="width:100%; padding:4px; background:#10b981;" onclick="mudarStatusVenda(${v.id}, 'Entregue')">Marcar Entregue</button>` : ''}
-                                ${v.status === 'Entregue' ? `<button class="btn-primary" style="width:100%; padding:4px; background:var(--color-text-muted);" onclick="mudarStatusVenda(${v.id}, 'Finalizada')">Finalizar Venda</button>` : ''}
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                <strong style="font-size:1.1rem;">#${v.id}</strong>
+                                <span class="badge" style="background:var(--color-primary); color:white;">${v.status}</span>
+                            </div>
+                            <div style="font-size:0.9rem; margin-bottom:10px;">${v.cliente_nome}</div>
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+                                <button class="btn-outline" style="padding:6px; font-size:12px;" onclick="abrirDetalhes(${v.id})">Detalhes</button>
+                                <button class="btn-outline" style="padding:6px; font-size:12px; border-color:#f59e0b; color:#f59e0b;" onclick="abrirValidacaoCarga(${v.id}, 'Em Separação')">Validar Envase</button>
+                                <button class="btn-primary" style="padding:6px; font-size:12px;" onclick="abrirModalAtribuir(${v.id})">Atribuir Caminhão</button>
                             </div>
                         </div>
                     `;
-                    if (v.status === 'Em Separação') colSep.innerHTML += card;
-                    if (v.status === 'Em Rota') colRota.innerHTML += card;
-                    if (v.status === 'Entregue') colEntregue.innerHTML += card;
                 });
             });
+
+        // Coluna 2: Caminhões em Montagem (Agendados)
+        fetch('/logistica/api/entregas/?status=Agendada,Em Produção', { headers: getAuthHeaders() })
+            .then(res => res.json())
+            .then(data => {
+                const colCam = document.querySelector('#col-caminhoes .kanban-items');
+                colCam.innerHTML = '';
+                if(data.length === 0) colCam.innerHTML = '<div style="text-align:center; color:var(--color-text-muted);">Nenhum caminhão.</div>';
+                data.forEach(e => renderEntregaCard(e, colCam, false));
+            });
+
+        // Coluna 3: Caminhões Em Rota
+        fetch('/logistica/api/entregas/?status=Em Rota', { headers: getAuthHeaders() })
+            .then(res => res.json())
+            .then(data => {
+                const colRota = document.querySelector('#col-em-rota .kanban-items');
+                colRota.innerHTML = '';
+                if(data.length === 0) colRota.innerHTML = '<div style="text-align:center; color:var(--color-text-muted);">Nenhum veículo em rota.</div>';
+                data.forEach(e => renderEntregaCard(e, colRota, true));
+            });
     }
+
+    function renderEntregaCard(e, container, emRota) {
+        const veiculo = e.veiculo_placa ? `Caminhão: ${e.veiculo_placa}` : 'Sem Veículo';
+        const capMax = e.veiculo_capacidade || 0;
+        const pesoLoad = e.peso_total_carregado || 0;
+        let perc = e.percentual_lotacao || 0;
+        if(perc > 100) perc = 100;
+        let barColor = perc < 50 ? '#10b981' : (perc < 85 ? '#f59e0b' : '#ef4444');
+
+        let acaoBtn = emRota 
+            ? `<button class="btn-primary" style="width:100%; padding:8px; margin-top:10px; background:#10b981;" onclick="gerenciarParadas(${e.id})">Gerenciar Paradas da Rota</button>`
+            : `<button class="btn-primary" style="width:100%; padding:8px; margin-top:10px;" onclick="mudarStatusEntrega(${e.id}, 'Em Rota')">🚀 Iniciar Rota</button>`;
+
+        container.innerHTML += `
+            <div class="kanban-item" style="border-top: 4px solid var(--color-primary);">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <strong style="font-size:1.1rem;">Carga #${e.id}</strong>
+                    <span class="badge">${e.status}</span>
+                </div>
+                <div style="font-size:0.85rem; color:var(--color-text-muted); margin-bottom:12px;">${e.rota_nome || 'Sem Rota'}</div>
+                
+                <div style="margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px;">
+                        <span>${veiculo}</span>
+                        <strong>${perc}%</strong>
+                    </div>
+                    <div style="width: 100%; height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden;">
+                        <div style="width: ${perc}%; height: 100%; background: ${barColor};"></div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--color-text-muted); text-align: right; margin-top: 2px;">
+                        ${pesoLoad} kg / ${capMax} kg
+                    </div>
+                </div>
+                
+                <div style="font-size:0.85rem;"><strong>${e.vendas.length}</strong> Paradas (Pedidos)</div>
+                ${acaoBtn}
+            </div>
+        `;
+    }
+
+    window.mudarStatusEntrega = async function(id, novoStatus) {
+        try {
+            const res = await fetch(`/logistica/api/entregas/${id}/`, {
+                method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify({ status: novoStatus })
+            });
+            if (res.ok) {
+                Swal.fire({ title: 'Caminhão Partiu!', icon: 'success', timer: 1500, showConfirmButton: false });
+                loadKanban();
+            } else throw new Error("Erro.");
+        } catch (error) { Swal.fire('Erro', error.message, 'error'); }
+    };
 
     window.mudarStatusVenda = async function(id, novoStatus) {
         try {
@@ -153,6 +220,241 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ---- Modais e Ações (Atribuir Caminhão e Paradas) ----
+    const modalAtribuir = document.getElementById('modal-atribuir-caminhao');
+    if(document.getElementById('btn-fechar-atribuir')) {
+        document.getElementById('btn-fechar-atribuir').onclick = () => modalAtribuir.classList.remove('active');
+    }
+
+    window.abrirModalAtribuir = function(vendaId) {
+        document.getElementById('atr-venda-id').value = vendaId;
+        
+        // Puxar Entregas em montagem
+        fetch('/logistica/api/entregas/?status=Agendada,Em Produção', { headers: getAuthHeaders() })
+            .then(res => res.json())
+            .then(data => {
+                window.entregasDisponiveis = data; // Guardar para acesso rápido no select
+                const select = document.getElementById('atr-entrega-id');
+                select.innerHTML = '<option value="">Selecione...</option>';
+                data.forEach(e => {
+                    select.innerHTML += `<option value="${e.id}">Carga #${e.id} - ${e.rota_nome || 'Sem Rota'} (${e.percentual_lotacao}%)</option>`;
+                });
+                document.getElementById('atr-entrega-info').style.display = 'none';
+            });
+
+        // Puxar Veiculos e Rotas para caso de Nova Carga
+        fetch('/logistica/api/veiculos/', { headers: getAuthHeaders() }).then(r=>r.json()).then(data=>{
+            const sV = document.getElementById('atr-veiculo'); sV.innerHTML = '<option value="">Selecione...</option>';
+            data.filter(v=>v.status==='Ativo').forEach(v => sV.innerHTML += `<option value="${v.id}">${v.placa} (${v.capacidade_carga}kg)</option>`);
+        });
+        fetch('/logistica/api/rotas/', { headers: getAuthHeaders() }).then(r=>r.json()).then(data=>{
+            const sR = document.getElementById('atr-rota'); sR.innerHTML = '<option value="">Selecione...</option>';
+            data.forEach(r => sR.innerHTML += `<option value="${r.id}">${r.nome}</option>`);
+        });
+
+        modalAtribuir.classList.add('active');
+    };
+
+    document.getElementById('atr-entrega-id').addEventListener('change', (e) => {
+        const divInfo = document.getElementById('atr-entrega-info');
+        const val = e.target.value;
+        if (!val || !window.entregasDisponiveis) {
+            divInfo.style.display = 'none';
+            return;
+        }
+        const entrega = window.entregasDisponiveis.find(x => x.id == val);
+        if (entrega) {
+            divInfo.style.display = 'block';
+            divInfo.innerHTML = `
+                <strong>Rota:</strong> ${entrega.rota_nome || 'Não definida'}<br>
+                <strong>Veículo:</strong> ${entrega.veiculo_placa || 'Sem veículo'} (Ocupado: ${entrega.percentual_lotacao}%)<br>
+                <strong>Motorista:</strong> ${entrega.motorista_nome || 'Sem motorista'}<br>
+                <strong>Pedidos Atuais:</strong> ${entrega.vendas.length} parada(s)
+            `;
+        }
+    });
+
+    document.getElementById('atr-modo').addEventListener('change', (e) => {
+        if(e.target.value === 'nova') {
+            document.getElementById('div-carga-existente').style.display = 'none';
+            document.getElementById('div-nova-carga').style.display = 'grid';
+        } else {
+            document.getElementById('div-carga-existente').style.display = 'flex';
+            document.getElementById('div-nova-carga').style.display = 'none';
+        }
+    });
+
+    document.getElementById('form-atribuir-caminhao').onsubmit = async (e) => {
+        e.preventDefault();
+        const vendaId = document.getElementById('atr-venda-id').value;
+        const modo = document.getElementById('atr-modo').value;
+        let entregaId = document.getElementById('atr-entrega-id').value;
+
+        if(modo === 'nova') {
+            // Criar Entrega
+            const v = document.getElementById('atr-veiculo').value;
+            const r = document.getElementById('atr-rota').value;
+            const mot = document.getElementById('atr-motorista').value;
+            const payload = { status: 'Agendada' };
+            if (v) payload.veiculo = v;
+            if (r) payload.rota = r;
+            if (mot) payload.motorista = mot;
+
+            const resE = await fetch('/logistica/api/entregas/', {
+                method: 'POST', headers: getAuthHeaders(),
+                body: JSON.stringify(payload)
+            });
+            if(resE.ok) {
+                const dataE = await resE.json();
+                entregaId = dataE.id;
+            } else {
+                Swal.fire('Erro', 'Não foi possível criar o romaneio.', 'error');
+                return;
+            }
+        }
+
+        if(!entregaId) { Swal.fire('Erro', 'Selecione uma carga', 'warning'); return; }
+
+        // Atribuir venda à entrega
+        const resV = await fetch(`/vendas/api/${vendaId}/`, {
+            method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify({ entrega: entregaId, status: 'Em Rota' })
+        });
+
+        if(resV.ok) {
+            Swal.fire('Atribuído!', 'Pedido enviado para carga.', 'success');
+            modalAtribuir.classList.remove('active');
+            loadKanban();
+        }
+    };
+
+    // Modal Paradas
+    const modalParadas = document.getElementById('modal-paradas-rota');
+    if(document.getElementById('btn-fechar-paradas')) {
+        document.getElementById('btn-fechar-paradas').onclick = () => modalParadas.classList.remove('active');
+    }
+    
+    let rotaAtualId = null;
+
+    window.gerenciarParadas = function(entregaId) {
+        rotaAtualId = entregaId;
+        fetch(`/logistica/api/entregas/${entregaId}/`, { headers: getAuthHeaders() })
+            .then(res => res.json())
+            .then(data => {
+                const lista = document.getElementById('paradas-lista');
+                lista.innerHTML = '';
+                
+                if(!data.vendas || data.vendas.length === 0) {
+                    lista.innerHTML = '<p>Nenhuma parada encontrada.</p>';
+                } else {
+                    data.vendas.forEach(v => {
+                        let sColor = v.status === 'Entregue' ? '#10b981' : (v.status === 'Cancelada' ? '#ef4444' : 'var(--color-primary)');
+                        lista.innerHTML += `
+                            <div style="display:flex; justify-content:space-between; align-items:center; background: var(--color-hover); padding: 16px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--color-border);">
+                                <div>
+                                    <strong style="font-size: 1rem;">Pedido #${v.id}</strong><br>
+                                    <span style="font-size: 0.9rem; color: var(--color-text-muted);">${v.cliente_nome}</span><br>
+                                    <span style="font-size: 0.8rem; font-weight: 600; color: ${sColor}; margin-top: 4px; display:inline-block;">Status Atual: ${v.status}</span>
+                                </div>
+                                <div style="text-align: right; display:flex; flex-direction:column; gap:6px;">
+                                    <button class="btn-primary" style="padding: 6px 12px; font-size: 12px; background: #10b981;" onclick="mudarStatusVendaModal(${v.id}, 'Entregue')">Baixa (Entregue)</button>
+                                    <button class="btn-outline" style="padding: 6px 12px; font-size: 12px; border-color: #f59e0b; color: #f59e0b;" onclick="abrirValidacaoCarga(${v.id}, 'Em Rota')">Validar Carga</button>
+                                    <button class="btn-outline" style="padding: 6px 12px; font-size: 12px; border-color: #ef4444; color: #ef4444;" onclick="mudarStatusVendaModal(${v.id}, 'Cancelada')">Recusar Entrega</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                modalParadas.classList.add('active');
+            });
+    }
+
+    window.mudarStatusVendaModal = async function(id, novoStatus) {
+        try {
+            const res = await fetch(`/vendas/api/${id}/mudar_status/`, {
+                method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify({ status: novoStatus })
+            });
+            if (res.ok) {
+                Swal.fire({ title: 'Status Atualizado!', icon: 'success', timer: 1000, showConfirmButton: false });
+                gerenciarParadas(rotaAtualId); // reload modal
+                loadKanban(); // reload background
+            }
+        } catch (error) { Swal.fire('Erro', error.message, 'error'); }
+    }
+
+    document.getElementById('btn-finalizar-rota').onclick = async () => {
+        if(!rotaAtualId) return;
+        const res = await fetch(`/logistica/api/entregas/${rotaAtualId}/`, {
+            method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify({ status: 'Concluída' })
+        });
+        if(res.ok) {
+            Swal.fire('Rota Finalizada', 'O veículo está de volta à base.', 'success');
+            modalParadas.classList.remove('active');
+            loadKanban();
+        }
+    };
+
+    // ---- Validação de Carga ----
+    const modalValidacao = document.getElementById('modal-validacao-carga');
+    const formValidacao = document.getElementById('form-validacao');
+    if(document.getElementById('btn-fechar-validacao')) {
+        document.getElementById('btn-fechar-validacao').onclick = () => modalValidacao.classList.remove('active');
+    }
+    
+    let itensDaVendaAtual = [];
+
+    window.abrirValidacaoCarga = function(vendaId, etapa) {
+        document.getElementById('val-venda-id').value = vendaId;
+        document.getElementById('val-etapa').value = etapa;
+        document.getElementById('val-ajuste').value = '';
+        document.getElementById('val-justificativa').value = '';
+        
+        fetch(`/vendas/api/${vendaId}/`, { headers: getAuthHeaders() })
+            .then(res => res.json())
+            .then(data => {
+                itensDaVendaAtual = data.itens || [];
+                const selectProd = document.getElementById('val-produto');
+                selectProd.innerHTML = '<option value="">Selecione...</option>';
+                itensDaVendaAtual.forEach(i => {
+                    selectProd.innerHTML += `<option value="${i.produto}" data-qtd="${i.quantidade}">${i.produto_nome}</option>`;
+                });
+                document.getElementById('val-qtd-atual').value = '';
+                modalValidacao.classList.add('active');
+            });
+    }
+
+    document.getElementById('val-produto').addEventListener('change', (e) => {
+        const option = e.target.options[e.target.selectedIndex];
+        document.getElementById('val-qtd-atual').value = option ? option.getAttribute('data-qtd') : '';
+    });
+
+    if (formValidacao) {
+        formValidacao.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const payload = {
+                venda: document.getElementById('val-venda-id').value,
+                etapa_logistica: document.getElementById('val-etapa').value,
+                produto: document.getElementById('val-produto').value,
+                quantidade_alterada: parseInt(document.getElementById('val-ajuste').value),
+                justificativa: document.getElementById('val-justificativa').value,
+            };
+
+            fetch('/logistica/api/validacoes/', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(payload)
+            })
+            .then(res => {
+                if(res.ok) {
+                    Swal.fire('Validação Registrada', 'Carga atualizada com sucesso', 'success');
+                    modalValidacao.classList.remove('active');
+                    loadKanban();
+                } else {
+                    Swal.fire('Erro', 'Erro ao validar', 'error');
+                }
+            });
+        });
+    }
+
     // ---- 2. Frota / Veículos ----
     function loadVeiculos() {
         fetch('/logistica/api/veiculos/', { headers: getAuthHeaders() })
@@ -161,18 +463,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tbody = document.getElementById('tbody-veiculos');
                 tbody.innerHTML = '';
                 if(data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Nenhum veículo cadastrado.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhum veículo cadastrado.</td></tr>';
                     return;
                 }
                 data.forEach(v => {
                     const badgeClass = v.status === 'Ativo' ? 'ativo' : (v.status === 'Em Manutenção' ? 'manutencao' : '');
+                    let locColor = 'var(--color-text)';
+                    if(v.localizacao_atual === 'Em Rota') locColor = '#2563eb';
+                    else if(v.localizacao_atual === 'Oficina') locColor = '#ef4444';
+                    
                     tbody.innerHTML += `
                         <tr>
                             <td><strong>${v.placa}</strong></td>
                             <td>${v.modelo} / ${v.marca}</td>
                             <td>${v.ano}</td>
                             <td>${v.capacidade_carga} kg</td>
+                            <td style="color: ${locColor}; font-weight: bold;">${v.localizacao_atual || 'Base'}</td>
                             <td><span class="badge ${badgeClass}">${v.status}</span></td>
+                            <td>
+                                <button class="btn-outline" style="padding:4px 8px; font-size:12px; margin-right:4px;" onclick="editarVeiculo(${v.id})">Editar</button>
+                                <button class="btn-outline" style="padding:4px 8px; font-size:12px;" onclick="verManutencoes(${v.id})">Manutenções</button>
+                            </td>
                         </tr>
                     `;
                 });
@@ -180,29 +491,89 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const modalVeiculo = document.getElementById('modal-veiculo');
-    document.getElementById('btn-novo-veiculo').onclick = () => modalVeiculo.classList.add('active');
+    const formVeiculo = document.getElementById('form-veiculo');
+    
+    document.getElementById('btn-novo-veiculo').onclick = () => {
+        formVeiculo.reset();
+        document.getElementById('veiculo-id').value = '';
+        modalVeiculo.classList.add('active');
+    };
     document.getElementById('btn-fechar-modal-veiculo').onclick = () => modalVeiculo.classList.remove('active');
     
-    document.getElementById('form-veiculo').onsubmit = async (e) => {
+    window.editarVeiculo = function(id) {
+        fetch(`/logistica/api/veiculos/${id}/`, { headers: getAuthHeaders() })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('veiculo-id').value = data.id;
+                formVeiculo.elements['placa'].value = data.placa;
+                formVeiculo.elements['modelo'].value = data.modelo;
+                formVeiculo.elements['marca'].value = data.marca;
+                formVeiculo.elements['ano'].value = data.ano;
+                formVeiculo.elements['capacidade_carga'].value = data.capacidade_carga;
+                formVeiculo.elements['status'].value = data.status;
+                formVeiculo.elements['localizacao_atual'].value = data.localizacao_atual;
+                modalVeiculo.classList.add('active');
+            });
+    }
+
+    formVeiculo.onsubmit = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
+        const vId = data.id;
+        delete data.id;
 
-        const res = await fetch('/logistica/api/veiculos/', {
-            method: 'POST',
+        const url = vId ? `/logistica/api/veiculos/${vId}/` : '/logistica/api/veiculos/';
+        const method = vId ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+            method: method,
             headers: getAuthHeaders(),
             body: JSON.stringify(data)
         });
 
         if(res.ok) {
-            Swal.fire('Sucesso', 'Veículo cadastrado!', 'success');
+            Swal.fire('Sucesso', 'Veículo salvo!', 'success');
             modalVeiculo.classList.remove('active');
             e.target.reset();
             loadVeiculos();
         } else {
-            Swal.fire('Erro', 'Erro ao cadastrar.', 'error');
+            Swal.fire('Erro', 'Erro ao salvar.', 'error');
         }
     };
+
+    // Histórico de Manutenções
+    const modalHistorico = document.getElementById('modal-historico-manutencoes');
+    if(document.getElementById('btn-fechar-historico')) {
+        document.getElementById('btn-fechar-historico').onclick = () => modalHistorico.classList.remove('active');
+    }
+
+    window.verManutencoes = function(veiculoId) {
+        // Para simplificar, vou puxar todas as manutenções e filtrar no front (em prod usaria query params se a API suportar filterset)
+        fetch('/logistica/api/manutencoes/', { headers: getAuthHeaders() })
+            .then(res => res.json())
+            .then(data => {
+                const timeline = document.getElementById('timeline-manutencoes');
+                timeline.innerHTML = '';
+                const manutencoes = data.filter(m => m.veiculo === veiculoId);
+                
+                if (manutencoes.length === 0) {
+                    timeline.innerHTML = '<p style="text-align:center;">Nenhuma manutenção registrada.</p>';
+                } else {
+                    manutencoes.forEach(m => {
+                        timeline.innerHTML += `
+                            <div style="border-left: 3px solid var(--color-primary); padding-left: 15px; margin-bottom: 20px;">
+                                <div style="font-weight:bold; color:var(--color-primary);">${formatDate(m.data_manutencao)}</div>
+                                <div><strong>Status:</strong> ${m.status}</div>
+                                <div><strong>Custo:</strong> ${formatCurrency(m.custo)}</div>
+                                <div><strong>Descrição:</strong> ${m.descricao}</div>
+                            </div>
+                        `;
+                    });
+                }
+                modalHistorico.classList.add('active');
+            });
+    }
 
     // ---- 3. Rotas ----
     function loadRotas() {

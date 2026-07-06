@@ -16,12 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', RedirectView.as_view(url='/inicio/', permanent=False), name='root'),
+    path('login/', RedirectView.as_view(url='/accounts/login/', permanent=False)),
     path('accounts/', include('accounts.urls')),
     path('inicio/', include('core.urls')),
     path('clientes/', include('clientes.urls')),

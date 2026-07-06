@@ -21,19 +21,22 @@
     </div>
 
     <div class="tabs-content">
-        <!-- Aba 1: Kanban Entregas -->
+        <!-- Aba 1: Kanban Híbrido (Pedidos e Caminhões) -->
         <div id="tab-entregas" class="tab-pane active">
+            <div style="margin-bottom: 20px; color: var(--color-text-muted);">
+                Acompanhe a esteira logística. Separe os pedidos, agrupe-os em caminhões (romaneios) e monitore a entrega.
+            </div>
             <div class="kanban-board">
                 <div class="kanban-column" id="col-separacao">
-                    <h3>Em Separação</h3>
+                    <h3>1. Separação / Envase (Pedidos)</h3>
                     <div class="kanban-items"></div>
                 </div>
-                <div class="kanban-column" id="col-rota">
-                    <h3>Em Rota de Entrega</h3>
+                <div class="kanban-column" id="col-caminhoes">
+                    <h3>2. Montagem da Carga (Caminhões)</h3>
                     <div class="kanban-items"></div>
                 </div>
-                <div class="kanban-column" id="col-entregue">
-                    <h3>Entregues</h3>
+                <div class="kanban-column" id="col-em-rota">
+                    <h3>3. Em Rota (Monitoramento)</h3>
                     <div class="kanban-items"></div>
                 </div>
             </div>
@@ -52,11 +55,13 @@
                             <th>Modelo / Marca</th>
                             <th>Ano</th>
                             <th>Capacidade (kg)</th>
+                            <th>Localização</th>
                             <th>Status</th>
+                            <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody id="tbody-veiculos">
-                        <tr><td colspan="5" style="text-align:center;">Carregando...</td></tr>
+                        <tr><td colspan="7" style="text-align:center;">Carregando...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -72,8 +77,8 @@
                     <thead>
                         <tr>
                             <th>Nome da Rota</th>
-                            <th>Origem</th>
-                            <th>Destino</th>
+                            <th>Origem Base</th>
+                            <th>Região / Destinos</th>
                             <th>Distância (km)</th>
                             <th>Tempo Est. (h)</th>
                         </tr>
@@ -124,11 +129,147 @@
                         <option value="Inativo">Inativo</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label>Localização Atual</label>
+                    <select name="localizacao_atual">
+                        <option value="Base">Base</option>
+                        <option value="Oficina">Oficina</option>
+                        <option value="Em Rota">Em Rota</option>
+                    </select>
+                </div>
             </div>
             <div class="form-actions">
+                <input type="hidden" name="id" id="veiculo-id">
                 <button type="submit" class="btn-primary">Salvar Veículo</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Modal Atribuir Caminhão/Rota -->
+<div class="modal-overlay" id="modal-atribuir-caminhao">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Atribuir à Rota / Caminhão</h3>
+            <button class="close-modal" id="btn-fechar-atribuir">&times;</button>
+        </div>
+        <form id="form-atribuir-caminhao">
+            <input type="hidden" id="atr-venda-id">
+            
+            <div class="form-group full-width" style="margin-bottom: 20px;">
+                <label>Modo de Agrupamento</label>
+                <select id="atr-modo" required>
+                    <option value="existente">Adicionar a uma Carga em Montagem</option>
+                    <option value="nova">Criar Nova Carga (Romaneio)</option>
+                </select>
+            </div>
+
+            <!-- Div para Carga Existente -->
+            <div class="form-group full-width" id="div-carga-existente">
+                <label>Selecione a Carga (Caminhão/Rota)</label>
+                <select id="atr-entrega-id">
+                    <option value="">Selecione...</option>
+                </select>
+                <!-- Detalhes do romaneio selecionado -->
+                <div id="atr-entrega-info" style="margin-top: 15px; padding: 12px; background: var(--color-hover); border: 1px solid var(--color-border); border-radius: 6px; display: none; font-size: 0.85rem; line-height: 1.4;">
+                </div>
+            </div>
+
+            <!-- Div para Nova Carga -->
+            <div class="form-grid" id="div-nova-carga" style="display: none;">
+                <div class="form-group">
+                    <label>Veículo</label>
+                    <select id="atr-veiculo">
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Rota</label>
+                    <select id="atr-rota">
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label>Colaborador Motorista (Opcional)</label>
+                    <select id="atr-motorista">
+                        <option value="">Selecione...</option>
+                        {% for m in motoristas %}
+                        <option value="{{ m.id }}">{{ m.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top: 20px;">
+                <button type="submit" class="btn-primary">Confirmar Atribuição</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Paradas da Rota (Em Rota) -->
+<div class="modal-overlay" id="modal-paradas-rota">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3>Gerenciar Paradas do Caminhão</h3>
+            <button class="close-modal" id="btn-fechar-paradas">&times;</button>
+        </div>
+        <div id="paradas-lista">
+            <!-- Renderizado via JS -->
+        </div>
+        <div class="form-actions" style="margin-top: 20px;">
+            <button type="button" class="btn-outline" style="border-color: #ef4444; color: #ef4444;" id="btn-finalizar-rota">Finalizar Rota Inteira</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Validação de Carga -->
+<div class="modal-overlay" id="modal-validacao-carga">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Validar Carga (Nota)</h3>
+            <button class="close-modal" id="btn-fechar-validacao">&times;</button>
+        </div>
+        <form id="form-validacao">
+            <input type="hidden" id="val-venda-id">
+            <input type="hidden" id="val-etapa">
+            <div class="form-group full-width">
+                <label>Selecione o Produto para Validar</label>
+                <select id="val-produto" required>
+                    <option value="">Selecione...</option>
+                </select>
+            </div>
+            <div class="form-grid" style="margin-top: 15px;">
+                <div class="form-group">
+                    <label>Qtd Atual na Nota</label>
+                    <input type="number" id="val-qtd-atual" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Ajuste de Carga (+ ou -)</label>
+                    <input type="number" id="val-ajuste" required placeholder="-1 ou 2">
+                </div>
+            </div>
+            <div class="form-group full-width" style="margin-top: 15px;">
+                <label>Justificativa Obrigatória</label>
+                <textarea id="val-justificativa" rows="3" required placeholder="Ex: Cilindro avariado, devolvido para base..."></textarea>
+            </div>
+            <div class="form-actions" style="margin-top: 20px;">
+                <button type="submit" class="btn-primary" style="background: #f59e0b; color: white; border: none;">Registrar Validação</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Histórico de Manutenções -->
+<div class="modal-overlay" id="modal-historico-manutencoes">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Histórico de Manutenções</h3>
+            <button class="close-modal" id="btn-fechar-historico">&times;</button>
+        </div>
+        <div class="timeline-container" id="timeline-manutencoes" style="margin-top: 20px;">
+            <!-- Renderizado via JS -->
+        </div>
     </div>
 </div>
 
@@ -146,12 +287,12 @@
             </div>
             <div class="form-grid">
                 <div class="form-group">
-                    <label>Origem</label>
-                    <input type="text" name="origem" required>
+                    <label>Origem (Base)</label>
+                    <input type="text" name="origem" required placeholder="Ex: Base Central">
                 </div>
                 <div class="form-group">
-                    <label>Destino</label>
-                    <input type="text" name="destino" required>
+                    <label>Região / Trajeto (Destinos)</label>
+                    <input type="text" name="destino" required placeholder="Ex: Zona Norte, Hospitais ABC">
                 </div>
                 <div class="form-group">
                     <label>Distância (km)</label>

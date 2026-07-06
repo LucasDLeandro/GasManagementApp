@@ -12,6 +12,25 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 
+try:
+    from decouple import config
+except ImportError:
+    import os as _os
+
+    def config(option, default=None, cast=str):
+        value = _os.getenv(option)
+        if value is None:
+            if default is None:
+                return None
+            value = default
+        if cast is bool:
+            return str(value).lower() in {"1", "true", "yes", "on"}
+        if cast is int:
+            return int(value)
+        if cast is float:
+            return float(value)
+        return cast(value)
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,12 +39,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&_*_ekkj4s+wh=0pbso)boksn97v6ydj%5*nqf#n4!^7eykvx&'
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-&_*_ekkj4s+wh=0pbso)boksn97v6ydj%5*nqf#n4!^7eykvx&')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config(
+    'ALLOWED_HOSTS',
+    default='127.0.0.1,localhost, 192.168.1.106',
+    cast=lambda value: [item.strip() for item in value.split(',') if item.strip()],
+    
+)
 
 
 # Application definition
@@ -94,7 +118,6 @@ SIMPLE_JWT = {
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-from decouple import config
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -143,4 +166,7 @@ STATIC_URL = 'static/'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/inicio/'
 

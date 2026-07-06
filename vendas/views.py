@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Sum, Count
 from django.utils import timezone
 import datetime
@@ -17,10 +18,17 @@ class VendaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         status_param = self.request.query_params.get('status', None)
+        entrega_isnull = self.request.query_params.get('entrega__isnull', None)
+
         if status_param:
             # Permite filtrar múltiplos status separados por vírgula
             status_list = status_param.split(',')
             queryset = queryset.filter(status__in=status_list)
+        
+        if entrega_isnull is not None:
+            is_null = str(entrega_isnull).lower() in ['true', '1', 't', 'y', 'yes']
+            queryset = queryset.filter(entrega__isnull=is_null)
+
         return queryset
 
     @action(detail=False, methods=['get'])
@@ -71,5 +79,5 @@ class VendaViewSet(viewsets.ModelViewSet):
         return Response({'status': 'sucesso', 'novo_status': venda.status})
 
 
-class VendaTemplateView(TemplateView):
+class VendaTemplateView(LoginRequiredMixin, TemplateView):
     template_name = 'vendas/index.html'

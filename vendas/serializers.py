@@ -9,7 +9,7 @@ class ItemVendaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItemVenda
-        fields = ['id', 'produto', 'produto_nome', 'quantidade', 'peso_unitario', 'valor_unitario', 'valor_total']
+        fields = ['id', 'produto', 'produto_nome', 'forma_faturamento', 'quantidade', 'peso_unitario', 'valor_unitario', 'valor_total']
         read_only_fields = ['valor_total']
 
 
@@ -21,7 +21,7 @@ class VendaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Venda
-        fields = ['id', 'cliente', 'cliente_nome', 'cliente_cnpj', 'vendedor', 'vendedor_nome', 'veiculo', 'rota', 'status', 'valor_total', 'prazo_entrega', 'data_entrega_efetiva', 'data_venda', 'data_atualizacao', 'itens']
+        fields = ['id', 'cliente', 'cliente_nome', 'cliente_cnpj', 'vendedor', 'vendedor_nome', 'entrega', 'status', 'valor_total', 'prazo_entrega', 'data_entrega_efetiva', 'data_venda', 'data_atualizacao', 'itens']
         read_only_fields = ['valor_total', 'data_venda', 'data_atualizacao']
 
     @transaction.atomic
@@ -49,12 +49,10 @@ class VendaSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        # Permitir atualizar status, veiculo e rota via API
+        # Permitir atualizar status, entrega via API
         if 'status' in validated_data:
             instance.status = validated_data['status']
-        if 'veiculo' in validated_data:
-            instance.veiculo = validated_data['veiculo']
-        if 'rota' in validated_data:
-            instance.rota = validated_data['rota']
+        if 'entrega' in validated_data:
+            instance.entrega = validated_data['entrega']
         instance.save()
         return instance
