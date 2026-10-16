@@ -157,3 +157,228 @@ th {
     background-color: #fee2e2;
     color: #b91c1c;
 }
+
+/* ============================================================================== */
+/* FASE 3: ESTAÇÃO DE RAMPA EM BATELADA (IN 129/2022) & RECEBIMENTO (RDC 887/2024) */
+/* ============================================================================== */
+
+.batch-manifold-header {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+
+.batch-controls-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 16px;
+    align-items: flex-end;
+}
+
+@media (max-width: 900px) {
+    .batch-controls-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.scanner-wedge-container {
+    background: var(--color-bg);
+    border: 2px dashed var(--color-primary);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    position: relative;
+}
+
+.scanner-wedge-container.scan-pulse {
+    animation: scannerPulse 0.4s ease;
+}
+
+@keyframes scannerPulse {
+    0% { background: rgba(14, 165, 233, 0.15); border-color: #0ea5e9; }
+    50% { background: rgba(34, 197, 94, 0.25); border-color: #22c55e; }
+    100% { background: var(--color-bg); border-color: var(--color-primary); }
+}
+
+.scanner-wedge-input-wrap {
+    flex: 1;
+    position: relative;
+    min-width: 260px;
+}
+
+.scanner-wedge-input {
+    width: 100%;
+    padding: 12px 16px 12px 44px;
+    font-size: 15px;
+    font-family: var(--font-family-mono, monospace);
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    outline: none;
+    transition: all 0.2s;
+}
+
+.scanner-wedge-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+}
+
+.scanner-audio-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.batch-quick-actions-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.checklist-cell-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+}
+
+.checklist-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checklist-label input[type="checkbox"] {
+    cursor: pointer;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--color-primary);
+}
+
+.badge-conforme {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+    border: 1px solid #22c55e;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+.badge-nao-conforme {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+    border: 1px solid #ef4444;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+.alert-scan-feedback {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+}
+
+.alert-scan-success {
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.alert-scan-error {
+    background: rgba(239, 68, 68, 0.12);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Modal de Etiquetas de Colarinho do Lote */
+.collar-tag-preview {
+    width: 280px;
+    border: 2px solid #0f172a;
+    border-radius: 8px;
+    padding: 12px;
+    background: #ffffff;
+    color: #0f172a;
+    font-family: var(--font-family-mono, monospace);
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.06);
+}
+
+.collar-tag-header {
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 4px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 13px;
+}
+
+.collar-tags-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    max-height: 480px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+    #modal-etiquetas-colarinho, #modal-etiquetas-colarinho * {
+        visibility: visible !important;
+    }
+    #modal-etiquetas-colarinho {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: transparent !important;
+    }
+    .collar-tags-grid {
+        display: block !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+    .collar-tag-preview {
+        page-break-after: always;
+        width: 90mm;
+        margin: 5mm auto;
+        border: 2px solid #000;
+    }
+}

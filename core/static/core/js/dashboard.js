@@ -38,60 +38,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderChart(labels, data) {
-        const ctx = document.getElementById('vendasChart').getContext('2d');
+        const el = document.getElementById('vendasChart');
+        if (!el || typeof ApexCharts === 'undefined') return;
         
         if (vendasChartInstance) {
-            vendasChartInstance.destroy();
+            try { vendasChartInstance.destroy(); } catch (e) {}
         }
 
-        vendasChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Faturamento (R$)',
-                    data: data,
-                    borderColor: '#2563eb',
-                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                    borderWidth: 3,
-                    pointBackgroundColor: '#2563eb',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    fill: true,
-                    tension: 0.4 // Smooth curves
-                }]
+        vendasChartInstance = new ApexCharts(el, {
+            chart: {
+                type: 'area',
+                height: 280,
+                toolbar: { show: false }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return formatCurrency(context.raw);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { borderDash: [5, 5], color: '#e5e7eb' },
-                        ticks: {
-                            callback: function(value) {
-                                return 'R$ ' + value;
-                            }
-                        }
-                    },
-                    x: {
-                        grid: { display: false }
-                    }
-                }
-            }
+            series: [{ name: 'Faturamento', data: data }],
+            xaxis: { categories: labels },
+            stroke: { curve: 'smooth', width: 2 },
+            colors: ['#2563eb']
         });
+        vendasChartInstance.render();
     }
 
     loadDashboardStats();

@@ -9,7 +9,15 @@
 
 {% block dashboard_content %}
 <div class="logistica-header">
-    <h2>Gestão de Logística</h2>
+    <div>
+        <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0;">Gestão de Logística & Expedição</h2>
+        <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Montagem de romaneios com conformidade ANTT 5.998/2022 e roteirização.</p>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <a href="{% url 'logistica:app_campo' %}" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" title="Abrir interface PWA de campo">
+            📱 App de Campo PWA &rarr;
+        </a>
+    </div>
 </div>
 
 <!-- Sistema de Abas -->
@@ -386,6 +394,120 @@
             </div>
             <div style="width: 40%; text-align: center;">
                 <div style="border-top: 1px solid #000; padding-top: 5px; font-size: 12px;">Assinatura do Recebedor</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Romaneio Bilateral (Full-for-Empty) -->
+<div class="modal-overlay" id="modal-romaneio-bilateral">
+    <div class="modal-content" style="max-width: 950px; padding: 24px;">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--color-border); padding-bottom:12px;">
+            <div>
+                <h3 style="margin:0; font-size:1.3rem;">⚖️ Romaneio Bilateral (Full-for-Empty)</h3>
+                <small style="color:var(--color-text-muted);">Entrega Carga #<span id="romaneio-entrega-id"></span> | <span id="romaneio-veiculo-info"></span></small>
+            </div>
+            <button class="close-modal" id="btn-fechar-romaneio" style="font-size:24px; border:none; background:none; cursor:pointer;">&times;</button>
+        </div>
+
+        <!-- Barra Rápida de Emissão dos 3 PDFs ANTT -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+            <span style="font-size:12px; font-weight:700; color:var(--color-text-muted); text-transform:uppercase;">Documentos Regulamentares ANTT (Res. 5.998/2022):</span>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="btn-outline" style="font-size:12px; padding:5px 10px; border-color:var(--color-primary); color:var(--color-primary); font-weight:600;" onclick="baixarDocANTT('romaneio-antt-pdf')">📄 Romaneio ANTT</button>
+                <button type="button" class="btn-outline" style="font-size:12px; padding:5px 10px; border-color:#ea580c; color:#ea580c; font-weight:600;" onclick="baixarDocANTT('ficha-emergencia-pdf')">⚠️ Ficha NBR 7503</button>
+                <button type="button" class="btn-outline" style="font-size:12px; padding:5px 10px; border-color:#0284c7; color:#0284c7; font-weight:600;" onclick="baixarDocANTT('envelope-transporte-pdf')">✉️ Envelope Transporte</button>
+            </div>
+        </div>
+
+        <!-- Barra de Capacidade de Carga do Veículo -->
+        <div style="background:var(--color-bg); padding:14px; border-radius:8px; margin:12px 0 16px 0;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px; font-weight:600;">
+                <span>Carga Aferida: <strong id="romaneio-peso-carregado">0</strong> kg / <strong id="romaneio-capacidade-max">0</strong> kg</span>
+                <span id="romaneio-perc-texto">0% Ocupação</span>
+            </div>
+            <div style="height:10px; background:#e2e8f0; border-radius:5px; overflow:hidden;">
+                <div id="romaneio-barra-peso" style="width:0%; height:100%; background:#10b981; border-radius:5px; transition:width 0.3s ease;"></div>
+            </div>
+        </div>
+
+        <!-- Grade Bilateral: 2 Colunas -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
+            <!-- Coluna da Esquerda: Cheios Entregues -->
+            <div style="border:1px solid #e2e8f0; border-radius:8px; padding:16px; background:var(--color-surface);">
+                <h4 style="margin-top:0; color:#10b981; display:flex; align-items:center; gap:8px;">
+                    <span>⬆️ 1. Cilindros Cheios Entregues</span>
+                </h4>
+                
+                <form id="form-entregar-cheio" style="margin-bottom:14px;">
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <input type="text" id="input-qr-entrega" placeholder="Bipar QR Code / Nº Série (Cheio)" 
+                               style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" required>
+                        <select id="select-cliente-entrega" style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" required>
+                            <option value="">Selecione o Cliente de Destino</option>
+                        </select>
+                        <button type="submit" class="btn-primary" style="background:#10b981; padding:8px; font-size:13px; font-weight:600;">
+                            Registrar Entrega (Cheio)
+                        </button>
+                    </div>
+                </form>
+
+                <div style="max-height:220px; overflow-y:auto; border-top:1px solid #f1f5f9; padding-top:10px;">
+                    <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                        <thead>
+                            <tr style="text-align:left; color:#64748b;">
+                                <th style="padding:4px;">QR / Ogiva</th>
+                                <th style="padding:4px;">Gás</th>
+                                <th style="padding:4px;">Cliente</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-romaneio-entregues">
+                            <tr><td colspan="3" style="text-align:center; padding:10px; color:#94a3b8;">Nenhum cheio entregue ainda.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Coluna da Direita: Vazios Recolhidos -->
+            <div style="border:1px solid #e2e8f0; border-radius:8px; padding:16px; background:var(--color-surface);">
+                <h4 style="margin-top:0; color:#f59e0b; display:flex; align-items:center; gap:8px;">
+                    <span>⬇️ 2. Cilindros Vazios Recolhidos</span>
+                </h4>
+
+                <form id="form-recolher-vazio" style="margin-bottom:14px;">
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <input type="text" id="input-qr-recolha" placeholder="Bipar QR Code / Nº Série (Vazio)" 
+                               style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" required>
+                        <input type="text" id="input-obs-recolha" placeholder="Observações de avaria (opcional)" 
+                               style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                        <button type="submit" class="btn-primary" style="background:#f59e0b; padding:8px; font-size:13px; font-weight:600;">
+                            Registrar Recolha (Vazio)
+                        </button>
+                    </div>
+                </form>
+
+                <div style="max-height:220px; overflow-y:auto; border-top:1px solid #f1f5f9; padding-top:10px;">
+                    <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                        <thead>
+                            <tr style="text-align:left; color:#64748b;">
+                                <th style="padding:4px;">QR / Ogiva</th>
+                                <th style="padding:4px;">Gás</th>
+                                <th style="padding:4px;">Tara</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-romaneio-recolhidos">
+                            <tr><td colspan="3" style="text-align:center; padding:10px; color:#94a3b8;">Nenhum vazio recolhido ainda.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rodapé com Saldo de Comodato do Cliente -->
+        <div style="border-top:1px solid var(--color-border); padding-top:14px;">
+            <h5 style="margin:0 0 8px 0; font-size:13px; text-transform:uppercase; color:#64748b;">Saldo de Vasilhames em Comodato (Clientes Atendidos)</h5>
+            <div id="romaneio-clientes-comodato" style="display:flex; flex-wrap:wrap; gap:10px; font-size:13px;">
+                Carregando saldos de comodato...
             </div>
         </div>
     </div>

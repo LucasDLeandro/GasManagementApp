@@ -4,14 +4,18 @@
 {% block css %}
     <!-- Script Anti-Flash de Tema (Executado no Head) -->
     <script>
-        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.setAttribute('data-theme', 'dark');
+        } else if (savedTheme === 'high-contrast-sun') {
+            document.documentElement.setAttribute('data-theme', 'high-contrast-sun');
         } else {
             document.documentElement.setAttribute('data-theme', 'light');
         }
     </script>
     <!-- Estilo específico do Dashboard/Home compartilhado -->
     <link rel="stylesheet" href="{% static 'core/css/home.css' %}">
+    <link rel="stylesheet" href="{% static 'core/css/command_bar.css' %}">
     {% block extra_css %}{% endblock %}
 {% endblock %}
 
@@ -33,11 +37,49 @@
                 </svg>
                 <span>GasManagementApp</span>
             </div>
+
+            <!-- Botão de Busca Rápida (Barra de Comando Ctrl+K) -->
+            <button id="btn-open-command-bar" class="topbar-command-trigger" type="button" title="Busca Rápida de Cilindros, Lotes, Clientes e Veículos (Ctrl+K)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <span>Buscar tudo...</span>
+                <span class="topbar-command-shortcut"><kbd>Ctrl</kbd> <kbd>K</kbd></span>
+            </button>
         </div>
         
         <div class="navbar-right">
-            <!-- Botão de Tema -->
-            <button id="theme-toggle" class="menu-btn" aria-label="Alternar Tema" style="margin-right: 15px;">
+            <!-- Indicador Dinâmico de Conectividade / Sync -->
+            <div class="sync-status-indicator" id="topbar-sync-status" title="Status de Conectividade e Fila de Sincronização">
+                <span class="sync-status-dot" id="topbar-sync-dot"></span>
+                <span id="topbar-sync-text">Online</span>
+            </div>
+
+            <!-- Tenant Switcher (Dropdown para múltiplos tenants ou Badge fixo) -->
+            {% if has_multiple_tenants %}
+            <form id="tenant-switch-form" method="POST" action="{% url 'core:trocar_tenant' %}" style="margin: 0; display: inline-flex; align-items: center;">
+                {% csrf_token %}
+                <select name="tenant_id" class="tenant-switcher-select" onchange="this.form.submit()" title="Alternar Empresa Ativa">
+                    {% for t in user_tenants %}
+                        <option value="{{ t.id }}" {% if current_tenant.id == t.id %}selected{% endif %}>
+                            🏢 {{ t.nome }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% elif current_tenant %}
+            <div class="tenant-badge-single" title="Empresa Ativa">
+                🏢 {{ current_tenant.nome }}
+            </div>
+            {% endif %}
+
+            <!-- Papel Ativo do Usuário -->
+            <span class="role-badge-pill role-badge-{{ current_membership.papel|lower|default:'admin' }}" title="Papel Operacional Ativo">
+                {{ current_membership.get_papel_display|default:"Superusuário" }}
+            </span>
+
+            <!-- Botão de Tema (Claro / Escuro / Solar Alto Contraste) -->
+            <button id="theme-toggle" class="menu-btn" aria-label="Alternar Tema" title="Alternar Tema (Claro / Escuro / Solar)">
                 <svg id="theme-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                 </svg>
@@ -45,12 +87,12 @@
             
             <!-- Informação do Usuário -->
             <div class="user-profile dropdown" style="position: relative; border-right: none;">
-                <div class="user-info-trigger" id="user-menu-btn" style="cursor: pointer; display: flex; align-items: center; gap: 16px;">
+                <div class="user-info-trigger" id="user-menu-btn" style="cursor: pointer; display: flex; align-items: center; gap: 12px;">
                     <span class="user-greeting">
                         {% if user.is_authenticated %}
-                            Olá, {{ user.username|default:"Usuário" }}
+                            {{ user.get_short_name|default:user.username }}
                         {% else %}
-                            Bem-vindo(a)
+                            Visitante
                         {% endif %}
                     </span>
                     <div class="user-avatar" style="cursor: pointer; transition: transform 0.2s;">
@@ -62,8 +104,8 @@
                 </div>
                 
                 <!-- Dropdown Menu -->
-                <div class="dropdown-menu" id="user-dropdown-menu" style="display: none; position: absolute; top: 50px; right: 0; background: var(--color-surface); border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 180px; z-index: 100; overflow: hidden;">
-                    <a href="{% url 'accounts:meu_perfil' %}" style="display: block; padding: 12px 16px; color: #212529; text-decoration: none; border-bottom: 1px solid var(--color-bg); font-weight: 500;">
+                <div class="dropdown-menu" id="user-dropdown-menu" style="display: none; position: absolute; top: 50px; right: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 180px; z-index: 100; overflow: hidden;">
+                    <a href="{% url 'accounts:meu_perfil' %}" style="display: block; padding: 12px 16px; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); font-weight: 500;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px; vertical-align: text-bottom;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> Perfil
                     </a>
                     <button id="btn-logout" style="width: 100%; text-align: left; background: none; border: none; padding: 12px 16px; color: #dc3545; cursor: pointer; font-size: 15px; font-weight: 500;">
@@ -125,6 +167,17 @@
                                 <span>Logística</span>
                             </a>
                         </li>
+                        {% if is_motorista or is_gerente %}
+                        <li class="nav-item">
+                            <a href="{% url 'logistica:app_campo' %}" class="nav-link {% if request.resolver_match.url_name == 'app_campo' %}active{% endif %}" title="Aplicativo de Campo PWA para Motoristas">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                                </svg>
+                                <span>App de Campo (PWA)</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         <li class="nav-item">
                             <a href="{% url 'produtos:index' %}" class="nav-link">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -132,10 +185,42 @@
                                     <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                                     <line x1="12" y1="22.08" x2="12" y2="12"></line>
                                 </svg>
-                                <span>Gases/Produtos</span>
+                                <span>Ativos 360° & Gases</span>
                             </a>
                         </li>
-                        {% if user.is_authenticated and user.tipo_usuario == 'ADMIN' or user.is_superuser %}
+                        <li class="nav-item">
+                            <a href="{% url 'produtos:recall_anvisa' %}" class="nav-link">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                    <path d="M9 12l2 2 4-4"></path>
+                                </svg>
+                                <span>Recall ANVISA</span>
+                            </a>
+                        </li>
+                        {% if is_gerente %}
+                        <li class="nav-item">
+                            <a href="{% url 'core:integracoes' %}" class="nav-link {% if request.resolver_match.url_name == 'integracoes' %}active{% endif %}">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="16 18 22 12 16 6"></polyline>
+                                    <polyline points="8 6 2 12 8 18"></polyline>
+                                </svg>
+                                <span>Integrações & ERP</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'core:perfil_regulatorio' %}" class="nav-link {% if request.resolver_match.url_name == 'perfil_regulatorio' %}active{% endif %}">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    <polyline points="10 9 9 9 8 9"></polyline>
+                                </svg>
+                                <span>Perfil Regulatório ANVISA</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if is_admin %}
                         <li class="nav-item">
                             <a href="{% url 'accounts:pessoal_index' %}" class="nav-link">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -161,10 +246,43 @@
         
     </div>
 
+    <!-- Modal Nativo da Barra de Comando Global (Ctrl+K / Cmd+K) -->
+    <dialog id="command-bar-dialog" class="command-bar-dialog">
+        <div class="command-bar-header">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="command-bar-input" class="command-bar-input" placeholder="Buscar por série, QR, lote químico, cliente ou placa de veículo..." autocomplete="off">
+            <span class="command-bar-close-badge" onclick="document.getElementById('command-bar-dialog').close()">Esc</span>
+        </div>
+        <div id="command-bar-results-container" class="command-bar-body">
+            <div class="command-bar-placeholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <p>Digite para pesquisar em toda a base da distribuidora.</p>
+                <div class="quick-tags">
+                    <span class="quick-tag" onclick="document.getElementById('command-bar-input').value='OG-'; document.getElementById('command-bar-input').dispatchEvent(new Event('input'))">Série: OG-</span>
+                    <span class="quick-tag" onclick="document.getElementById('command-bar-input').value='LT-'; document.getElementById('command-bar-input').dispatchEvent(new Event('input'))">Lote: LT-</span>
+                    <span class="quick-tag" onclick="document.getElementById('command-bar-input').value='BRA'; document.getElementById('command-bar-input').dispatchEvent(new Event('input'))">Placa: BRA</span>
+                </div>
+            </div>
+        </div>
+        <div class="command-bar-footer">
+            <div class="command-bar-hints">
+                <span class="command-bar-hint"><kbd>↑</kbd> <kbd>↓</kbd> Navegar</span>
+                <span class="command-bar-hint"><kbd>↵</kbd> Abrir</span>
+                <span class="command-bar-hint"><kbd>Esc</kbd> Fechar</span>
+            </div>
+            <span style="font-size: 11px; color: var(--color-text-muted);">GasManagementApp Command</span>
+        </div>
+    </dialog>
+
     {% block core_js %}
-        <!-- Biblioteca PDF -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <!-- Biblioteca PDF (Self-Hosted) -->
+        <script src="{% static 'vendor/html2pdf/html2pdf.bundle.min.js' %}"></script>
         <script src="{% static 'core/js/core.js' %}"></script>
+        <script src="{% static 'core/js/command_bar.js' %}"></script>
         {% block extra_js %}{% endblock %}
     {% endblock %}
 {% endblock %}

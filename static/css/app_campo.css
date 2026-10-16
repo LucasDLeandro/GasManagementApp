@@ -1,0 +1,466 @@
+/* ==============================================================================
+   GasApp - App de Campo PWA (Fase 4)
+   Design System Mobile-First: Ergonomia de Rua, Toque com Luvas e Modo Sol
+   ============================================================================== */
+
+:root {
+  --app-bg: #0f172a;
+  --app-surface: #1e293b;
+  --app-surface-hover: #334155;
+  --app-border: #334155;
+  --app-text: #f8fafc;
+  --app-text-muted: #94a3b8;
+  --app-primary: #0284c7;
+  --app-primary-hover: #0369a1;
+  --app-success: #10b981;
+  --app-warning: #f59e0b;
+  --app-danger: #ef4444;
+  --touch-min-size: 56px;
+  --border-radius: 12px;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Modo Sol: Máximo Contraste para Uso sob Sol Radiante (Direto em Rua) */
+[data-theme="high-contrast-sun"] {
+  --app-bg: #000000;
+  --app-surface: #121212;
+  --app-surface-hover: #1f1f1f;
+  --app-border: #ffd700;
+  --app-text: #ffffff;
+  --app-text-muted: #ffff77;
+  --app-primary: #ffd700;
+  --app-primary-hover: #ffea00;
+  --app-success: #00ff66;
+  --app-warning: #ffaa00;
+  --app-danger: #ff3333;
+}
+
+[data-theme="high-contrast-sun"] body {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="high-contrast-sun"] .card,
+[data-theme="high-contrast-sun"] .modal-sheet,
+[data-theme="high-contrast-sun"] .field-header,
+[data-theme="high-contrast-sun"] .status-banner-sticky {
+  background-color: #000000 !important;
+  border-color: #ffd700 !important;
+  border-width: 2px !important;
+  color: #ffffff !important;
+}
+
+[data-theme="high-contrast-sun"] .btn-touch {
+  border: 2px solid #ffffff !important;
+  font-weight: 900 !important;
+}
+
+[data-theme="high-contrast-sun"] .btn-touch-primary {
+  background-color: #ffd700 !important;
+  color: #000000 !important;
+}
+
+[data-theme="high-contrast-sun"] .btn-touch-success {
+  background-color: #00ff66 !important;
+  color: #000000 !important;
+}
+
+[data-theme="high-contrast-sun"] .btn-touch-danger {
+  background-color: #ff3333 !important;
+  color: #ffffff !important;
+}
+
+/* Base Mobile Reset */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  line-height: 1.5;
+  min-height: 100vh;
+  padding-bottom: 90px;
+}
+
+/* Ergonomia de Rua: Alvos de Toque Mínimos de 56px */
+.btn-touch {
+  min-height: var(--touch-min-size);
+  padding: 14px 20px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: var(--border-radius);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-decoration: none;
+  transition: transform 0.1s ease, filter 0.15s ease;
+  user-select: none;
+}
+
+.btn-touch:active {
+  transform: scale(0.97);
+}
+
+.btn-touch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-touch-primary {
+  background: var(--app-primary);
+  color: #ffffff;
+}
+
+.btn-touch-success {
+  background: var(--app-success);
+  color: #ffffff;
+}
+
+.btn-touch-warning {
+  background: var(--app-warning);
+  color: #000000;
+}
+
+.btn-touch-danger {
+  background: var(--app-danger);
+  color: #ffffff;
+}
+
+.btn-touch-outline {
+  background: transparent;
+  border: 2px solid var(--app-border);
+  color: var(--app-text);
+}
+
+.btn-touch-full {
+  width: 100%;
+}
+
+/* Inputs de Rua */
+.input-touch {
+  min-height: var(--touch-min-size);
+  padding: 12px 16px;
+  font-size: 18px;
+  font-weight: 600;
+  border-radius: var(--border-radius);
+  border: 2px solid var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.input-touch:focus {
+  border-color: var(--app-primary);
+}
+
+/* Banner Permanente de Status de Rede */
+.status-banner-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--app-surface);
+  border-bottom: 2px solid var(--app-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.status-network-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--app-success);
+}
+
+.status-dot.offline {
+  background: var(--app-warning);
+  animation: pulse-dot 1.5s infinite;
+}
+
+.status-dot.rejected {
+  background: var(--app-danger);
+  animation: pulse-dot 0.8s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.2); }
+}
+
+/* Header do App de Campo */
+.field-header {
+  padding: 16px;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.field-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.field-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--app-text);
+}
+
+/* Card de Lotação ANTT */
+.load-summary-card {
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+  border-radius: var(--border-radius);
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.load-bar-wrapper {
+  height: 12px;
+  background: var(--app-surface);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+  border: 1px solid var(--app-border);
+}
+
+.load-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* Container de Paradas (Clientes) */
+.stops-container {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stop-card {
+  background: var(--app-surface);
+  border: 2px solid var(--app-border);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  position: relative;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stop-card.active {
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.3);
+}
+
+.stop-card.completed {
+  border-color: var(--app-success);
+  opacity: 0.85;
+}
+
+.stop-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.stop-order-badge {
+  background: var(--app-primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stop-comodato-badge {
+  background: #0284c722;
+  border: 1px solid var(--app-primary);
+  color: var(--app-text);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Abas de Operação da Parada: Entregar vs. Recolher */
+.operation-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.tab-touch-btn {
+  min-height: 52px;
+  background: var(--app-surface);
+  border: 2px solid var(--app-border);
+  border-radius: var(--border-radius);
+  color: var(--app-text-muted);
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tab-touch-btn.active.tab-deliver {
+  background: #10b98122;
+  border-color: var(--app-success);
+  color: var(--app-success);
+}
+
+.tab-touch-btn.active.tab-collect {
+  background: #f59e0b22;
+  border-color: var(--app-warning);
+  color: var(--app-warning);
+}
+
+/* Bipagem e Lista de Cilindros */
+.bip-input-box {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cylinder-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.cylinder-item.divergent {
+  border-left: 5px solid var(--app-warning);
+  background: #f59e0b11;
+}
+
+.cylinder-item.blocked {
+  border-left: 5px solid var(--app-danger);
+  background: #ef444411;
+}
+
+/* Canvas de Assinatura Touch */
+.signature-box {
+  background: #ffffff;
+  border: 3px solid var(--app-border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  margin: 12px 0;
+  position: relative;
+}
+
+.signature-canvas {
+  width: 100%;
+  height: 220px;
+  display: block;
+  touch-action: none;
+  overscroll-behavior: contain;
+  background: #ffffff;
+  cursor: crosshair;
+}
+
+/* Modal Bottom-Sheet */
+.modal-sheet-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.modal-sheet-overlay.active {
+  display: flex;
+}
+
+.modal-sheet {
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--app-surface);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  padding: 24px 20px;
+  border: 2px solid var(--app-border);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  animation: slide-up 0.25s ease-out;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Barra de Navegação Inferior */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: var(--app-surface);
+  border-top: 2px solid var(--app-border);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 12px;
+  z-index: 1000;
+}
+
+.bottom-nav-btn {
+  flex: 1;
+  min-height: 48px;
+  background: transparent;
+  border: none;
+  color: var(--app-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.bottom-nav-btn.active {
+  color: var(--app-primary);
+}

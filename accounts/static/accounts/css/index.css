@@ -1,79 +1,356 @@
+/* ==============================================================================
+   ACCOUNTS / GESTÃO DE PESSOAL & MEU PERFIL - DESIGN SYSTEM
+   Compatível com Light, Dark e High-Contrast Sun Mode
+   ============================================================================== */
+
 .accounts-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
 }
 
-.btn-primary {
-    background-color: var(--color-primary);
-    color: var(--color-surface);
-    border: none;
-    padding: 10px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-}
-.btn-primary:hover { background-color: var(--color-primary-dark); }
-
-.btn-secondary {
-    background-color: var(--color-border);
+.accounts-header h2 {
+    font-size: 24px;
+    font-weight: 700;
     color: var(--color-text);
-    border: none;
-    padding: 10px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
+    margin: 0;
 }
 
-/* Modals */
+/* ---- Modais ---- */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background-color: var(--modal-overlay);
+    background-color: var(--modal-overlay, rgba(15, 23, 42, 0.75));
     display: none;
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    backdrop-filter: blur(4px);
+    padding: 20px;
+    box-sizing: border-box;
 }
+
 .modal-overlay.active { display: flex; }
+
 .modal-content {
-    background: var(--color-surface);
-    padding: 24px;
-    border-radius: 8px;
+    background: var(--color-surface, #1e293b);
+    border: 1px solid var(--color-border, #334155);
+    padding: 28px;
+    border-radius: 14px;
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+    color: var(--color-text);
 }
+
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 12px;
 }
-.modal-header h3 { margin: 0; font-size: 1.25rem; }
-.close-modal { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
 
-h4 {
-    margin: 10px 0 16px 0;
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
     color: var(--color-text);
-    font-size: 1.1rem;
 }
 
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: color 0.15s;
+    line-height: 1;
+}
+
+.close-modal:hover { color: var(--color-text); }
+
+/* ---- Formulários ---- */
 .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
 }
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group label { font-size: 0.875rem; font-weight: 500; }
-.form-group input, .form-group select { padding: 8px; border: 1px solid var(--color-border); border-radius: 6px; }
 
-.form-actions { margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; }
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
 
-.table-container { background: var(--color-surface); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-table { width: 100%; border-collapse: collapse; text-align: left; }
-th, td { padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
-th { background-color: var(--color-hover); font-size: 0.875rem; color: var(--color-text-muted); }
-.badge { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: var(--color-border); color: var(--color-text); }
-.badge-admin { background-color: #fee2e2; color: #b91c1c; }
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 10px 12px;
+    border: 1px solid var(--color-border, #334155);
+    border-radius: 8px;
+    background-color: var(--color-bg, #0f172a);
+    color: var(--color-text, #f8fafc);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.2s;
+    min-height: 40px;
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--color-primary, #0284c7);
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25);
+}
+
+.form-group input[type="file"] {
+    padding: 7px;
+    cursor: pointer;
+}
+
+.form-actions {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid var(--color-border);
+    padding-top: 16px;
+}
+
+/* ---- Tabela de Pessoal ---- */
+.table-container {
+    background: var(--color-surface, #1e293b);
+    border: 1px solid var(--color-border, #334155);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+}
+
+th, td {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--color-border, #334155);
+}
+
+th {
+    background-color: var(--color-hover, #0f172a);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted, #94a3b8);
+}
+
+tr:hover td {
+    background-color: var(--color-hover, rgba(255, 255, 255, 0.02));
+}
+
+/* ---- Badges de Papel (RBAC) ---- */
+.badge-role {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.badge-role-admin {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-role-gerente {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.badge-role-rt {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-role-operador {
+    background: rgba(2, 132, 199, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(2, 132, 199, 0.3);
+}
+
+.badge-role-motorista {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-role-vendedor {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* ---- Meu Perfil Card ---- */
+.profile-card {
+    max-width: 820px;
+    background: var(--color-surface, #1e293b);
+    border: 1px solid var(--color-border, #334155);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.profile-card-header {
+    background-color: var(--color-hover, #0f172a);
+    padding: 32px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    border-bottom: 1px solid var(--color-border, #334155);
+    flex-wrap: wrap;
+}
+
+.profile-card-avatar {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-primary, #0284c7), #38bdf8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 32px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+}
+
+.profile-card-name {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text, #f8fafc);
+}
+
+.profile-card-sub {
+    margin: 6px 0 0 0;
+    color: var(--color-text-muted, #94a3b8);
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.profile-card-body {
+    padding: 32px;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+}
+
+.profile-section-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-primary, #38bdf8);
+    margin: 0 0 16px 0;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 8px;
+}
+
+.profile-field {
+    margin-bottom: 14px;
+}
+
+.profile-field-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.profile-field-val {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-text, #f8fafc);
+}
+
+/* Crachá Modal */
+.badge-modal-banner {
+    background: linear-gradient(135deg, var(--color-primary, #0284c7), #0369a1);
+    color: #ffffff;
+    padding: 28px 24px 22px;
+    text-align: center;
+    position: relative;
+    border-radius: 12px 12px 0 0;
+}
+
+.badge-modal-avatar-frame {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: var(--color-surface, #1e293b);
+    margin: 0 auto 12px;
+    overflow: hidden;
+    border: 3px solid rgba(255, 255, 255, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Modo Alto Contraste Solar */
+[data-theme="high-contrast-sun"] .profile-card,
+[data-theme="high-contrast-sun"] .modal-content,
+[data-theme="high-contrast-sun"] .table-container {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+}
+
+[data-theme="high-contrast-sun"] .form-group input,
+[data-theme="high-contrast-sun"] .form-group select {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+}
+
+[data-theme="high-contrast-sun"] th {
+    background: #000000 !important;
+    color: #ffffff !important;
+}

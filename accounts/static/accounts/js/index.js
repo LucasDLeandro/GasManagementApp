@@ -77,7 +77,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 if(data.length === 0) return tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Nenhum funcionário encontrado.</td></tr>';
                 
                 data.forEach(user => {
-                    const badgeClass = user.tipo_usuario === 'ADMIN' ? 'badge-admin' : '';
+                    const userPapel = user.papel || user.tipo_usuario || 'VENDEDOR';
+                    const papelMap = {
+                        'ADMIN': { label: 'Administrador', cls: 'badge-role-admin' },
+                        'GERENTE': { label: 'Gerente', cls: 'badge-role-gerente' },
+                        'RESPONSAVEL_TECNICO': { label: 'Resp. Técnico', cls: 'badge-role-rt' },
+                        'OPERADOR_PATIO': { label: 'Op. Pátio', cls: 'badge-role-operador' },
+                        'MOTORISTA': { label: 'Motorista', cls: 'badge-role-motorista' },
+                        'VENDEDOR': { label: 'Vendedor', cls: 'badge-role-vendedor' }
+                    };
+                    const papelInfo = papelMap[userPapel] || { label: userPapel, cls: 'badge-role-vendedor' };
                     let cargo = '-';
                     let admissao = '-';
                     if(user.userprofile && user.userprofile.dadostrabalhistas) {
@@ -91,13 +100,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         <tr>
                             <td>
                                 <strong>${nomeCompleto}</strong><br>
-                                <small style="color:var(--color-text-muted)">@${user.username} | ${user.email}</small>
+                                <small style="color:var(--color-text-muted)">@${user.username} | ${user.email || 'Sem e-mail'}</small>
                             </td>
                             <td>${cargo}</td>
-                            <td><span class="badge ${badgeClass}">${user.tipo_usuario}</span></td>
+                            <td><span class="badge-role ${papelInfo.cls}">${papelInfo.label}</span></td>
                             <td>${admissao}</td>
-                            <td>
-                                <button class="btn-primary" style="padding:4px 8px; font-size:12px; background:var(--color-text-muted);" onclick="abrirDetalhesFuncionario(${user.id})">Perfil Completo</button>
+                            <td style="text-align: right;">
+                                <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="abrirDetalhesFuncionario(${user.id})">Ver Perfil</button>
                             </td>
                         </tr>
                     `;
@@ -163,8 +172,23 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 document.getElementById('det-func-user').textContent = data.username || '-';
                 document.getElementById('det-func-email').textContent = data.email || '-';
-                document.getElementById('det-func-role').textContent = data.tipo_usuario || '-';
-                document.getElementById('det-func-nome').textContent = `${data.first_name} ${data.last_name}`.trim() || '-';
+                
+                const papelMap = {
+                    'ADMIN': { label: 'Administrador', cls: 'badge-role-admin' },
+                    'GERENTE': { label: 'Gerente', cls: 'badge-role-gerente' },
+                    'RESPONSAVEL_TECNICO': { label: 'Resp. Técnico', cls: 'badge-role-rt' },
+                    'OPERADOR_PATIO': { label: 'Op. Pátio', cls: 'badge-role-operador' },
+                    'MOTORISTA': { label: 'Motorista', cls: 'badge-role-motorista' },
+                    'VENDEDOR': { label: 'Vendedor', cls: 'badge-role-vendedor' }
+                };
+                const userPapel = data.papel || data.tipo_usuario || 'VENDEDOR';
+                const papelInfo = papelMap[userPapel] || { label: userPapel, cls: 'badge-role-vendedor' };
+                const roleEl = document.getElementById('det-func-role');
+                if (roleEl) {
+                    roleEl.textContent = papelInfo.label;
+                    roleEl.className = 'badge-role ' + papelInfo.cls;
+                }
+                document.getElementById('det-func-nome').textContent = `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.username || '-';
                 
                 let cpf = '-', rg = '-', nasc = '-', tel = '-';
                 let mat = '-', cargo = '-', lot = '-', emp = '-', sal = '-', adm = '-';

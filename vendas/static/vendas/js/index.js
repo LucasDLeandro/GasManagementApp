@@ -84,66 +84,136 @@ document.addEventListener('DOMContentLoaded', function() {
                     listaTop.innerHTML = '<li style="font-size: 0.9rem; color: var(--color-text-muted);">Nenhum dado.</li>';
                 }
 
-                // Render Chart 1 (Evolução)
-                const ctx = document.getElementById('vendasChart').getContext('2d');
-                const labels = data.grafico.map(item => item.dia);
-                const values = data.grafico.map(item => item.total);
+                // Render Chart 1 (Evolução via ApexCharts)
+                const vendasContainer = document.getElementById('vendasChart');
+                if (vendasContainer && typeof ApexCharts !== 'undefined') {
+                    const labels = data.grafico.map(item => item.dia);
+                    const values = data.grafico.map(item => parseFloat(item.total) || 0);
 
-                if (vendasChartInstance) {
-                    vendasChartInstance.destroy();
-                }
-                
-                let gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-                gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
-
-                vendasChartInstance = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Faturamento (R$)',
-                            data: values,
-                            borderColor: '#3b82f6',
-                            backgroundColor: gradient,
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#3b82f6',
-                            pointBorderWidth: 2,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false }
-                });
-
-                // Render Chart 2 (Categoria)
-                const ctxCat = document.getElementById('categoriaChart').getContext('2d');
-                if (categoriaChartInstance) categoriaChartInstance.destroy();
-
-                const catLabels = data.vendas_por_categoria.map(c => c.categoria);
-                const catValues = data.vendas_por_categoria.map(c => c.total_vendido);
-
-                categoriaChartInstance = new Chart(ctxCat, {
-                    type: 'doughnut',
-                    data: {
-                        labels: catLabels,
-                        datasets: [{
-                            data: catValues,
-                            backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'bottom' }
-                        },
-                        cutout: '70%'
+                    if (vendasChartInstance) {
+                        try { vendasChartInstance.destroy(); } catch (e) {}
                     }
-                });
+
+                    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                    const isHighContrast = document.documentElement.getAttribute('data-theme') === 'high-contrast-sun';
+
+                    const optionsVendas = {
+                        chart: {
+                            type: 'area',
+                            height: 260,
+                            toolbar: { show: false },
+                            background: 'transparent',
+                            fontFamily: 'Inter, sans-serif'
+                        },
+                        theme: {
+                            mode: isDark ? 'dark' : 'light'
+                        },
+                        colors: [isHighContrast ? '#0284c7' : '#38bdf8'],
+                        series: [{
+                            name: 'Faturamento',
+                            data: values
+                        }],
+                        xaxis: {
+                            categories: labels,
+                            labels: {
+                                style: {
+                                    colors: isDark ? '#94a3b8' : '#64748b',
+                                    fontSize: '11px'
+                                }
+                            },
+                            axisBorder: { show: false },
+                            axisTicks: { show: false }
+                        },
+                        yaxis: {
+                            labels: {
+                                formatter: val => 'R$ ' + (val >= 1000 ? (val/1000).toFixed(1) + 'k' : val.toFixed(0)),
+                                style: {
+                                    colors: isDark ? '#94a3b8' : '#64748b',
+                                    fontSize: '11px'
+                                }
+                            }
+                        },
+                        stroke: {
+                            curve: 'smooth',
+                            width: 2.5
+                        },
+                        fill: {
+                            type: 'gradient',
+                            gradient: {
+                                shadeIntensity: 1,
+                                opacityFrom: 0.45,
+                                opacityTo: 0.05,
+                                stops: [0, 90, 100]
+                            }
+                        },
+                        dataLabels: { enabled: false },
+                        tooltip: {
+                            y: {
+                                formatter: val => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
+                            }
+                        },
+                        grid: {
+                            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                            strokeDashArray: 4
+                        }
+                    };
+
+                    vendasChartInstance = new ApexCharts(vendasContainer, optionsVendas);
+                    vendasChartInstance.render();
+                }
+
+                // Render Chart 2 (Categoria via ApexCharts Donut)
+                const catContainer = document.getElementById('categoriaChart');
+                if (catContainer && typeof ApexCharts !== 'undefined') {
+                    if (categoriaChartInstance) {
+                        try { categoriaChartInstance.destroy(); } catch (e) {}
+                    }
+
+                    const catLabels = data.vendas_por_categoria.map(c => c.categoria || 'Gás');
+                    const catValues = data.vendas_por_categoria.map(c => parseFloat(c.total_vendido) || 0);
+
+                    const optionsCat = {
+                        chart: {
+                            type: 'donut',
+                            height: 260,
+                            background: 'transparent',
+                            fontFamily: 'Inter, sans-serif'
+                        },
+                        series: catValues.length ? catValues : [1],
+                        labels: catLabels.length ? catLabels : ['Sem dados'],
+                        colors: ['#10b981', '#38bdf8', '#f59e0b', '#a855f7', '#ec4899'],
+                        legend: {
+                            position: 'bottom',
+                            fontSize: '12px',
+                            labels: {
+                                colors: document.documentElement.getAttribute('data-theme') === 'dark' ? '#cbd5e1' : '#475569'
+                            }
+                        },
+                        plotOptions: {
+                            pie: {
+                                donut: {
+                                    size: '70%',
+                                    labels: {
+                                        show: true,
+                                        total: {
+                                            show: true,
+                                            label: 'Total',
+                                            formatter: w => {
+                                                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(total);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        dataLabels: { enabled: false },
+                        stroke: { width: 0 }
+                    };
+
+                    categoriaChartInstance = new ApexCharts(catContainer, optionsCat);
+                    categoriaChartInstance.render();
+                }
             });
     }
 

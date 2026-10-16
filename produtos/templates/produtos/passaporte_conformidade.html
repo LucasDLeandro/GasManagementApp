@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Passaporte Sanitário - {{ cilindro.numero_serie_ogiva|default:codigo_qr }}{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'core/css/home.css' %}">
+<link rel="stylesheet" href="{% static 'produtos/css/passaporte.css' %}">
+{% endblock %}
+
+{% block body_class %}passport-page{% endblock %}
+
+{% block content %}
+<div class="passport-container">
+    <div class="passport-nav-bar">
+        <a href="{% url 'produtos:index' %}" class="passport-nav-link" id="link-voltar-console">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            Console Operacional
+        </a>
+        <button onclick="window.print()" class="passport-btn-print" id="btn-imprimir-passaporte">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Imprimir Certificado
+        </button>
+    </div>
+
+    {% if cilindro %}
+    <div class="passport-card">
+        <!-- Cabeçalho do Passaporte -->
+        <div class="passport-header">
+            <div>
+                <h1 class="passport-header-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    Passaporte de Conformidade Regulatória & Sanitária
+                </h1>
+                <p class="passport-header-sub">Certificação digital normativa de integridade mecânica (INMETRO) e controle farmacêutico (ANVISA).</p>
+            </div>
+            <div>
+                <span class="passport-qr-badge" id="passport-codigo-qr-badge">QR: {{ cilindro.codigo_qr }}</span>
+            </div>
+        </div>
+
+        <div class="passport-body">
+            <!-- 1. Banner de Status Sanitário em Destaque -->
+            {% if is_apto %}
+            <div class="sanitary-banner sanitary-banner-apto" id="sanitary-banner-apto">
+                <svg class="sanitary-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <div>
+                    <h2 class="sanitary-title">APTO PARA USO</h2>
+                    <p class="sanitary-desc">Ativo com integridade mecânica aprovada, ensaio hidrostático vigente e carga em conformidade com as normas sanitárias vigentes (ANVISA/INMETRO).</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="sanitary-banner sanitary-banner-bloqueado" id="sanitary-banner-bloqueado">
+                <svg class="sanitary-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <div>
+                    <h2 class="sanitary-title">BLOQUEADO / EM RECALL — NÃO UTILIZAR</h2>
+                    <p class="sanitary-desc">Este cilindro apresenta desvios ou quarentena sanitária ativa e não está habilitado para uso ou administração hospitalar.</p>
+                    <ul class="sanitary-reasons-list">
+                        {% for motivo in motivos_bloqueio %}
+                        <li>{{ motivo }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 2. Dados da Distribuidora / Envasadora e Licenciamento ANVISA -->
+            <div class="company-card">
+                <div>
+                    <h3 class="company-title">{{ cilindro.tenant.razao_social|default:cilindro.tenant.nome_fantasia }}</h3>
+                    <p class="company-meta">CNPJ: {{ cilindro.tenant.cnpj }} | Modo: {{ perfil_reg.get_modo_operacao_display|default:"Envasadora/Distribuidora" }}</p>
+                </div>
+                <div class="company-badges">
+                    {% if perfil_reg.afe_numero %}
+                    <span class="regulatory-badge regulatory-badge-success" title="Autorização de Funcionamento ANVISA">
+                        AFE: {{ perfil_reg.afe_numero }}
+                    </span>
+                    {% endif %}
+                    {% if perfil_reg.licenca_sanitaria_numero %}
+                    <span class="regulatory-badge regulatory-badge-success" title="Licença Sanitária Estadual / Municipal">
+                        VISA: {{ perfil_reg.licenca_sanitaria_numero }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 3. Ficha Técnica Patrimonial do Casco & Gás Dedicado -->
+            <h3 class="section-heading">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                Ficha Técnica Estrutural do Casco
+            </h3>
+            <div class="specs-grid">
+                <div class="spec-box">
+                    <span class="spec-label">Série da Ogiva</span>
+                    <span class="spec-value spec-value-mono" id="passport-serie-ogiva">{{ cilindro.numero_serie_ogiva }}</span>
+                </div>
+                <div class="spec-box">
+                    <span class="spec-label">Gás Dedicado (ABNT NBR 12176)</span>
+                    <div class="spec-value gas-ogiva-flex">
+                        <span class="ogiva-svg-dot" style="background-color: {{ cor_ogiva_hex }};"></span>
+                        <span>{{ cilindro.gas_dedicado.nome }} ({{ cilindro.gas_dedicado.sigla }})</span>
+                    </div>
+                </div>
+                <div class="spec-box">
+                    <span class="spec-label">Modelo / Volume</span>
+                    <span class="spec-value">{{ cilindro.modelo.descricao }} ({{ cilindro.modelo.volume_hidraulico_litros }} L)</span>
+                </div>
+                <div class="spec-box">
+                    <span class="spec-label">Pressão de Serviço</span>
+                    <span class="spec-value">{{ cilindro.modelo.pressao_servico_bar }} bar</span>
+                </div>
+                <div class="spec-box">
+                    <span class="spec-label">Tara Real Aferida</span>
+                    <span class="spec-value">{{ cilindro.tara_real_kg|default:"N/A" }} kg</span>
+                </div>
+                <div class="spec-box">
+                    <span class="spec-label">Validade Hidrostática (INMETRO)</span>
+                    <span class="spec-value {% if cilindro.reteste_vencido %}text-danger{% endif %}">
+                        {{ cilindro.data_proximo_reteste|date:"d/m/Y"|default:"N/D" }}
+                        {% if cilindro.reteste_vencido %}(VENCIDO){% else %}(EM DIA){% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- 4. Rastreabilidade da Carga Ativa / Lote Sanitário & RT -->
+            {% if tem_carga %}
+            <h3 class="section-heading">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                Rastreabilidade Farmacêutica do Conteúdo Envasado
+            </h3>
+            <div class="charge-box">
+                <div class="charge-header">
+                    <div>
+                        {% if lote_ativo %}
+                        <h4 class="charge-lote-title">Lote: <span class="spec-value-mono">{{ lote_ativo.codigo_lote }}</span></h4>
+                        {% elif rec_ativo %}
+                        <h4 class="charge-lote-title">Lote do Fornecedor: <span class="spec-value-mono">{{ rec_ativo.lote_fornecedor }}</span></h4>
+                        {% endif %}
+                    </div>
+                    {% if tem_laudo_pdf %}
+                    <div>
+                        <a href="{{ laudo_download_url }}" target="_blank" class="btn-download-laudo" id="btn-download-laudo">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="12" y2="18"></line><line x1="15" y1="15" x2="12" y2="18"></line></svg>
+                            Baixar Laudo Analítico (PDF)
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="charge-details-grid">
+                    <div>
+                        <span class="charge-item-label">Data de Envase</span>
+                        <span class="charge-item-val">
+                            {% if lote_ativo %}{{ cilindro.envase_atual.envasado_em|date:"d/m/Y H:i" }}{% elif rec_ativo %}{{ rec_ativo.recebido_em|date:"d/m/Y" }}{% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="charge-item-label">Prazo de Validade</span>
+                        <span class="charge-item-val">
+                            {% if lote_ativo %}{{ lote_ativo.data_validade|date:"d/m/Y" }}{% elif rec_ativo %}{{ rec_ativo.data_validade|date:"d/m/Y"|default:"N/D" }}{% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="charge-item-label">Responsável Técnico (RT)</span>
+                        <span class="charge-item-val" id="passport-rt-info">
+                            {% if rt_ativo %}
+                                {{ rt_ativo.nome_completo }} ({{ rt_ativo.conselho_classe }}-{{ rt_ativo.uf_conselho }} {{ rt_ativo.numero_registro }})
+                            {% elif rec_ativo.rt_nome_snapshot %}
+                                {{ rec_ativo.rt_nome_snapshot }} ({{ rec_ativo.rt_registro_snapshot }})
+                            {% else %}
+                                Homologado na Garantia da Qualidade
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="charge-box">
+                <span class="charge-item-label">Conteúdo</span>
+                <span class="charge-item-val">Cilindro Despressurizado / Vazio para Triagem (Aguardando Inspeção Pré-Envase conforme IN 129/2022).</span>
+            </div>
+            {% endif %}
+
+            <!-- 5. Trilha Técnica Sanitária (Auditada e sem vazamento de dados de outros clientes) -->
+            <h3 class="section-heading">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                Ciclo Técnico Recente no Pátio
+            </h3>
+            <div class="timeline-technical">
+                {% for mov in movimentacoes_sanitarias %}
+                <div class="timeline-entry">
+                    <div class="timeline-dot"></div>
+                    <p class="timeline-entry-title">{{ mov.get_tipo_display }} &bull; {{ mov.status_anterior }} &rarr; {{ mov.status_novo }}</p>
+                    <p class="timeline-entry-meta">Registrado em {{ mov.ocorrido_em|date:"d/m/Y H:i" }}</p>
+                </div>
+                {% empty %}
+                <p class="timeline-entry-meta">Nenhum evento registrado recentemente.</p>
+                {% endfor %}
+            </div>
+
+            <!-- 6. Selo Canônico de Autenticidade Digital (SHA-256) -->
+            <div class="audit-seal-box">
+                <div class="seal-icon-wrapper">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <span class="spec-label">Selo Canônico de Autenticidade (SHA-256)</span>
+                    <span class="seal-hash-text" id="hash-autenticidade">{{ hash_autenticidade }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="passport-card passport-card-empty">
+        <h2 class="passport-error-title">Cilindro Não Localizado</h2>
+        <p class="passport-error-desc">Nenhum vaso de pressão foi encontrado para o identificador <strong>{{ codigo_qr }}</strong>.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

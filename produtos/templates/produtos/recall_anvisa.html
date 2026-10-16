@@ -1,0 +1,1211 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Rastreabilidade Medicinal & Recall ANVISA - GasManagementApp{% endblock %}
+
+{% block extra_css %}
+<style>
+    .recall-container {
+        padding-bottom: 40px;
+    }
+
+    .recall-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .recall-header h2 {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--color-text, #0f172a);
+        margin: 0 0 6px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .recall-header p {
+        color: var(--color-text-muted, #64748b);
+        margin: 0;
+        font-size: 14px;
+    }
+
+    .badge-anvisa {
+        background: linear-gradient(135deg, #0284c7, #0369a1);
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    /* Card de Busca */
+    .search-lote-card {
+        background: var(--color-surface, #ffffff);
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .search-lote-form {
+        display: flex;
+        gap: 15px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .search-field-group {
+        flex: 1;
+        min-width: 280px;
+    }
+
+    .search-field-group label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--color-text, #1e293b);
+        margin-bottom: 6px;
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--color-border, #cbd5e1);
+        border-radius: 8px;
+        font-size: 14px;
+        background: var(--color-bg, #ffffff);
+        color: var(--color-text, #0f172a);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: #0284c7;
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    }
+
+    .btn-search {
+        background: #0284c7;
+        color: #ffffff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.2s;
+    }
+
+    .btn-search:hover {
+        background: #0369a1;
+    }
+
+    .lotes-rapidos {
+        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--color-text-muted, #64748b);
+    }
+
+    .lote-pill {
+        background: rgba(2, 132, 199, 0.1);
+        color: #0284c7;
+        padding: 3px 10px;
+        border-radius: 14px;
+        cursor: pointer;
+        font-weight: 600;
+        border: 1px solid rgba(2, 132, 199, 0.2);
+        transition: all 0.2s;
+    }
+
+    .lote-pill:hover {
+        background: #0284c7;
+        color: #ffffff;
+    }
+
+    /* Banner de Alerta Crítico de Recall */
+    .alert-recall-banner {
+        display: none;
+        background: #fef2f2;
+        border-left: 5px solid #ef4444;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 25px;
+        color: #991b1b;
+        box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);
+    }
+
+    .alert-recall-banner h4 {
+        margin: 0 0 6px 0;
+        font-size: 16px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .alert-recall-banner p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    /* Cards de Informações Técnicas e KPIs */
+    .lote-info-grid {
+        display: none;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 25px;
+    }
+
+    .lote-stat-card {
+        background: var(--color-surface, #ffffff);
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .lote-stat-card .stat-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--color-text-muted, #64748b);
+        display: block;
+        margin-bottom: 6px;
+    }
+
+    .lote-stat-card .stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--color-text, #0f172a);
+        margin: 0;
+    }
+
+    .lote-stat-card .stat-sub {
+        font-size: 11px;
+        color: var(--color-text-muted, #94a3b8);
+        margin-top: 4px;
+        display: block;
+    }
+
+    .text-danger { color: #dc2626 !important; }
+    .text-success { color: #16a34a !important; }
+    .text-warning { color: #d97706 !important; }
+
+    /* Barra de Ações de Recall */
+    .actions-bar {
+        display: none;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .actions-left {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .btn-export-csv {
+        background: #16a34a;
+        color: #ffffff;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.2s;
+    }
+
+    .btn-export-csv:hover { background: #15803d; }
+
+    .btn-print {
+        background: #475569;
+        color: #ffffff;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.2s;
+    }
+
+    .btn-print:hover { background: #334155; }
+
+    /* Tabela de Cilindros */
+    .recall-table-card {
+        display: none;
+        background: var(--color-surface, #ffffff);
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .recall-table-container {
+        overflow-x: auto;
+        margin-top: 15px;
+    }
+
+    .recall-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        text-align: left;
+    }
+
+    .recall-table th {
+        background: var(--color-bg, #f8fafc);
+        color: var(--color-text-muted, #64748b);
+        font-weight: 600;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--color-border, #e2e8f0);
+    }
+
+    .recall-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--color-border, #f1f5f9);
+        color: var(--color-text, #1e293b);
+    }
+
+    .badge-local-cliente {
+        background: #fee2e2;
+        color: #991b1b;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+    }
+
+    .badge-local-patio {
+        background: #dcfce7;
+        color: #166534;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+    }
+
+    .badge-local-rota {
+        background: #fef3c7;
+        color: #92400e;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+    }
+
+    /* Print Stylesheet para Dossiê Oficial ANVISA */
+    @media print {
+        header.top-navbar, aside.sidebar, .search-lote-card, .actions-bar, #theme-toggle, .btn-search {
+            display: none !important;
+        }
+        .dashboard-layout { display: block !important; }
+        .main-content { margin: 0 !important; padding: 0 !important; }
+        body { background: #ffffff !important; color: #000000 !important; }
+        .alert-recall-banner, .lote-info-grid, .recall-table-card {
+            display: block !important;
+            box-shadow: none !important;
+            border: 1px solid #000000 !important;
+        }
+        .recall-header h2::after {
+            content: " - DOSSIÊ DE RECOLHIMENTO SANITÁRIO (RECALL)";
+            font-size: 16px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="recall-container">
+    <!-- Header -->
+    <div class="recall-header">
+        <div>
+            <h2>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    <path d="M9 12l2 2 4-4"></path>
+                </svg>
+                Rastreabilidade Medicinal & Recall ANVISA
+                <span class="badge-anvisa">RDC nº 658/2022, IN nº 129/2022, RDC nº 870/2024, RDC nº 887/2024 (ANVISA) e Resolução CFF nº 731/2022</span>
+            </h2>
+            <p>Auditoria perpétua de lotes de envase farmacêuticos e emissão imediata de ordem de recolhimento em 1 clique.</p>
+        </div>
+    </div>
+
+    <!-- Card de Busca de Lote -->
+    <div class="search-lote-card">
+        <form class="search-lote-form" id="form-busca-lote" onsubmit="event.preventDefault(); buscarLote();">
+            <div class="search-field-group">
+                <label for="input-codigo-lote">Código do Lote de Envase Farmacêutico</label>
+                <div class="search-input-wrapper">
+                    <input type="text" id="input-codigo-lote" class="search-input" 
+                           placeholder="Ex: LOTE-O2-2026-01, LOTE-O2-2025-99..." 
+                           list="lista-lotes-sugestoes" required autofocus>
+                    <datalist id="lista-lotes-sugestoes"></datalist>
+                </div>
+            </div>
+            <button type="submit" class="btn-search" id="btn-rastrear">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                Localizar Lote & Rastrear
+            </button>
+        </form>
+
+        <div class="lotes-rapidos">
+            <span>Lotes no Sistema:</span>
+            <div id="pills-lotes-container" style="display: inline-flex; gap: 6px; flex-wrap: wrap;">
+                <span style="color: #94a3b8;">Carregando lotes...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Banner de Alerta Crítico de Recall -->
+    <div class="alert-recall-banner" id="banner-recall">
+        <h4>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            ALERTA SANITÁRIO ANVISA: RECOLHIMENTO IMEDIATO RECOMENDADO
+        </h4>
+        <p id="banner-recall-texto">
+            Foram detectados cilindros deste lote químico atualmente em posse externa de clientes ou hospitais. 
+            Acione imediatamente o plano de Recall, notifique a Vigilância Sanitária e proceda com o recolhimento bilateral dos ativos listados abaixo.
+        </p>
+    </div>
+
+    <!-- Grid de Métricas Técnicas do Lote -->
+    <div class="lote-info-grid" id="grid-metricas">
+        <div class="lote-stat-card">
+            <span class="stat-label">Gás & Pureza Aferida</span>
+            <h3 class="stat-value" id="card-gas">-</h3>
+            <span class="stat-sub" id="card-pureza">Pureza: -</span>
+        </div>
+
+        <div class="lote-stat-card">
+            <span class="stat-label">Controle de Qualidade (CQ/RT)</span>
+            <h3 class="stat-value" id="card-qualidade" style="font-size: 16px;">-</h3>
+            <span class="stat-sub" id="card-sub-qualidade">Status de Liberação</span>
+        </div>
+
+        <div class="lote-stat-card">
+            <span class="stat-label">Validade Regulamentar</span>
+            <h3 class="stat-value" id="card-validade">-</h3>
+            <span class="stat-sub" id="card-status-validade">Status sanitário</span>
+        </div>
+
+        <div class="lote-stat-card">
+            <span class="stat-label">Contenção Ativa (Clientes)</span>
+            <h3 class="stat-value text-danger" id="card-em-clientes">0</h3>
+            <span class="stat-sub">Cilindros com carga a recolher</span>
+        </div>
+
+        <div class="lote-stat-card">
+            <span class="stat-label">Exposição Histórica</span>
+            <h3 class="stat-value" id="card-exposicao-total">0</h3>
+            <span class="stat-sub" id="card-clientes-expostos">0 hospitais atendidos no Ledger</span>
+        </div>
+
+        <div class="lote-stat-card">
+            <span class="stat-label">Responsável Técnico</span>
+            <h3 class="stat-value" style="font-size: 15px;" id="card-rt">-</h3>
+            <span class="stat-sub">Homologador do Laudo</span>
+        </div>
+    </div>
+
+    <!-- Barra de Ações -->
+    <div class="actions-bar" id="bar-acoes">
+        <div class="actions-left">
+            <button class="btn-export-csv" id="btn-export-csv" onclick="exportarCSV();">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Exportar Dossiê de Rastreabilidade e Recall (CSV Completo)
+            </button>
+
+            <button class="btn-print" onclick="window.print();">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                    <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+                Imprimir Dossiê Físico
+            </button>
+
+            <button class="btn-search" style="background: #dc2626;" onclick="abrirModalRecall();">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                Abrir Campanha Formal de Recall (RT)
+            </button>
+        </div>
+
+        <div>
+            <input type="text" id="filtro-tabela" placeholder="Filtrar por Cliente, QR ou Nº Série..." 
+                   onkeyup="filtrarTabelas()" 
+                   style="padding: 8px 14px; border: 1px solid var(--color-border, #cbd5e1); border-radius: 8px; font-size: 13px; width: 280px;">
+        </div>
+    </div>
+
+    <!-- SEÇÃO 1: CONTENÇÃO OPERACIONAL (RISCO ATIVO) -->
+    <div class="recall-table-card" id="card-tabela-contencao" style="margin-bottom: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: #b91c1c; display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                1. Contenção Operacional (Risco Ativo Físico Imediato)
+                <small style="font-size: 12px; color: #64748b; font-weight: normal;" id="sub-total-contencao">
+                    (0 cilindros com carga física deste lote)
+                </small>
+            </h3>
+            <span style="font-size: 12px; color: #64748b;">Apenas cilindros atualmente contendo gás do lote alvo</span>
+        </div>
+
+        <div class="recall-table-container">
+            <table class="recall-table" id="tabela-contencao">
+                <thead>
+                    <tr>
+                        <th>Nº Série / QR Code</th>
+                        <th>Pressão</th>
+                        <th>Data Envase</th>
+                        <th>Status Operacional</th>
+                        <th>Bloqueio Sanitário</th>
+                        <th>Localização / Cliente Afetado</th>
+                        <th>Ação Recomendada</th>
+                        <th>Contato Hospitalar</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-contencao">
+                    <!-- Dinâmico via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 2: DOSSIÊ DE EXPOSIÇÃO HISTÓRICA -->
+    <div class="recall-table-card" id="card-tabela-exposicao">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: #0369a1; display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                2. Dossiê de Exposição Histórica (Registro Oficial ANVISA)
+                <small style="font-size: 12px; color: #64748b; font-weight: normal;" id="sub-total-exposicao">
+                    (0 entregas registradas no Ledger)
+                </small>
+            </h3>
+            <span style="font-size: 12px; color: #64748b;">Inclui cilindros já consumidos, devolvidos vazios ou reenvasados com outros lotes</span>
+        </div>
+
+        <div class="recall-table-container">
+            <table class="recall-table" id="tabela-exposicao">
+                <thead>
+                    <tr>
+                        <th>Data da Entrega</th>
+                        <th>Doc Fiscal / NF-e</th>
+                        <th>Cliente Atendido</th>
+                        <th>Nº Série / QR Code</th>
+                        <th>Operador Entrega</th>
+                        <th>Situação Atual do Casco</th>
+                        <th>Status da Exposição</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-exposicao">
+                    <!-- Dinâmico via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 3: CAMPANHAS FORMAIS DE RECALL & HOMOLOGAÇÃO PELO RT -->
+    <div class="recall-table-card" id="card-campanhas-recall" style="margin-top: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: #b91c1c; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    3. Campanhas Formais de Recall Sanitário Farmacêutico (ANVISA)
+                </h3>
+                <span style="font-size: 12px; color: #64748b;">Campanhas abertas e homologações formais com snapshot de RT (CRF/CRQ).</span>
+            </div>
+
+            <button type="button" class="btn-search" style="background: #dc2626; padding: 8px 16px; font-size: 13px;" onclick="abrirModalRecallNovo()">
+                + Nova Campanha Formal de Recall
+            </button>
+        </div>
+
+        <div class="recall-table-container">
+            <table class="recall-table" id="tabela-campanhas">
+                <thead>
+                    <tr>
+                        <th>Código da Campanha</th>
+                        <th>Lote Alvo</th>
+                        <th>Status</th>
+                        <th>Motivo Técnico</th>
+                        <th>Criado por</th>
+                        <th>Homologação RT</th>
+                        <th style="text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-campanhas">
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma campanha formal aberta para este lote.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SEÇÃO 4: ACOMPANHAMENTO DE NOTIFICAÇÃO & CONFIRMAÇÃO DE RECOLHIMENTO POR CLIENTE -->
+    <div class="recall-table-card" id="card-itens-recall" style="margin-top: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: var(--color-text); display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 11 12 14 22 4"></polyline>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    4. Registro de Confirmações de Notificação & Recolhimento por Hospital/Cliente
+                </h3>
+                <span style="font-size: 12px; color: #64748b;">Acompanhamento bilateral dos cascos afetados por cliente (IN 129 / RDC 658).</span>
+            </div>
+            <div id="filtro-itens-recall" style="display: flex; gap: 8px;">
+                <select id="select-campanha-itens" style="padding: 6px 12px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 12px; background: var(--color-bg);" onchange="carregarItensCampanha(this.value)">
+                    <option value="">Selecione uma campanha...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="recall-table-container">
+            <table class="recall-table" id="tabela-itens-recall">
+                <thead>
+                    <tr>
+                        <th>Cliente / Hospital</th>
+                        <th>Cilindro (Série / QR)</th>
+                        <th>Tipo de Exposição</th>
+                        <th>Status Notificação / Recolha</th>
+                        <th>Notificado em</th>
+                        <th>Recolhido em</th>
+                        <th style="text-align: right;">Ações de Confirmação</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-itens-recall">
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #94a3b8; padding: 25px;">Selecione ou crie uma campanha formal para visualizar os itens de recolha por cliente.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL FORMAL DE ABERTURA DE RECALL -->
+<dialog id="modal-abrir-recall" class="action-modal" style="max-width: 600px; width: 90%; padding: 24px; border-radius: 12px; border: 1px solid var(--color-border); background: var(--color-surface);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; margin-bottom: 16px;">
+        <h3 style="margin: 0; color: #b91c1c; font-size: 18px; font-weight: 700;">Abertura Formal de Recall Sanitário ANVISA</h3>
+        <button type="button" class="drawer-close-btn" onclick="document.getElementById('modal-abrir-recall').close()">&times;</button>
+    </div>
+
+    <form id="form-criar-recall" onsubmit="event.preventDefault(); submeterCriacaoRecall();">
+        <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 600; font-size: 13px; color: var(--color-text);">Código da Campanha de Recall *</label>
+            <input type="text" id="recall-input-codigo" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 6px; font-family: var(--font-family-mono); font-size: 13px;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 600; font-size: 13px; color: var(--color-text);">Motivo / Desvio de Qualidade Detectado *</label>
+            <textarea id="recall-input-motivo" rows="3" required placeholder="Ex: Desvio de pureza físico-química detectado na amostra de retenção do lote..." style="width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px;"></textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-weight: 600; font-size: 13px; color: var(--color-text);">Texto Padrão da Notificação aos Clientes / Hospitais *</label>
+            <textarea id="recall-input-texto" rows="4" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px;"></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--color-border); padding-top: 14px;">
+            <button type="button" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" onclick="document.getElementById('modal-abrir-recall').close()">
+                Cancelar
+            </button>
+            <button type="submit" class="action-queue-btn" style="background: #dc2626; color: #fff; font-weight: 700;">
+                Criar Campanha & Gerar Itens de Recolha
+            </button>
+        </div>
+    </form>
+</dialog>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let loteAtualCodigo = '';
+let loteAtualId = null;
+let dossieAtual = null;
+
+function getAuthHeaders() {
+    const token = localStorage.getItem('access_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return headers;
+}
+
+async function carregarLotesDisponiveis() {
+    try {
+        const res = await fetch('/produtos/api/lotes-anvisa/', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const datalist = document.getElementById('lista-lotes-sugestoes');
+        const container = document.getElementById('pills-lotes-container');
+        datalist.innerHTML = '';
+        container.innerHTML = '';
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<span style="color: #94a3b8;">Nenhum lote medicinal cadastrado</span>';
+            return;
+        }
+
+        data.forEach(l => {
+            const opt = document.createElement('option');
+            opt.value = l.codigo_lote;
+            opt.label = `${l.gas_sigla} - Val: ${l.data_validade} (${l.total_cilindros} cil)`;
+            datalist.appendChild(opt);
+
+            const pill = document.createElement('span');
+            pill.className = 'lote-pill';
+            pill.textContent = l.codigo_lote;
+            pill.title = `Gás: ${l.gas_nome} | Val: ${l.data_validade}`;
+            pill.onclick = () => {
+                document.getElementById('input-codigo-lote').value = l.codigo_lote;
+                buscarLote();
+            };
+            container.appendChild(pill);
+        });
+
+        if (data.length > 0) {
+            document.getElementById('input-codigo-lote').value = data[0].codigo_lote;
+            buscarLote();
+        }
+    } catch (e) {
+        console.error("Erro ao carregar lotes:", e);
+    }
+}
+
+async function buscarLote() {
+    const codigo = document.getElementById('input-codigo-lote').value.trim();
+    if (!codigo) return;
+
+    const btn = document.getElementById('btn-rastrear');
+    btn.disabled = true;
+    btn.textContent = 'Rastreando...';
+
+    try {
+        const res = await fetch(`/produtos/api/lotes-anvisa/recall/?codigo_lote=${encodeURIComponent(codigo)}`, {
+            headers: getAuthHeaders()
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            alert(err.error || "Lote não encontrado.");
+            return;
+        }
+
+        const data = await res.json();
+        dossieAtual = data;
+        loteAtualCodigo = data.lote.codigo_lote;
+        loteAtualId = data.lote.id;
+
+        renderizarDadosLote(data);
+    } catch (e) {
+        console.error("Erro na busca de recall:", e);
+        alert("Falha na comunicação com o servidor ao consultar lote.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> Localizar Lote & Rastrear`;
+    }
+}
+
+function renderizarDadosLote(data) {
+    const lote = data.lote;
+    const met = data.metricas;
+    const contencao = data.contencao_operacional || [];
+    const exposicao = data.exposicao_historica || [];
+
+    // Atualiza cards de métricas
+    document.getElementById('card-gas').textContent = `${lote.gas_sigla} - ONU ${lote.numero_onu}`;
+    document.getElementById('card-pureza').textContent = `Pureza: ${lote.pureza_percentual}% (${lote.gas_nome})`;
+
+    // Status de Qualidade
+    const cardQualidade = document.getElementById('card-qualidade');
+    cardQualidade.textContent = lote.status_qualidade_display || lote.status_qualidade;
+    if (lote.status_qualidade === 'APROVADO') {
+        cardQualidade.className = "stat-value text-success";
+    } else if (lote.status_qualidade === 'REPROVADO') {
+        cardQualidade.className = "stat-value text-danger";
+    } else {
+        cardQualidade.className = "stat-value text-warning";
+    }
+
+    document.getElementById('card-validade').textContent = lote.data_validade;
+    const statusVal = document.getElementById('card-status-validade');
+    if (lote.esta_vencido) {
+        statusVal.textContent = "LOTE EXPIRADO / VENCIDO";
+        statusVal.className = "stat-sub text-danger";
+    } else {
+        statusVal.textContent = "Dentro do Prazo de Validade";
+        statusVal.className = "stat-sub text-success";
+    }
+
+    document.getElementById('card-em-clientes').textContent = met.total_em_clientes;
+    document.getElementById('card-exposicao-total').textContent = met.total_entregas_historicas || exposicao.length;
+    document.getElementById('card-clientes-expostos').textContent = `${met.total_clientes_expostos || 0} hospitais atendidos no Ledger`;
+    document.getElementById('card-rt').textContent = lote.responsavel_tecnico || 'N/A';
+
+    // Banner de Alerta Crítico
+    const banner = document.getElementById('banner-recall');
+    if (met.alerta_recall_ativo) {
+        banner.style.display = 'block';
+        document.getElementById('banner-recall-texto').textContent = 
+            `AÇÃO IMEDIATA: Foram localizados ${met.total_em_clientes} cilindro(s) deste lote em clientes externos (hospitais/clínicas). Acione os contatos abaixo para bloqueio sanitário e recolha bilateral.`;
+    } else {
+        banner.style.display = 'none';
+    }
+
+    // Exibe containers
+    document.getElementById('grid-metricas').style.display = 'grid';
+    document.getElementById('bar-acoes').style.display = 'flex';
+    document.getElementById('card-tabela-contencao').style.display = 'block';
+    document.getElementById('card-tabela-exposicao').style.display = 'block';
+    document.getElementById('sub-total-contencao').textContent = `(${contencao.length} cilindros fisicamente carregados com este lote)`;
+    document.getElementById('sub-total-exposicao').textContent = `(${exposicao.length} entregas realizadas no histórico)`;
+
+    // Renderiza tabelas
+    renderizarTabelaContencao(contencao);
+    renderizarTabelaExposicao(exposicao);
+
+    // Carrega campanhas formais do lote
+    carregarCampanhasDoLote();
+}
+
+function abrirModalRecallNovo() {
+    if (!loteAtualId) {
+        alert("Localize um lote primeiro.");
+        return;
+    }
+    const dialog = document.getElementById('modal-abrir-recall');
+    if (!dialog) return;
+    document.getElementById('recall-input-codigo').value = `REC-${loteAtualCodigo}-${new Date().getFullYear()}`;
+    document.getElementById('recall-input-motivo').value = 'Desvio de conformidade físico-química detectado no controle de qualidade.';
+    document.getElementById('recall-input-texto').value = `COMUNICADO URGENTE DE RECALL SANITÁRIO (RDC nº 658/2022 / IN nº 129/2022 - ANVISA)\n\nPrezado Cliente/Hospital,\nInformamos o recolhimento cautelar do Lote ${loteAtualCodigo}. Solicitamos a imediata segregação dos cilindros pertencentes a este lote e disponibilização para recolhimento imediato pela nossa equipe logística.`;
+    dialog.showModal();
+}
+
+async function submeterCriacaoRecall() {
+    const codigo = document.getElementById('recall-input-codigo').value.trim();
+    const motivo = document.getElementById('recall-input-motivo').value.trim();
+    const texto = document.getElementById('recall-input-texto').value.trim();
+
+    try {
+        const res = await fetch('/produtos/api/campanhas-recall/', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                lote_id: loteAtualId,
+                codigo_campanha: codigo,
+                motivo: motivo,
+                texto_notificacao: texto
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            alert(data.error || "Erro ao criar campanha.");
+            return;
+        }
+
+        alert(`Campanha ${data.codigo_campanha} criada com sucesso! ${data.itens_cliente ? data.itens_cliente.length : 0} item(ns) gerados.`);
+        document.getElementById('modal-abrir-recall').close();
+        await carregarCampanhasDoLote();
+    } catch (e) {
+        console.error("Erro ao criar campanha:", e);
+        alert("Falha na comunicação com o servidor.");
+    }
+}
+
+async function carregarCampanhasDoLote() {
+    if (!loteAtualId) return;
+    try {
+        const res = await fetch(`/produtos/api/campanhas-recall/?lote_id=${loteAtualId}`, { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        const campanhas = Array.isArray(data) ? data : (data.results || []);
+
+        const tbody = document.getElementById('tbody-campanhas');
+        const select = document.getElementById('select-campanha-itens');
+        if (select) select.innerHTML = '<option value="">Selecione uma campanha...</option>';
+
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (campanhas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma campanha formal aberta para este lote.</td></tr>';
+            return;
+        }
+
+        campanhas.forEach(c => {
+            if (select) {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${c.codigo_campanha} [${c.status}]`;
+                select.appendChild(opt);
+            }
+
+            const tr = document.createElement('tr');
+            let statusBadge = `<span class="pill-filter-btn">${c.status}</span>`;
+            if (c.status === 'HOMOLOGADO_RT') {
+                statusBadge = `<span class="badge-conforme" style="background:#dcfce7; color:#166534; font-weight:700;">HOMOLOGADO PELO RT</span>`;
+            } else if (c.status === 'ABERTO') {
+                statusBadge = `<span class="pill-filter-btn" style="background:#fef3c7; color:#92400e; font-weight:700;">ABERTO (PENDENTE RT)</span>`;
+            }
+
+            const rtHomologacao = c.homologado_em 
+                ? `<strong>${c.rt_nome_snapshot || 'RT'}</strong><br><small style="color:#64748b;">${c.rt_registro_snapshot || ''} em ${c.homologado_em.split('T')[0]}</small>`
+                : '<span style="color:#dc2626; font-weight:600;">Pendente de Assinatura</span>';
+
+            const botaoHomologar = (c.status === 'ABERTO')
+                ? `<button class="action-queue-btn" style="padding: 4px 10px; font-size: 11px; background:#16a34a; color:#fff;" onclick="homologarCampanha(${c.id})">Homologar RT</button>`
+                : `<span style="font-size:11px; color:#166534; font-weight:700;">✓ Homologado</span>`;
+
+            tr.innerHTML = `
+                <td><strong>${c.codigo_campanha}</strong></td>
+                <td><code>${c.lote_codigo}</code></td>
+                <td>${statusBadge}</td>
+                <td>${(c.motivo || '').substring(0, 45)}...</td>
+                <td>${c.criado_por_nome || 'Sistema'}</td>
+                <td>${rtHomologacao}</td>
+                <td style="text-align: right;">${botaoHomologar}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (campanhas.length > 0 && select) {
+            select.value = campanhas[0].id;
+            await carregarItensCampanha(campanhas[0].id);
+        }
+    } catch (e) {
+        console.error("Erro ao carregar campanhas:", e);
+    }
+}
+
+async function homologarCampanha(campanhaId) {
+    if (!confirm("Confirmar homologação formal da campanha de recall sanitário como Responsável Técnico?")) return;
+    try {
+        const res = await fetch(`/produtos/api/campanhas-recall/${campanhaId}/homologar/`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            alert(data.error || "Erro ao homologar campanha.");
+            return;
+        }
+        alert("Campanha homologada formalmente pelo Responsável Técnico!");
+        await carregarCampanhasDoLote();
+    } catch (e) {
+        console.error("Erro ao homologar:", e);
+        alert("Falha de conexão com o servidor.");
+    }
+}
+
+async function carregarItensCampanha(campanhaId) {
+    const tbody = document.getElementById('tbody-itens-recall');
+    if (!tbody) return;
+    if (!campanhaId) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">Selecione uma campanha acima.</td></tr>';
+        return;
+    }
+
+    try {
+        const res = await fetch(`/produtos/api/itens-recall/?campanha_id=${campanhaId}`, { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        const itens = Array.isArray(data) ? data : (data.results || []);
+
+        tbody.innerHTML = '';
+        if (itens.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">Nenhum item vinculado a esta campanha.</td></tr>';
+            return;
+        }
+
+        itens.forEach(item => {
+            const tr = document.createElement('tr');
+            const isAtivo = item.tipo_exposicao === 'CONTENCAO_ATIVA';
+            const badgeTipo = isAtivo 
+                ? '<span style="background:#fee2e2; color:#991b1b; padding:3px 8px; border-radius:6px; font-weight:700; font-size:11px;">CONTENÇÃO ATIVA (Risco Imediato)</span>'
+                : '<span style="background:#f1f5f9; color:#475569; padding:3px 8px; border-radius:6px; font-size:11px;">EXPOSIÇÃO PASSADA</span>';
+
+            tr.innerHTML = `
+                <td><strong>${item.cliente_nome || 'N/A'}</strong><br><small style="color:#64748b;">CNPJ: ${item.cliente_cnpj || 'N/A'}</small></td>
+                <td><strong>${item.cilindro_serie}</strong><br><code style="font-size:11px;">${item.cilindro_qr}</code></td>
+                <td>${badgeTipo}</td>
+                <td>
+                    <select id="select-status-${item.id}" style="padding: 4px 8px; font-size: 11px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg);">
+                        <option value="PENDENTE" ${item.status_notificacao === 'PENDENTE' ? 'selected' : ''}>Notificação Pendente</option>
+                        <option value="NOTIFICADO" ${item.status_notificacao === 'NOTIFICADO' ? 'selected' : ''}>Notificado</option>
+                        <option value="RECOLHIDO" ${item.status_notificacao === 'RECOLHIDO' ? 'selected' : ''}>Recolhido</option>
+                        <option value="CONSUMIDO_DECLARADO" ${item.status_notificacao === 'CONSUMIDO_DECLARADO' ? 'selected' : ''}>Consumido Declarado</option>
+                    </select>
+                </td>
+                <td>${item.notificado_em ? item.notificado_em.split('T')[0] : '-'}</td>
+                <td>${item.recolhido_em ? item.recolhido_em.split('T')[0] : '-'}</td>
+                <td style="text-align: right;">
+                    <button class="action-queue-btn" style="padding: 4px 8px; font-size: 11px; background: var(--color-primary); color: #fff;" onclick="salvarStatusItemRecall(${item.id})">
+                        Confirmar
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        console.error("Erro ao carregar itens da campanha:", e);
+    }
+}
+
+async function salvarStatusItemRecall(itemId) {
+    const sel = document.getElementById(`select-status-${itemId}`);
+    if (!sel) return;
+    const novoStatus = sel.value;
+
+    try {
+        const res = await fetch(`/produtos/api/itens-recall/${itemId}/confirmar-recolhimento/`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                status_notificacao: novoStatus,
+                observacoes: `Status atualizado para ${novoStatus} em ${new Date().toLocaleString()}`
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            alert(data.error || "Erro ao atualizar item.");
+            return;
+        }
+
+        alert(`Confirmação de recolha salva para o cilindro ${data.cilindro_serie}!`);
+        const campSel = document.getElementById('select-campanha-itens');
+        if (campSel && campSel.value) {
+            await carregarItensCampanha(campSel.value);
+        }
+    } catch (e) {
+        console.error("Erro ao salvar status:", e);
+        alert("Falha na comunicação com o servidor.");
+    }
+}
+
+function renderizarTabelaContencao(cilindros) {
+    const tbody = document.getElementById('tbody-contencao');
+    tbody.innerHTML = '';
+
+    if (!cilindros || cilindros.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 25px; color: #16a34a; font-weight:600;">Zero risco ativo físico. Nenhum cilindro está atualmente carregado com este lote.</td></tr>';
+        return;
+    }
+
+    cilindros.forEach(c => {
+        const tr = document.createElement('tr');
+
+        let badgeLocal = '';
+        let contatoInfo = 'N/A';
+        let botaoNotificar = '-';
+
+        if (c.local_tipo === 'CLIENTE' && c.cliente) {
+            badgeLocal = `<span class="badge-local-cliente">${c.cliente.nome}</span><br><small style="color:#64748b;">${c.cliente.endereco}</small>`;
+            contatoInfo = `<strong>${c.cliente.telefone || 'Sem Tel'}</strong><br><small>CNPJ: ${c.cliente.cnpj}</small>`;
+            const telLimpo = (c.cliente.telefone || '').replace(/\D/g, '');
+            botaoNotificar = `<a href="https://wa.me/55${telLimpo}?text=Aviso+Urgente+de+Recall+Sanitário+Lote+${encodeURIComponent(loteAtualCodigo)}" 
+                             target="_blank" class="btn-search" style="padding: 4px 10px; font-size: 11px; background: #25d366; text-decoration:none;">
+                             WhatsApp
+                          </a>`;
+        } else if (c.local_tipo === 'ROTA') {
+            badgeLocal = `<span class="badge-local-rota">Em Rota de Entrega</span>`;
+            contatoInfo = 'Veículo / Motorista';
+            botaoNotificar = `<span style="font-size: 11px; color: #d97706; font-weight: 600;">Abortar Rota</span>`;
+        } else {
+            badgeLocal = `<span class="badge-local-patio">Base Central / Pátio</span>`;
+            contatoInfo = 'Interno / Fábrica';
+            botaoNotificar = `<span style="font-size: 11px; color: #166534; font-weight: 600;">Segregar no Pátio</span>`;
+        }
+
+        const badgeBloqueio = c.bloqueio_sanitario
+            ? `<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 11px;">SIM (BLOQUEADO)</span>`
+            : `<span style="background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Não</span>`;
+
+        tr.innerHTML = `
+            <td>
+                <strong>${c.numero_serie_ogiva}</strong><br>
+                <code style="font-size: 11px; color: #0284c7;">${c.codigo_qr}</code>
+            </td>
+            <td>${c.pressao_final_bar ? c.pressao_final_bar + ' bar' : 'N/A'}</td>
+            <td>${c.envasado_em}</td>
+            <td><strong>${c.status_atual_display}</strong></td>
+            <td>${badgeBloqueio}</td>
+            <td>${badgeLocal}</td>
+            <td><strong style="color: #b91c1c; font-size: 11px;">${c.acao_necessaria || 'INSPEÇÃO'}</strong></td>
+            <td>${contatoInfo} ${botaoNotificar !== '-' ? '<div style="margin-top:4px;">' + botaoNotificar + '</div>' : ''}</td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+function renderizarTabelaExposicao(entregas) {
+    const tbody = document.getElementById('tbody-exposicao');
+    tbody.innerHTML = '';
+
+    if (!entregas || entregas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 25px; color: #94a3b8;">Nenhuma entrega histórica realizada deste lote aos clientes.</td></tr>';
+        return;
+    }
+
+    entregas.forEach(e => {
+        const tr = document.createElement('tr');
+        const cli = e.cliente || {};
+
+        let situacaoBadge = '';
+        if (e.is_envase_ativo) {
+            situacaoBadge = `<span style="background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 11px;">RISCO ATIVO (Carga Atual)</span>`;
+        } else {
+            situacaoBadge = `<span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 11px;">EXPOSIÇÃO ENCERRADA (Casco Devolvido/Reenvasado)</span>`;
+        }
+
+        const cargaAtualStr = e.lote_atual_cilindro
+            ? `<code style="color: #0284c7; font-size: 11px;">Lote ${e.lote_atual_cilindro}</code>`
+            : `<span style="color: #94a3b8; font-size: 11px;">Vazio / Sem Carga</span>`;
+
+        tr.innerHTML = `
+            <td><strong>${e.data_entrega}</strong></td>
+            <td><code>${e.documento_fiscal_ref || 'N/A'}</code></td>
+            <td>
+                <strong>${cli.nome || 'N/A'}</strong><br>
+                <small style="color: #64748b;">CNPJ: ${cli.cnpj || 'N/A'}</small>
+            </td>
+            <td>
+                <strong>${e.numero_serie_ogiva}</strong><br>
+                <small style="color: #64748b;">${e.codigo_qr}</small>
+            </td>
+            <td>${e.operador}</td>
+            <td>
+                <strong>${e.status_atual_display}</strong><br>
+                ${cargaAtualStr}
+            </td>
+            <td>${situacaoBadge}</td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+function filtrarTabelas() {
+    const termo = document.getElementById('filtro-tabela').value.toLowerCase();
+    const rows = document.querySelectorAll('#tbody-contencao tr, #tbody-exposicao tr');
+
+    rows.forEach(r => {
+        const text = r.textContent.toLowerCase();
+        r.style.display = text.includes(termo) ? '' : 'none';
+    });
+}
+
+function exportarCSV() {
+    if (!loteAtualCodigo) return;
+    window.location.href = `/produtos/api/lotes-anvisa/recall/?codigo_lote=${encodeURIComponent(loteAtualCodigo)}&export=csv`;
+}
+
+async function abrirModalRecall() {
+    if (!loteAtualId) {
+        alert("Localize um lote primeiro.");
+        return;
+    }
+    const motivo = prompt("Informe o motivo técnico / desvio sanitário do Recall:");
+    if (!motivo) return;
+    const codigoCampanha = prompt("Informe o Código da Campanha (Ex: REC-2026-001):", `REC-${loteAtualCodigo}`);
+    if (!codigoCampanha) return;
+
+    try {
+        const res = await fetch('/produtos/api/campanhas-recall/', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                lote_id: loteAtualId,
+                codigo_campanha: codigoCampanha,
+                motivo: motivo,
+                texto_notificacao: `Prezados clientes, informamos recall sanitário do lote ${loteAtualCodigo}.`
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            alert(err.error || "Falha ao criar campanha.");
+            return;
+        }
+
+        const data = await res.json();
+        alert(`Campanha ${data.codigo_campanha} criada com sucesso! Itens gerados: ${data.itens_cliente ? data.itens_cliente.length : 0}`);
+    } catch (e) {
+        console.error("Erro ao criar campanha:", e);
+        alert("Erro ao conectar com o servidor.");
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    carregarLotesDisponiveis();
+});
+</script>
+{% endblock %}

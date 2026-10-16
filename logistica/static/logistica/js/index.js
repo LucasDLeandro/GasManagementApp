@@ -79,40 +79,86 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderEntregaCard(e, container, emRota) {
-        const veiculo = e.veiculo_placa ? `Caminhão: ${e.veiculo_placa}` : 'Sem Veículo';
+        const veiculo = e.veiculo_placa ? `${e.veiculo_placa} (${e.veiculo_modelo || 'Veículo'})` : 'Sem Veículo';
         const capMax = e.veiculo_capacidade || 0;
         const pesoLoad = e.peso_total_carregado || 0;
-        let perc = e.percentual_lotacao || 0;
-        if(perc > 100) perc = 100;
-        let barColor = perc < 50 ? '#10b981' : (perc < 85 ? '#f59e0b' : '#ef4444');
+        const percReal = e.percentual_lotacao || 0;
+        const percVisual = Math.min(percReal, 100);
 
-        let acaoBtn = emRota 
-            ? `<button class="btn-primary" style="width:100%; padding:8px; margin-top:10px; background:#10b981;" onclick="gerenciarParadas(${e.id})">Gerenciar Paradas da Rota</button>`
-            : `<button class="btn-primary" style="width:100%; padding:8px; margin-top:10px;" onclick="mudarStatusEntrega(${e.id}, 'Em Rota')">🚀 Iniciar Rota</button>`;
+        // Cores D11: Verde (< 80%), Âmbar (80%-99%), Vermelho (>= 100% sobrecarga)
+        let barColor = '#10b981'; // Verde
+        let statusTexto = 'Normal (<80%)';
+        if (percReal >= 100) {
+            barColor = '#ef4444'; // Vermelho
+            statusTexto = 'SOBRECARGA (>100%)';
+        } else if (percReal >= 80) {
+            barColor = '#f59e0b'; // Âmbar
+            statusTexto = 'Alerta Carga (80-99%)';
+        }
+
+        // Selo de aviso explícito "Contém peso estimado" se possui_peso_estimado for true
+        const seloPesoEstimado = e.possui_peso_estimado 
+            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 10px; padding: 2px 6px; margin-left: 6px;" title="Cálculo utiliza tara nominal ou massa estimada">⚠️ Contém peso estimado</span>`
+            : `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 10px; padding: 2px 6px; margin-left: 6px;">⚖️ Peso Aferido</span>`;
+
+        // Se peso ultrapassar 100% da capacidade do veículo, desabilite o botão de saída/início de rota com mensagem explicativa
+        let acaoBtn = '';
+        if (emRota) {
+            acaoBtn = `<button class="btn-primary" style="width:100%; padding:8px; margin-top:10px; background:#10b981;" onclick="gerenciarParadas(${e.id})">Gerenciar Paradas da Rota</button>`;
+        } else if (percReal > 100) {
+            acaoBtn = `
+                <button disabled class="btn-primary" style="width:100%; padding:8px; margin-top:10px; background:#ef4444; cursor:not-allowed; opacity:0.9; font-size:12px; font-weight:700;" title="Trava de Segurança ANTT: O peso carregado (${pesoLoad} kg) excede a capacidade máxima (${capMax} kg).">
+                    🚫 Saída Bloqueada: Sobrecarga ANTT (${percReal}%)
+                </button>
+                <div style="font-size:11px; color:#ef4444; margin-top:4px; text-align:center; font-weight:600;">
+                    Bloqueio obrigatório Resolução ANTT 5.998/2022. Reduza o peso para liberar saída.
+                </div>
+            `;
+        } else {
+            acaoBtn = `<button class="btn-primary" style="width:100%; padding:8px; margin-top:10px;" onclick="mudarStatusEntrega(${e.id}, 'Em Rota')">🚀 Iniciar Rota</button>`;
+        }
 
         container.innerHTML += `
-            <div class="kanban-item" style="border-top: 4px solid var(--color-primary);">
-                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <div class="kanban-item" style="border-top: 4px solid ${barColor};">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                     <strong style="font-size:1.1rem;">Carga #${e.id}</strong>
-                    <span class="badge">${e.status}</span>
+                    <div style="display:flex; align-items:center;">
+                        <span class="badge">${e.status}</span>
+                        ${seloPesoEstimado}
+                    </div>
                 </div>
-                <div style="font-size:0.85rem; color:var(--color-text-muted); margin-bottom:12px;">${e.rota_nome || 'Sem Rota'}</div>
+                <div style="font-size:0.85rem; color:var(--color-text-muted); margin-bottom:12px;">
+                    <strong>Rota:</strong> ${e.rota_nome || 'Sem Rota'} | <strong>Motorista:</strong> ${e.motorista_nome || 'A definir'}
+                </div>
                 
-                <div style="margin-bottom: 12px;">
+                <div style="margin-bottom: 12px; background:var(--color-surface); padding:8px; border-radius:6px; border:1px solid var(--color-border);">
                     <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px;">
-                        <span>${veiculo}</span>
-                        <strong>${perc}%</strong>
+                        <span>🚚 ${veiculo}</span>
+                        <strong style="color:${barColor};">${percReal}% (${statusTexto})</strong>
                     </div>
-                    <div style="width: 100%; height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden;">
-                        <div style="width: ${perc}%; height: 100%; background: ${barColor};"></div>
+                    <div style="width: 100%; height: 8px; background: var(--color-border); border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${percVisual}%; height: 100%; background: ${barColor}; transition: width 0.3s ease;"></div>
                     </div>
-                    <div style="font-size: 0.75rem; color: var(--color-text-muted); text-align: right; margin-top: 2px;">
-                        ${pesoLoad} kg / ${capMax} kg
+                    <div style="display:flex; justify-content:space-between; font-size: 0.75rem; color: var(--color-text-muted); margin-top: 4px;">
+                        <span>Capacidade: ${capMax} kg</span>
+                        <span>Carregado: <strong>${pesoLoad} kg</strong></span>
                     </div>
                 </div>
                 
-                <div style="font-size:0.85rem;"><strong>${e.vendas.length}</strong> Paradas (Pedidos)</div>
+                <div style="font-size:0.85rem; margin-bottom:4px;"><strong>${e.vendas.length}</strong> Parada(s) / Pedido(s)</div>
                 ${acaoBtn}
+                
+                <button class="btn-outline" style="width:100%; padding:6px; margin-top:6px; border-color:#6366f1; color:#6366f1; font-weight:600; font-size:12px;" onclick="abrirRomaneioBilateral(${e.id})">⚖️ Romaneio Bilateral (Full-for-Empty)</button>
+                
+                <!-- Emissão em 1 Clique dos PDFs ANTT -->
+                <div style="margin-top:8px; border-top:1px solid var(--color-border); padding-top:6px;">
+                    <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--color-text-muted); margin-bottom:4px;">Documentos ANTT Transporte Perigoso:</div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:4px;">
+                        <a href="/logistica/api/entregas/${e.id}/romaneio-antt-pdf/" target="_blank" class="btn-outline" style="padding:4px; font-size:11px; text-align:center; text-decoration:none; color:var(--color-primary); border-color:var(--color-primary); border-radius:4px;" title="Romaneio Bilateral de Carga ANTT (Res. 5.998/2022)">📄 Romaneio</a>
+                        <a href="/logistica/api/entregas/${e.id}/ficha-emergencia-pdf/" target="_blank" class="btn-outline" style="padding:4px; font-size:11px; text-align:center; text-decoration:none; color:#ea580c; border-color:#ea580c; border-radius:4px;" title="Ficha de Emergência NBR 7503 com números ONU">⚠️ Ficha ONU</a>
+                        <a href="/logistica/api/entregas/${e.id}/envelope-transporte-pdf/" target="_blank" class="btn-outline" style="padding:4px; font-size:11px; text-align:center; text-decoration:none; color:#0284c7; border-color:#0284c7; border-radius:4px;" title="Envelope para Transporte de Produtos Perigosos">✉️ Envelope</a>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -125,7 +171,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 Swal.fire({ title: 'Caminhão Partiu!', icon: 'success', timer: 1500, showConfirmButton: false });
                 loadKanban();
-            } else throw new Error("Erro.");
+            } else {
+                const errData = await res.json().catch(() => null);
+                const errMsg = (errData && (errData.non_field_errors?.[0] || errData.error || errData.detail)) || "Erro ao atualizar status da entrega.";
+                Swal.fire('Trava ANTT / Bloqueio', errMsg, 'error');
+            }
         } catch (error) { Swal.fire('Erro', error.message, 'error'); }
     };
 
@@ -245,7 +295,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Puxar Veiculos e Rotas para caso de Nova Carga
         fetch('/logistica/api/veiculos/', { headers: getAuthHeaders() }).then(r=>r.json()).then(data=>{
             const sV = document.getElementById('atr-veiculo'); sV.innerHTML = '<option value="">Selecione...</option>';
-            data.filter(v=>v.status==='Ativo').forEach(v => sV.innerHTML += `<option value="${v.id}">${v.placa} (${v.capacidade_carga}kg)</option>`);
+            data.filter(v=>v.status==='Ativo').forEach(v => {
+                const mod = v.modelo ? ` - ${v.modelo}` : '';
+                sV.innerHTML += `<option value="${v.id}">${v.placa}${mod} (Capacidade: ${v.capacidade_carga} kg)</option>`;
+            });
         });
         fetch('/logistica/api/rotas/', { headers: getAuthHeaders() }).then(r=>r.json()).then(data=>{
             const sR = document.getElementById('atr-rota'); sR.innerHTML = '<option value="">Selecione...</option>';
@@ -624,6 +677,178 @@ document.addEventListener('DOMContentLoaded', () => {
             Swal.fire('Erro', 'Erro ao cadastrar.', 'error');
         }
     };
+
+    // ---- Romaneio Bilateral (Full-for-Empty) ----
+    let entregaRomaneioAtualId = null;
+    const modalRomaneio = document.getElementById('modal-romaneio-bilateral');
+    const btnFecharRomaneio = document.getElementById('btn-fechar-romaneio');
+
+    if (btnFecharRomaneio) {
+        btnFecharRomaneio.addEventListener('click', () => {
+            modalRomaneio.classList.remove('active');
+            loadKanban();
+        });
+    }
+
+    window.baixarDocANTT = function(tipo) {
+        if (entregaRomaneioAtualId) {
+            window.open(`/logistica/api/entregas/${entregaRomaneioAtualId}/${tipo}/`, '_blank');
+        }
+    };
+
+    window.abrirRomaneioBilateral = async function(entregaId) {
+        entregaRomaneioAtualId = entregaId;
+        modalRomaneio.classList.add('active');
+        document.getElementById('romaneio-entrega-id').textContent = entregaId;
+        await carregarDadosRomaneio(entregaId);
+    };
+
+    async function carregarDadosRomaneio(entregaId) {
+        try {
+            const res = await fetch(`/logistica/api/entregas/${entregaId}/romaneio-bilateral/`, {
+                headers: getAuthHeaders()
+            });
+            if (!res.ok) throw new Error("Erro ao carregar romaneio bilateral.");
+            const data = await res.json();
+
+            // Atualiza Veículo e Barra de Capacidade (D11: <80% Verde, 80-99% Âmbar, >100% Vermelho)
+            const perc = data.percentual_lotacao || 0;
+            let barColor = '#10b981';
+            let statusBadge = '<span style="color:#10b981;">(Normal <80%)</span>';
+            if (perc >= 100) {
+                barColor = '#ef4444';
+                statusBadge = '<span style="color:#ef4444; font-weight:700;">(SOBRECARGA ANTT >100%)</span>';
+            } else if (perc >= 80) {
+                barColor = '#f59e0b';
+                statusBadge = '<span style="color:#f59e0b; font-weight:600;">(Alerta 80-99%)</span>';
+            }
+
+            document.getElementById('romaneio-veiculo-info').textContent = data.veiculo;
+            document.getElementById('romaneio-peso-carregado').textContent = data.peso_total_carregado;
+            document.getElementById('romaneio-capacidade-max').textContent = data.capacidade_carga_kg;
+            document.getElementById('romaneio-perc-texto').innerHTML = `${perc}% Ocupação ${statusBadge}`;
+
+            const barra = document.getElementById('romaneio-barra-peso');
+            barra.style.width = Math.min(perc, 100) + '%';
+            barra.style.background = barColor;
+
+            // Preenche Select de Clientes para Entrega
+            const selectCliente = document.getElementById('select-cliente-entrega');
+            selectCliente.innerHTML = '<option value="">Selecione o Cliente de Destino</option>';
+            if (data.clientes_comodato && data.clientes_comodato.length) {
+                data.clientes_comodato.forEach(c => {
+                    selectCliente.innerHTML += `<option value="${c.id}">${c.nome} (${c.cnpj})</option>`;
+                });
+            }
+
+            // Tabela 1: Cheios Entregues
+            const tbodyEntregues = document.getElementById('tbody-romaneio-entregues');
+            if (!data.cilindros_entregues || data.cilindros_entregues.length === 0) {
+                tbodyEntregues.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:10px; color:#94a3b8;">Nenhum cheio entregue ainda.</td></tr>';
+            } else {
+                tbodyEntregues.innerHTML = data.cilindros_entregues.map(c => `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:6px;"><strong>${c.numero_serie}</strong><br><small style="color:#64748b;">${c.codigo_qr}</small></td>
+                        <td style="padding:6px;"><span class="badge" style="background:#10b981; color:white; font-size:10px;">${c.gas}</span></td>
+                        <td style="padding:6px;">${c.cliente}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Tabela 2: Vazios Recolhidos
+            const tbodyRecolhidos = document.getElementById('tbody-romaneio-recolhidos');
+            if (!data.cilindros_recolhidos || data.cilindros_recolhidos.length === 0) {
+                tbodyRecolhidos.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:10px; color:#94a3b8;">Nenhum vazio recolhido ainda.</td></tr>';
+            } else {
+                tbodyRecolhidos.innerHTML = data.cilindros_recolhidos.map(c => `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:6px;"><strong>${c.numero_serie}</strong><br><small style="color:#64748b;">${c.codigo_qr}</small></td>
+                        <td style="padding:6px;"><span class="badge" style="background:#f59e0b; color:white; font-size:10px;">${c.gas}</span></td>
+                        <td style="padding:6px;">${c.tara} kg</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Saldo de Comodato
+            const divComodato = document.getElementById('romaneio-clientes-comodato');
+            if (!data.clientes_comodato || data.clientes_comodato.length === 0) {
+                divComodato.innerHTML = '<span style="color:#94a3b8;">Nenhum cliente associado a esta carga.</span>';
+            } else {
+                divComodato.innerHTML = data.clientes_comodato.map(c => `
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px 10px;">
+                        <strong>${c.nome}</strong>: <span style="color:#4f46e5; font-weight:700;">${c.saldo_comodato} cilindros</span> em posse
+                    </div>
+                `).join('');
+            }
+
+        } catch (err) {
+            console.error(err);
+            if (typeof Swal !== 'undefined') Swal.fire('Erro', err.message, 'error');
+        }
+    }
+
+    // Form Submits: Entregar Cheio
+    const formEntregar = document.getElementById('form-entregar-cheio');
+    if (formEntregar) {
+        formEntregar.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const qr = document.getElementById('input-qr-entrega').value.trim();
+            const clienteId = document.getElementById('select-cliente-entrega').value;
+
+            try {
+                const res = await fetch(`/logistica/api/entregas/${entregaRomaneioAtualId}/romaneio-bilateral/`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        acao: 'entregar',
+                        codigo_qr: qr,
+                        cliente_id: clienteId
+                    })
+                });
+                const resp = await res.json();
+                if (!res.ok) throw new Error(resp.error || 'Erro ao registrar entrega.');
+
+                if (typeof Swal !== 'undefined') Swal.fire('Entregue!', resp.mensagem, 'success');
+                document.getElementById('input-qr-entrega').value = '';
+                await carregarDadosRomaneio(entregaRomaneioAtualId);
+            } catch (err) {
+                if (typeof Swal !== 'undefined') Swal.fire('Bloqueio Operacional', err.message, 'warning');
+                else alert(err.message);
+            }
+        });
+    }
+
+    // Form Submits: Recolher Vazio
+    const formRecolher = document.getElementById('form-recolher-vazio');
+    if (formRecolher) {
+        formRecolher.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const qr = document.getElementById('input-qr-recolha').value.trim();
+            const obs = document.getElementById('input-obs-recolha').value.trim();
+
+            try {
+                const res = await fetch(`/logistica/api/entregas/${entregaRomaneioAtualId}/romaneio-bilateral/`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        acao: 'recolher',
+                        codigo_qr: qr,
+                        observacao: obs
+                    })
+                });
+                const resp = await res.json();
+                if (!res.ok) throw new Error(resp.error || 'Erro ao registrar recolha.');
+
+                if (typeof Swal !== 'undefined') Swal.fire('Recolhido!', resp.mensagem, 'success');
+                document.getElementById('input-qr-recolha').value = '';
+                document.getElementById('input-obs-recolha').value = '';
+                await carregarDadosRomaneio(entregaRomaneioAtualId);
+            } catch (err) {
+                if (typeof Swal !== 'undefined') Swal.fire('Atenção', err.message, 'warning');
+                else alert(err.message);
+            }
+        });
+    }
 
     // Init
     loadKanban();

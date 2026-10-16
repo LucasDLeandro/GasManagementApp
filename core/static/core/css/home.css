@@ -1,5 +1,5 @@
 /* --- Variáveis de Tema --- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* Fonte Inter carregada localmente via /static/vendor/inter/inter.css */
 
 :root {
     --navbar-height: 70px;
@@ -20,7 +20,34 @@
     --color-warning: #f59e0b;
     --modal-overlay: rgba(0,0,0,0.5);
     
+    /* Tokens Semânticos de Status Operacional e Regulatório */
+    --status-approved: #10b981;
+    --status-approved-bg: #ecfdf5;
+    --status-approved-border: #a7f3d0;
+    --status-approved-text: #065f46;
+
+    --status-transit: #0284c7;
+    --status-transit-bg: #f0f9ff;
+    --status-transit-border: #bae6fd;
+    --status-transit-text: #0369a1;
+
+    --status-warning: #f59e0b;
+    --status-warning-bg: #fffbeb;
+    --status-warning-border: #fde68a;
+    --status-warning-text: #92400e;
+
+    --status-danger: #ef4444;
+    --status-danger-bg: #fef2f2;
+    --status-danger-border: #fecaca;
+    --status-danger-text: #991b1b;
+
+    --status-quarantine: #8b5cf6;
+    --status-quarantine-bg: #f5f3ff;
+    --status-quarantine-border: #ddd6fe;
+    --status-quarantine-text: #5b21b6;
+    
     --font-family: 'Inter', sans-serif;
+    --font-family-mono: 'JetBrains Mono', 'Fira Code', Consolas, Monaco, monospace;
 }
 
 [data-theme="dark"] {
@@ -37,6 +64,88 @@
     --color-success: #34d399;
     --color-warning: #fbbf24;
     --modal-overlay: rgba(0,0,0,0.7);
+
+    --status-approved-bg: rgba(16, 185, 129, 0.15);
+    --status-approved-border: rgba(16, 185, 129, 0.4);
+    --status-approved-text: #34d399;
+
+    --status-transit-bg: rgba(2, 132, 199, 0.15);
+    --status-transit-border: rgba(2, 132, 199, 0.4);
+    --status-transit-text: #38bdf8;
+
+    --status-warning-bg: rgba(245, 158, 11, 0.15);
+    --status-warning-border: rgba(245, 158, 11, 0.4);
+    --status-warning-text: #fbbf24;
+
+    --status-danger-bg: rgba(239, 68, 68, 0.15);
+    --status-danger-border: rgba(239, 68, 68, 0.4);
+    --status-danger-text: #f87171;
+
+    --status-quarantine-bg: rgba(139, 92, 246, 0.15);
+    --status-quarantine-border: rgba(139, 92, 246, 0.4);
+    --status-quarantine-text: #a78bfa;
+}
+
+[data-theme="high-contrast-sun"] {
+    /* Tema Solar de Alto Contraste (Fundo branco puro #ffffff, texto preto puro #000000, bordas sólidas 2px) */
+    --color-primary: #000000;
+    --color-primary-dark: #000000;
+    --color-surface: #ffffff;
+    --color-bg: #ffffff;
+    --color-text: #000000;
+    --color-text-muted: #111111;
+    --color-border: #000000;
+    --color-hover: #e5e5e5;
+    --color-danger: #000000;
+    --color-success: #000000;
+    --color-warning: #000000;
+    --modal-overlay: rgba(0,0,0,0.85);
+
+    --status-approved: #000000;
+    --status-approved-bg: #ffffff;
+    --status-approved-border: #000000;
+    --status-approved-text: #000000;
+
+    --status-transit: #000000;
+    --status-transit-bg: #ffffff;
+    --status-transit-border: #000000;
+    --status-transit-text: #000000;
+
+    --status-warning: #000000;
+    --status-warning-bg: #ffffff;
+    --status-warning-border: #000000;
+    --status-warning-text: #000000;
+
+    --status-danger: #000000;
+    --status-danger-bg: #ffffff;
+    --status-danger-border: #000000;
+    --status-danger-text: #000000;
+
+    --status-quarantine: #000000;
+    --status-quarantine-bg: #ffffff;
+    --status-quarantine-border: #000000;
+    --status-quarantine-text: #000000;
+}
+
+[data-theme="high-contrast-sun"] .kpi-radar-card,
+[data-theme="high-contrast-sun"] .radar-card-box,
+[data-theme="high-contrast-sun"] .widget-card,
+[data-theme="high-contrast-sun"] .top-navbar,
+[data-theme="high-contrast-sun"] .sidebar,
+[data-theme="high-contrast-sun"] .btn-auth,
+[data-theme="high-contrast-sun"] .drawer-content,
+[data-theme="high-contrast-sun"] .modal-card,
+[data-theme="high-contrast-sun"] .badge-status,
+[data-theme="high-contrast-sun"] .tech-id-badge,
+[data-theme="high-contrast-sun"] table,
+[data-theme="high-contrast-sun"] th,
+[data-theme="high-contrast-sun"] td,
+[data-theme="high-contrast-sun"] input,
+[data-theme="high-contrast-sun"] select,
+[data-theme="high-contrast-sun"] .action-queue-card,
+[data-theme="high-contrast-sun"] dialog {
+    border: 2px solid #000000 !important;
+    font-weight: 700;
 }
 
 /* Garante que o layout flex funcione em conjunto com o body definido no login */
@@ -343,3 +452,517 @@ body > main {
         padding: 20px;
     }
 }
+
+/* ==============================================================================
+   ABNT NBR 12176 CORES DE OGIVA E GÁS
+   ============================================================================== */
+.ogiva-icon-svg {
+    display: inline-block;
+    vertical-align: middle;
+    width: 14px;
+    height: 18px;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+
+.gas-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e2e8f0);
+    color: var(--color-text, #1f2937);
+}
+
+.ogiva-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    flex-shrink: 0;
+}
+
+/* Cores normativas NBR 12176 */
+.ogiva-oxigenio-med { background-color: #ffffff; border: 2px solid #008000 !important; } /* Ogiva branca com corpo/borda verde */
+.ogiva-oxigenio-ind { background-color: #008000; } /* Verde */
+.ogiva-nitrogenio { background-color: #808080; } /* Cinza Médio */
+.ogiva-argonio { background-color: #8B4513; } /* Marrom */
+.ogiva-co2 { background-color: #A0A0A0; } /* Alumínio / Prata */
+.ogiva-acetileno { background-color: #800000; } /* Bordô / Vermelho Óxido */
+.ogiva-ar-comp { background-color: #0047AB; } /* Azul */
+.ogiva-oxido-nitroso { background-color: #000080; } /* Azul Marinho */
+.ogiva-helio { background-color: #FF8C00; } /* Laranja */
+.ogiva-hidrogenio { background-color: #FFD700; } /* Amarelo */
+
+/* ==============================================================================
+   FILA DE AÇÃO IMEDIATA POR PAPEL (HOME ADAPTATIVA)
+   ============================================================================== */
+.action-queue-section {
+    margin-bottom: 25px;
+}
+
+.action-queue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.action-queue-header h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.action-queue-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+.action-queue-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.action-queue-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.action-queue-card.card-danger {
+    border-left: 4px solid var(--status-danger);
+}
+
+.action-queue-card.card-warning {
+    border-left: 4px solid var(--status-warning);
+}
+
+.action-queue-card.card-quarantine {
+    border-left: 4px solid var(--status-quarantine);
+}
+
+.action-queue-card.card-info {
+    border-left: 4px solid var(--status-transit);
+}
+
+.action-queue-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.action-queue-count {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--color-text);
+    line-height: 1;
+}
+
+.action-queue-badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.action-queue-badge.badge-danger { background: var(--status-danger-bg); color: var(--status-danger-text); border: 1px solid var(--status-danger-border); }
+.action-queue-badge.badge-warning { background: var(--status-warning-bg); color: var(--status-warning-text); border: 1px solid var(--status-warning-border); }
+.action-queue-badge.badge-quarantine { background: var(--status-quarantine-bg); color: var(--status-quarantine-text); border: 1px solid var(--status-quarantine-border); }
+.action-queue-badge.badge-info { background: var(--status-transit-bg); color: var(--status-transit-text); border: 1px solid var(--status-transit-border); }
+
+.action-queue-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0 0 6px 0;
+}
+
+.action-queue-desc {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 0 0 16px 0;
+    line-height: 1.4;
+}
+
+.action-queue-btn {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    background: var(--color-primary);
+    color: #ffffff;
+    transition: background 0.15s;
+}
+
+.action-queue-btn:hover {
+    background: var(--color-primary-dark);
+}
+
+/* ==============================================================================
+   GAVETA LATERAL DESLIZANTE (DRAWER / <dialog> NATIVO)
+   ============================================================================== */
+dialog.drawer-dialog {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: 100%;
+    max-width: 600px;
+    height: 100vh;
+    max-height: 100vh;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-left: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.2);
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+dialog.drawer-dialog[open] {
+    transform: translateX(0);
+}
+
+dialog.drawer-dialog::backdrop {
+    background: var(--modal-overlay);
+    backdrop-filter: blur(2px);
+}
+
+.drawer-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--color-surface);
+    flex-shrink: 0;
+}
+
+.drawer-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.drawer-close-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    padding: 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.drawer-close-btn:hover {
+    background: var(--color-hover);
+    color: var(--color-text);
+}
+
+.drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.drawer-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    background: var(--color-surface);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+/* Ficha Técnica Grid */
+.ficha-tecnica-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+    background: var(--color-bg);
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+}
+
+.ficha-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.ficha-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+}
+
+.ficha-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* ==============================================================================
+   TIMELINE DO LEDGER IMUTÁVEL
+   ============================================================================== */
+.ledger-timeline {
+    position: relative;
+    padding-left: 28px;
+    margin-top: 16px;
+}
+
+.ledger-timeline::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 10px;
+    width: 2px;
+    background: var(--color-border);
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 18px;
+}
+
+.timeline-dot {
+    position: absolute;
+    left: -28px;
+    top: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    border: 2px solid var(--color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.timeline-dot.dot-approved { border-color: var(--status-approved); background: var(--status-approved-bg); color: var(--status-approved); }
+.timeline-dot.dot-transit { border-color: var(--status-transit); background: var(--status-transit-bg); color: var(--status-transit); }
+.timeline-dot.dot-warning { border-color: var(--status-warning); background: var(--status-warning-bg); color: var(--status-warning); }
+.timeline-dot.dot-danger { border-color: var(--status-danger); background: var(--status-danger-bg); color: var(--status-danger); }
+.timeline-dot.dot-estorno { border-color: #8b5cf6; background: #f5f3ff; color: #8b5cf6; }
+
+.timeline-content {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.timeline-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.timeline-time {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.timeline-desc {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* ==============================================================================
+   MODAL DE AÇÃO CONTEXTUAL (<dialog>)
+   ============================================================================== */
+dialog.action-modal {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+    z-index: 1100;
+}
+
+dialog.action-modal::backdrop {
+    background: var(--modal-overlay);
+    backdrop-filter: blur(2px);
+}
+
+/* TopBar Enhancements: Tenant Switcher, Role Badge, Sync Status */
+.tenant-switcher-select {
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    max-width: 220px;
+}
+
+.tenant-badge-single {
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.role-badge-pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
+}
+
+.role-badge-admin { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+.role-badge-gerente { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+.role-badge-rt { background: #fae8ff; color: #86198f; border-color: #f5d0fe; }
+.role-badge-patio { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.role-badge-motorista { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+.role-badge-vendedor { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+
+.sync-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+}
+
+.sync-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+}
+
+.sync-status-dot.offline {
+    background-color: #f59e0b;
+}
+
+.sync-status-dot.syncing {
+    background-color: #3b82f6;
+    animation: pulseSync 1.2s infinite;
+}
+
+@keyframes pulseSync {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+/* ---- Universal Form & Input Polish (Design System) ---- */
+.form-field-error {
+    color: var(--status-danger);
+    font-size: 12px;
+    margin-top: 4px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+input.is-invalid, select.is-invalid, textarea.is-invalid {
+    border-color: var(--status-danger) !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+}
+
+.font-mono {
+    font-family: var(--font-family-mono) !important;
+}
+
+.text-uppercase {
+    text-transform: uppercase !important;
+}
+
+/* Alvo de toque mínimo acessível */
+input[type="text"], input[type="password"], input[type="email"],
+input[type="number"], input[type="date"], select, textarea {
+    min-height: 40px;
+    box-sizing: border-box;
+}
+
+/* Empty State Padrão */
+.table-empty-state {
+    text-align: center;
+    padding: 36px 20px;
+    color: var(--color-text-muted);
+}
+.table-empty-state svg {
+    margin-bottom: 8px;
+    opacity: 0.5;
+}
+

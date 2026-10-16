@@ -1,0 +1,221 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>App de Campo - GasManagement</title>
+    
+    <!-- PWA e Identificação Multi-tenant -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="{% static 'img/icon-192.png' %}">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="current-tenant-id" content="{{ tenant.id }}">
+    <meta name="current-user-id" content="{{ user.id }}">
+
+    {% if jwt_access_token %}
+    <script>
+        try {
+            localStorage.setItem('access_token', '{{ jwt_access_token }}');
+        } catch(e) {}
+    </script>
+    {% endif %}
+
+    <!-- CSS Base e Ergonomia de Rua -->
+    <link rel="stylesheet" href="{% static 'vendor/inter/inter.css' %}">
+    <link rel="stylesheet" href="{% static 'css/app_campo.css' %}">
+</head>
+<body>
+
+    <!-- 1. Banner Permanente de Rede e Conexão (Sticky) -->
+    <div class="status-banner-sticky" id="status-banner">
+        <div class="status-network-indicator">
+            <span class="status-dot" id="network-status-dot"></span>
+            <span id="network-status-text">Verificando rede...</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <button type="button" class="btn-touch btn-touch-outline" id="btn-toggle-sun" style="min-height: 42px; padding: 6px 12px; font-size: 13px;" title="Alternar modo alto contraste para leitura sob sol forte">
+                ☀️ Modo Sol
+            </button>
+            <button type="button" class="btn-touch btn-touch-danger" id="btn-sync-status" style="display: none; min-height: 42px; padding: 6px 12px; font-size: 13px;">
+                Pendências (0)
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. Header do Motorista -->
+    <header class="field-header">
+        <div class="field-header-row">
+            <div>
+                <h1 class="field-title" id="rota-titulo">Minha Rota de Campo</h1>
+                <div style="font-size: 13px; color: var(--app-text-muted);">
+                    Motorista: <strong id="rota-motorista">{{ user.get_full_name|default:user.username }}</strong>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <a href="/inicio/" class="btn-touch btn-touch-outline" style="min-height: 40px; padding: 4px 10px; font-size: 12px; text-decoration: none;" title="Voltar ao Painel Geral">
+                    🏠 Início
+                </a>
+            </div>
+        </div>
+
+        <!-- Card de Lotação ANTT e Veículo -->
+        <div class="load-summary-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                <span>🚚 <strong id="rota-veiculo">Carregando veículo...</strong></span>
+                <span id="rota-selo-estimado"></span>
+            </div>
+            <div class="load-bar-wrapper">
+                <div class="load-bar-fill" id="rota-barra-fill" style="width: 0%; background-color: var(--app-success);"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--app-text-muted);">
+                <span>Lotação Regulamentar ANTT:</span>
+                <span id="rota-lotacao-texto">0% (Normal)</span>
+            </div>
+        </div>
+
+        <!-- Botão Pre-flight Sync da Rota -->
+        <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <button type="button" class="btn-touch btn-touch-primary btn-touch-full" id="btn-baixar-rota">
+                📥 Baixar Rota para Operação Offline
+            </button>
+        </div>
+    </header>
+
+    <!-- 3. VISÃO 1: Lista de Paradas da Rota -->
+    <main id="view-rota">
+        <div class="stops-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="font-size: 16px; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Paradas Programadas</h2>
+                <span style="font-size: 12px; color: var(--app-text-muted);">Sequência de Entrega</span>
+            </div>
+            <div id="stops-list">
+                <div style="text-align: center; padding: 30px; color: var(--app-text-muted);">
+                    Carregando dados da rota...
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 4. VISÃO 2: Execução da Parada Ativa -->
+    <section id="view-parada" style="display: none; padding: 16px;">
+        <!-- Topo da Parada -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <button type="button" class="btn-touch btn-touch-outline" style="min-height: 44px; padding: 6px 14px; font-size: 14px;" onclick="window.voltarParaRota()">
+                ⬅️ Voltar à Rota
+            </button>
+            <span class="stop-comodato-badge" id="parada-cliente-saldo">0 em comodato</span>
+        </div>
+
+        <div style="background: var(--app-surface); border: 2px solid var(--app-border); border-radius: var(--border-radius); padding: 14px; margin-bottom: 16px;">
+            <h2 style="margin: 0 0 4px 0; font-size: 18px;" id="parada-cliente-nome">Nome do Cliente</h2>
+            <div style="font-size: 13px; color: var(--app-text-muted);">Bipagem e conferência Full-for-Empty da parada</div>
+        </div>
+
+        <!-- Abas de Bipagem: Entregar Cheios vs. Recolher Vazios -->
+        <div class="operation-tabs">
+            <button type="button" class="tab-touch-btn active tab-deliver" id="btn-tab-deliver">
+                ⬆️ Entregar Cheios (<span id="count-deliver">0</span>)
+            </button>
+            <button type="button" class="tab-touch-btn" id="btn-tab-collect">
+                ⬇️ Recolher Vazios (<span id="count-collect">0</span>)
+            </button>
+        </div>
+
+        <!-- Formulário de Bipagem Rápida / Keyboard Wedge -->
+        <form id="form-bip" class="bip-input-box">
+            <input type="text" id="input-bip-codigo" class="input-touch" placeholder="Bipar QR Code / Nº de Série" autofocus autocomplete="off">
+            <button type="submit" class="btn-touch btn-touch-primary" style="min-width: 90px;">
+                Adicionar
+            </button>
+        </form>
+
+        <!-- Listas de Cilindros Bipados na Parada -->
+        <div style="margin-top: 16px;">
+            <h3 style="font-size: 14px; text-transform: uppercase; color: var(--app-text-muted); margin-bottom: 8px;">Cilindros Cheios Prontos para Entrega</h3>
+            <div id="list-deliver-items"></div>
+
+            <h3 style="font-size: 14px; text-transform: uppercase; color: var(--app-text-muted); margin: 16px 0 8px 0;">Cilindros Vazios a Recolher</h3>
+            <div id="list-collect-items"></div>
+        </div>
+
+        <!-- Botão de Finalização da Parada com Assinatura -->
+        <div style="margin-top: 24px;">
+            <button type="button" class="btn-touch btn-touch-success btn-touch-full" id="btn-finalizar-parada" disabled>
+                ✍️ Finalizar Bips da Parada e Assinar
+            </button>
+        </div>
+    </section>
+
+    <!-- 5. Modal / Sheet: Comprovante Eletrônico da Parada (D8) -->
+    <div class="modal-sheet-overlay" id="modal-assinatura">
+        <div class="modal-sheet">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--app-border); padding-bottom: 12px; margin-bottom: 14px;">
+                <h3 style="margin: 0; font-size: 18px; font-weight: 800;">Comprovante Eletrônico da Parada</h3>
+                <button type="button" class="btn-touch btn-touch-outline" id="btn-fechar-assinatura" style="min-height: 40px; padding: 4px 10px; font-size: 18px;">&times;</button>
+            </div>
+
+            <!-- Resumo da Operação -->
+            <div style="background: var(--app-bg); border: 1px solid var(--app-border); border-radius: var(--border-radius); padding: 12px; margin-bottom: 16px; font-size: 14px;">
+                <div>📦 <strong>Entrega:</strong> <span id="resumo-entregues">0 cheios</span></div>
+                <div>🔄 <strong>Recolha:</strong> <span id="resumo-recolhidos">0 vazios</span></div>
+            </div>
+
+            <form id="form-confirmar-comprovante">
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Nome Completo do Recebedor *</label>
+                    <input type="text" id="input-recebedor-nome" class="input-touch" required placeholder="Ex: Carlos Eduardo de Oliveira">
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Documento (CPF ou RG) *</label>
+                    <input type="text" id="input-recebedor-doc" class="input-touch" required placeholder="000.000.000-00">
+                </div>
+
+                <!-- Canvas de Assinatura Touch -->
+                <div style="margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label style="font-size: 13px; font-weight: 700;">Assinatura Eletrônica Simples de Recebimento *</label>
+                        <button type="button" class="btn-touch btn-touch-outline" id="btn-limpar-assinatura" style="min-height: 36px; padding: 4px 8px; font-size: 12px;">Limpar</button>
+                    </div>
+                    <div class="signature-box">
+                        <canvas id="signature-canvas" class="signature-canvas"></canvas>
+                    </div>
+                    <div style="font-size: 11px; color: var(--app-text-muted); text-align: center;">
+                        Assine com o dedo ou caneta stylus sobre a área em branco acima.
+                    </div>
+                </div>
+
+                <!-- Aviso Legal LGPD e GPS -->
+                <div style="background: #0284c715; border-left: 4px solid var(--app-primary); padding: 10px; border-radius: 6px; font-size: 11px; color: var(--app-text); margin-bottom: 16px; line-height: 1.4;">
+                    <strong>Privacidade e LGPD:</strong> A coleta do documento e das coordenadas geográficas é realizada estritamente para a finalidade de comprovação jurídica da entrega no endereço acordado (Art. 7º, V da Lei 13.709/2018).
+                    <div id="gps-status-text" style="margin-top: 4px; font-weight: 600; color: var(--app-primary);">Obtendo coordenadas GPS...</div>
+                </div>
+
+                <button type="submit" class="btn-touch btn-touch-success btn-touch-full" id="btn-confirmar-comprovante">
+                    ✅ Confirmar Recebimento e Assinatura
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts da Aplicação PWA -->
+    <script src="{% static 'vendor/sweetalert2/sweetalert2.all.min.js' %}"></script>
+    <script src="{% static 'js/offline_sync.js' %}"></script>
+    <script src="{% static 'js/app_campo.js' %}"></script>
+
+    <!-- Registro do Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(reg => console.log('[App de Campo] Service Worker registrado com sucesso:', reg.scope))
+            .catch(err => console.warn('[App de Campo] Falha ao registrar Service Worker:', err));
+        });
+      }
+    </script>
+</body>
+</html>

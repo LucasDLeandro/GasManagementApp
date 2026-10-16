@@ -1,53 +1,896 @@
 {% extends 'base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Produtos - GasManagementApp{% endblock %}
+{% block title %}Ativos 360° & Cilindros - GasManagementApp{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'produtos/css/index.css' %}">
+<style>
+    .module-tabs-nav {
+        display: flex;
+        gap: 8px;
+        border-bottom: 2px solid var(--color-border);
+        margin-bottom: 24px;
+        padding-bottom: 0;
+    }
+
+    .module-tab-btn {
+        padding: 10px 18px;
+        font-size: 14px;
+        font-weight: 600;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: color 0.15s, border-color 0.15s;
+    }
+
+    .module-tab-btn:hover {
+        color: var(--color-primary);
+    }
+
+    .module-tab-btn.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+    }
+
+    /* Pílulas de Filtro Rápido */
+    .filter-pills-bar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .pill-filter-btn {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-muted);
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .pill-filter-btn:hover {
+        background: var(--color-hover);
+        color: var(--color-text);
+        border-color: var(--color-text-muted);
+    }
+
+    .pill-filter-btn.active {
+        background: var(--color-primary);
+        color: #ffffff;
+        border-color: var(--color-primary);
+    }
+
+    .search-bar-container {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        flex: 1;
+        max-width: 480px;
+    }
+
+    .search-input-wrapper input {
+        width: 100%;
+        padding: 9px 14px 9px 36px;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        font-size: 14px;
+        background: var(--color-surface);
+        color: var(--color-text);
+        outline: none;
+    }
+
+    .search-input-wrapper svg {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-text-muted);
+    }
+
+    .pagination-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid var(--color-border);
+    }
+
+    /* Layout da Etiqueta Térmica 60x40mm */
+    .thermal-label-preview {
+        width: 320px;
+        height: 213px; /* Proporção 60x40mm */
+        border: 2px dashed #0f172a;
+        border-radius: 6px;
+        padding: 12px;
+        background: #ffffff;
+        color: #000000;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        margin: 16px auto;
+        font-family: var(--font-family-mono);
+    }
+
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #modal-etiqueta-termica, #modal-etiqueta-termica * {
+            visibility: visible;
+        }
+        #modal-etiqueta-termica {
+            position: absolute;
+            left: 0;
+            top: 0;
+            margin: 0;
+            padding: 0;
+            border: none;
+            width: 60mm;
+            height: 40mm;
+        }
+        .thermal-label-preview {
+            width: 58mm;
+            height: 38mm;
+            border: none;
+            margin: 0;
+            padding: 2mm;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block dashboard_content %}
-    <div class="produtos-header">
-        <h2>Gases e Cilindros</h2>
-        <button class="btn-primary" id="btn-novo-produto">Novo Produto</button>
-    </div>
-    
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>SKU/Código</th>
-                    <th>Gás</th>
-                    <th>Categoria</th>
-                    <th>Capacidade</th>
-                    <th>Preço (R$)</th>
-                    <th>Estoque</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody id="produtos-tbody">
-                <tr>
-                    <td colspan="7" style="text-align:center;">Carregando...</td>
-                </tr>
-            </tbody>
-        </table>
+    <!-- Navegação de Abas do Módulo -->
+    <div class="module-tabs-nav" style="flex-wrap: wrap;">
+        <button class="module-tab-btn active" id="tab-btn-ativos" onclick="alternarAba('ativos')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+            Ativos 360° (Frota)
+        </button>
+
+        <button class="module-tab-btn" id="tab-btn-rampa" onclick="alternarAba('rampa')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            Rampa em Batelada (IN 129/2022)
+        </button>
+
+        <button class="module-tab-btn" id="tab-btn-recebimento" onclick="alternarAba('recebimento')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Recebimento de Fornecedor (RDC 887/2024)
+        </button>
+
+        <button class="module-tab-btn" id="tab-btn-lotes" onclick="alternarAba('lotes')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            Central de Lotes & Qualidade CQ
+        </button>
+
+        <button class="module-tab-btn" id="tab-btn-catalogo" onclick="alternarAba('catalogo')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            </svg>
+            Catálogo Comercial
+        </button>
+
+        <a href="/produtos/anvisa/recall/" class="module-tab-btn" style="margin-left: auto; color: #dc2626; border-bottom-color: transparent;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            Recall ANVISA & Rastreabilidade &rarr;
+        </a>
     </div>
 
-    <!-- Modal Novo Produto -->
+    <!-- ============================================================================== -->
+    <!-- ABA 1: ATIVOS 360° (CILINDROS DA FROTA)                                        -->
+    <!-- ============================================================================== -->
+    <div id="aba-conteudo-ativos">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0;">Frota de Cilindros & Ativos 360°</h2>
+                <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Gestão patrimonial com rastreabilidade imutável, ABNT NBR 12176 e controle regulatório INMETRO/ANVISA.</p>
+            </div>
+            
+            <div class="search-bar-container" style="margin: 0;">
+                <div class="search-input-wrapper">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="input-busca-cilindros" placeholder="Buscar por QR, Nº Série Ogiva ou Fabricante...">
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de Pílulas de Filtros Rápidos -->
+        <div class="filter-pills-bar">
+            <button class="pill-filter-btn active" data-filter="todos">Todos</button>
+            <button class="pill-filter-btn" data-filter="CHEIO_DISPONIVEL">Cheios no Pátio</button>
+            <button class="pill-filter-btn" data-filter="EM_POSSE_CLIENTE">Em Clientes</button>
+            <button class="pill-filter-btn" data-filter="VAZIO_TRIAGEM">Vazios em Triagem</button>
+            <button class="pill-filter-btn" data-filter="bloqueio_sanitario">Bloqueio Sanitário</button>
+            <button class="pill-filter-btn" data-filter="reteste_vencido">Reteste Vencido</button>
+            <button class="pill-filter-btn" data-filter="proprio">Patrimônio Próprio</button>
+        </div>
+
+        <!-- Tabela Server-Side de Cilindros -->
+        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                <thead>
+                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
+                        <th style="padding: 12px 16px;">Código QR / Ogiva</th>
+                        <th style="padding: 12px 16px;">Gás (ABNT NBR 12176)</th>
+                        <th style="padding: 12px 16px;">Capacidade / Tara</th>
+                        <th style="padding: 12px 16px;">Status Operacional</th>
+                        <th style="padding: 12px 16px;">Reteste INMETRO</th>
+                        <th style="padding: 12px 16px;">Bloqueio ANVISA</th>
+                        <th style="padding: 12px 16px;">Localização Atual</th>
+                        <th style="padding: 12px 16px; text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="cilindros-tbody">
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: var(--color-text-muted); padding: 30px;">Carregando frota de cilindros...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginação -->
+        <div class="pagination-bar">
+            <span id="pagination-info" style="font-size: 13px; color: var(--color-text-muted);">Página 1</span>
+            <div style="display: flex; gap: 8px;">
+                <button id="btn-prev-page" class="btn-auth" style="padding: 6px 14px; font-size: 13px; background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" disabled>&larr; Anterior</button>
+                <button id="btn-next-page" class="btn-auth" style="padding: 6px 14px; font-size: 13px; background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" disabled>Próxima &rarr;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- ABA 2: ESTAÇÃO DE RAMPA EM BATELADA (IN 129/2022)                              -->
+    <!-- ============================================================================== -->
+    <div id="aba-conteudo-rampa" style="display: none;">
+        <div class="batch-manifold-header">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h2 style="font-size: 22px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        Estação de Rampa de Envase em Batelada
+                        <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; border: 1px solid #0284c7;">IN nº 129/2022 - ANVISA</span>
+                    </h2>
+                    <p style="margin: 0; color: var(--color-text-muted); font-size: 13px;">
+                        Acoplamento contínuo com leitor óptico, validação em tempo real de reteste/bloqueio sanitário e checklist pré-envase.
+                    </p>
+                </div>
+                <div class="scanner-audio-pill">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                    Sintetizador de Áudio Ativo
+                </div>
+            </div>
+
+            <!-- Controles de Cabeçalho da Rampa -->
+            <div class="batch-controls-grid">
+                <div class="form-group">
+                    <label for="rampa-select-lote" style="font-weight: 600; font-size: 13px; color: var(--color-text);">Lote de Envase Químico / Medicinal *</label>
+                    <select id="rampa-select-lote" style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg); color: var(--color-text); font-size: 14px;" onchange="RampaEnvase.onLoteChange()">
+                        <option value="">Carregando lotes disponíveis...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="rampa-pressao-final" style="font-weight: 600; font-size: 13px; color: var(--color-text);">Pressão Final da Rampa (bar) *</label>
+                    <input type="number" id="rampa-pressao-final" value="200" min="50" max="300" style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg); color: var(--color-text); font-size: 14px; font-weight: 600;">
+                </div>
+
+                <div style="display: flex; align-items: flex-end;">
+                    <div id="rampa-contador-cilindros" class="pill-filter-btn active" style="padding: 10px 16px; font-size: 14px; width: 100%; justify-content: center;">
+                        Batelada: 0 cilindro(s)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pílula de Detalhes do Lote Selecionado -->
+            <div id="rampa-lote-info-pill" style="display: none; margin-top: 14px; padding: 10px 16px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; font-size: 12px; gap: 16px; flex-wrap: wrap;">
+            </div>
+        </div>
+
+        <!-- Grade de Bipagem Contínua (Keyboard Wedge & Scanner) -->
+        <div class="scanner-wedge-container" id="wedge-scanner-card">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2">
+                <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                <line x1="7" y1="8" x2="7" y2="16"></line>
+                <line x1="11" y1="8" x2="11" y2="16"></line>
+                <line x1="15" y1="8" x2="15" y2="16"></line>
+                <line x1="17" y1="8" x2="17" y2="16"></line>
+            </svg>
+
+            <div class="scanner-wedge-input-wrap">
+                <input type="text" id="input-scanner-wedge" class="scanner-wedge-input" placeholder="Bipe ou digite o Código QR / Nº Série do cilindro para acoplar na rampa..." autofocus>
+            </div>
+
+            <button type="button" class="btn-auth" style="padding: 10px 18px; font-size: 13px; background: var(--color-primary); color: #fff; border: none; cursor: pointer; border-radius: 8px;" onclick="const val = document.getElementById('input-scanner-wedge').value.trim(); if (val) { RampaEnvase.biparCilindro(val); document.getElementById('input-scanner-wedge').value = ''; }">
+                Acoplar Cilindro
+            </button>
+        </div>
+
+        <!-- Alerta de Feedback de Bipagem -->
+        <div id="rampa-scan-feedback" style="display: none;"></div>
+
+        <!-- Barra de Ações Rápidas da Rampa -->
+        <div class="batch-quick-actions-bar">
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="action-queue-btn" style="background: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1px solid #22c55e; padding: 8px 16px; font-size: 13px; font-weight: 700;" onclick="RampaEnvase.marcarConformeTodos()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Marcar Inspeção Física Conforme em Todos (IN 129)
+                </button>
+
+                <button type="button" class="btn-auth" style="padding: 8px 14px; font-size: 13px; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-muted); cursor: pointer;" onclick="RampaEnvase.limparRampa()">
+                    Limpar Rampa
+                </button>
+            </div>
+
+            <div>
+                <button type="button" id="btn-concluir-batelada" class="action-queue-btn" style="background: var(--color-primary); color: #fff; padding: 10px 22px; font-size: 14px; font-weight: 700;" onclick="RampaEnvase.concluirBatelada()" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Concluir Batelada de Envase (Atômico)
+                </button>
+            </div>
+        </div>
+
+        <!-- Grade de Cilindros na Rampa -->
+        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                <thead>
+                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
+                        <th style="padding: 12px 16px;">Nº Ogiva / QR Code</th>
+                        <th style="padding: 12px 16px;">Modelo / Capacidade</th>
+                        <th style="padding: 12px 16px;">Gás Normativo</th>
+                        <th style="padding: 12px 16px;">Próx. Reteste</th>
+                        <th style="padding: 12px 16px; min-width: 240px;">Checklist Pré-Envase (IN 129/2022)</th>
+                        <th style="padding: 12px 16px;">Conformidade</th>
+                        <th style="padding: 12px 16px; text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="rampa-grid-tbody">
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 35px;">
+                            Nenhum cilindro acoplado na rampa. Bipe com o leitor de código de barras ou digite o QR Code acima.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- ABA 3: RECEBIMENTO DE FORNECEDOR (RDC 887/2024 - DISTRIBUIDORAS)               -->
+    <!-- ============================================================================== -->
+    <div id="aba-conteudo-recebimento" style="display: none;">
+        <div style="margin-bottom: 20px;">
+            <h2 style="font-size: 22px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Central de Recebimento de Cilindros Cheios de Fornecedor
+                <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1px solid #16a34a;">RDC nº 887/2024 - ANVISA</span>
+            </h2>
+            <p style="margin: 0; color: var(--color-text-muted); font-size: 13px;">
+                Entrada formal e rastreável de notas fiscais de envasadoras externas para distribuidoras sem planta de envase própria.
+            </p>
+        </div>
+
+        <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 22px; margin-bottom: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0; color: var(--color-text);">Registro de Entrada por Nota Fiscal</h3>
+            
+            <form id="form-recebimento-fornecedor" onsubmit="RecebimentoFornecedor.submeterRecebimento(event)">
+                <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                    <div class="form-group">
+                        <label for="rec-fornecedor-nome">Fornecedor / Envasadora *</label>
+                        <input type="text" id="rec-fornecedor-nome" name="fornecedor_nome" placeholder="Ex: White Martins Gases Industriais" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rec-fornecedor-cnpj">CNPJ do Fornecedor *</label>
+                        <input type="text" id="rec-fornecedor-cnpj" name="fornecedor_cnpj" placeholder="00.000.000/0000-00" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rec-nota-fiscal">Nota Fiscal de Entrada (NF-e) *</label>
+                        <input type="text" id="rec-nota-fiscal" name="nota_fiscal" placeholder="Ex: 001.234.567" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rec-lote-fornecedor">Lote de Origem do Fornecedor *</label>
+                        <input type="text" id="rec-lote-fornecedor" name="lote_fornecedor" placeholder="Ex: LOT-WM-2026-99" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rec-data-envase">Data de Envase na Origem *</label>
+                        <input type="date" id="rec-data-envase" name="data_envase_origem" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rec-data-validade">Data de Validade do Gás *</label>
+                        <input type="date" id="rec-data-validade" name="data_validade" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rec-pressao">Pressão de Recebimento (bar)</label>
+                        <input type="number" id="rec-pressao" name="pressao_recebimento_bar" value="200" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rec-select-rt">Responsável Técnico (RT Conferente)</label>
+                        <select id="rec-select-rt" name="responsavel_tecnico_id">
+                            <option value="">Carregando RTs...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="rec-laudo-pdf">Laudo / Certificado de Análise do Lote (PDF) *</label>
+                        <input type="file" id="rec-laudo-pdf" name="laudo_pdf" accept="application/pdf">
+                    </div>
+                </div>
+
+                <!-- Bipagem de Cilindros Recebidos -->
+                <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label style="font-weight: 600; font-size: 13px; color: var(--color-text);">Bipar Cilindros Desta Nota Fiscal</label>
+                        <span id="rec-contador-cilindros" style="font-size: 12px; font-weight: 700; color: var(--color-primary);">0 casco(s) bipado(s)</span>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                        <input type="text" id="input-rec-scanner" placeholder="Bipe ou digite o QR Code / Nº Série do cilindro e pressione Enter..." style="flex: 1; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; font-family: var(--font-family-mono, monospace); font-size: 13px; background: var(--color-bg); color: var(--color-text);">
+                        <button type="button" class="btn-auth" style="padding: 10px 16px; background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" onclick="const val = document.getElementById('input-rec-scanner').value.trim(); if (val) { RecebimentoFornecedor.adicionarCilindro(val); document.getElementById('input-rec-scanner').value = ''; }">
+                            Adicionar
+                        </button>
+                    </div>
+
+                    <div id="rec-cilindros-chips" style="display: flex; flex-wrap: wrap; gap: 8px; min-height: 38px; padding: 8px; background: var(--color-bg); border-radius: 8px; border: 1px solid var(--color-border);">
+                        <span style="color: var(--color-text-muted); font-size: 12px;">Nenhum cilindro bipado para esta nota fiscal.</span>
+                    </div>
+                </div>
+
+                <div class="form-actions" style="margin-top: 20px;">
+                    <button type="submit" id="btn-submit-recebimento" class="action-queue-btn" style="background: var(--color-primary); color: #fff; padding: 10px 22px; font-size: 14px; font-weight: 700;">
+                        Registrar Entrada de Fornecedor (RDC 887/2024)
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tabela de Histórico de Recebimentos -->
+        <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 12px 0; color: var(--color-text);">Histórico de Entradas de Fornecedores</h3>
+        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                <thead>
+                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
+                        <th style="padding: 12px 16px;">Fornecedor</th>
+                        <th style="padding: 12px 16px;">Nota Fiscal</th>
+                        <th style="padding: 12px 16px;">Lote Fornecedor</th>
+                        <th style="padding: 12px 16px;">Cilindro QR</th>
+                        <th style="padding: 12px 16px;">Validade</th>
+                        <th style="padding: 12px 16px;">RT Conferente</th>
+                        <th style="padding: 12px 16px; text-align: right;">Laudo PDF</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-historico-recebimentos">
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Carregando histórico...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- ABA 4: CENTRAL DE LOTES & QUALIDADE CQ                                         -->
+    <!-- ============================================================================== -->
+    <div id="aba-conteudo-lotes" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 22px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                    Central de Lotes Químicos & Homologação CQ
+                    <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; border: 1px solid #0284c7;">RDC 658/2022</span>
+                </h2>
+                <p style="margin: 0; color: var(--color-text-muted); font-size: 13px;">
+                    Homologação técnica de certificados pelo RT, quarentena regulatória e acionamento de bloqueio sanitário.
+                </p>
+            </div>
+
+            <a href="/produtos/anvisa/recall/" class="action-queue-btn" style="background: #dc2626; color: #fff; text-decoration: none;">
+                Abrir Painel de Recall ANVISA &rarr;
+            </a>
+        </div>
+
+        <!-- KPIs de Qualidade -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px;">
+                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted);">Aprovados pelo RT</span>
+                <h3 id="cq-kpi-aprovados" style="font-size: 26px; font-weight: 700; color: #16a34a; margin: 4px 0 0 0;">-</h3>
+            </div>
+            <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px;">
+                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted);">Em Quarentena / Análise</span>
+                <h3 id="cq-kpi-quarentena" style="font-size: 26px; font-weight: 700; color: #d97706; margin: 4px 0 0 0;">-</h3>
+            </div>
+            <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px;">
+                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted);">Reprovados / Bloqueados</span>
+                <h3 id="cq-kpi-reprovados" style="font-size: 26px; font-weight: 700; color: #dc2626; margin: 4px 0 0 0;">-</h3>
+            </div>
+        </div>
+
+        <!-- Tabela de Lotes Químicos -->
+        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                <thead>
+                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
+                        <th style="padding: 12px 16px;">Código do Lote</th>
+                        <th style="padding: 12px 16px;">Gás Químico</th>
+                        <th style="padding: 12px 16px;">Pureza Aferida</th>
+                        <th style="padding: 12px 16px;">Validade</th>
+                        <th style="padding: 12px 16px;">Status CQ</th>
+                        <th style="padding: 12px 16px;">RT Homologador</th>
+                        <th style="padding: 12px 16px; text-align: right;">Ações do RT</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-lotes-cq">
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Carregando lotes químicos...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    <!-- ============================================================================== -->
+    <!-- ABA 5: CATÁLOGO COMERCIAL DE GASES E PREÇOS                                    -->
+    <!-- ============================================================================== -->
+    <div id="aba-conteudo-catalogo" style="display: none;">
+        <div class="produtos-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0;">Catálogo de Gases & Preços</h2>
+                <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Tabela comercial de skus de recarga e produtos precificados vinculados aos cilindros.</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="btn-secondary" onclick="alternarAba('ativos')" style="display: inline-flex; align-items: center; gap: 6px;">
+                    🛡️ Ver Ativos Físicos 360°
+                </button>
+                <button class="btn-primary" id="btn-novo-produto" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Novo Produto / SKU
+                </button>
+            </div>
+        </div>
+        
+        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                <thead>
+                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
+                        <th style="padding: 12px 16px;">SKU/Código</th>
+                        <th style="padding: 12px 16px;">Gás</th>
+                        <th style="padding: 12px 16px;">Categoria</th>
+                        <th style="padding: 12px 16px;">Capacidade</th>
+                        <th style="padding: 12px 16px;">Preço (R$)</th>
+                        <th style="padding: 12px 16px;">Estoque</th>
+                        <th style="padding: 12px 16px; text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="produtos-tbody">
+                    <tr>
+                        <td colspan="7" style="text-align:center; padding: 25px;">Carregando catálogo...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- GAVETA LATERAL DESLIZANTE (DRAWER / <dialog> NATIVO)                           -->
+    <!-- ============================================================================== -->
+    <dialog id="cylinder-drawer" class="drawer-dialog">
+        <div class="drawer-header">
+            <div>
+                <h3 id="drawer-qr-title" class="font-mono">CIL-0000</h3>
+                <span id="drawer-serie-title" style="font-size: 12px; color: var(--color-text-muted);">Série: -</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <a id="drawer-link-passaporte" href="#" target="_blank" class="action-queue-btn" style="padding: 6px 12px; font-size: 12px; background: var(--color-bg); color: var(--color-text); border: 1px solid var(--color-border);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    Passaporte
+                </a>
+                <a id="drawer-link-etiqueta-casco" href="#" target="_blank" class="action-queue-btn" style="padding: 6px 12px; font-size: 12px; background: var(--color-bg); color: var(--color-text); border: 1px solid var(--color-border);" title="Imprimir Etiqueta Térmica 60x40mm">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    Casco 60x40
+                </a>
+                <a id="drawer-link-etiqueta-colarinho" href="#" target="_blank" class="action-queue-btn" style="display: none; padding: 6px 12px; font-size: 12px; background: var(--color-bg); color: var(--color-text); border: 1px solid var(--color-border);" title="Imprimir Colarinho IN 129/2022">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                    Colarinho
+                </a>
+                <button id="btn-close-drawer" class="drawer-close-btn" title="Fechar Gaveta">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="drawer-body">
+            <!-- Ficha Técnica -->
+            <div class="ficha-tecnica-grid">
+                <div class="ficha-item">
+                    <span class="ficha-label">Gás Dedicado</span>
+                    <span class="ficha-value" id="drawer-gas-nome">-</span>
+                </div>
+                <div class="ficha-item">
+                    <span class="ficha-label">Capacidade Hidráulica</span>
+                    <span class="ficha-value" id="drawer-capacidade">-</span>
+                </div>
+                <div class="ficha-item">
+                    <span class="ficha-label">Tara Real Aferida</span>
+                    <span class="ficha-value" id="drawer-tara">-</span>
+                </div>
+                <div class="ficha-item">
+                    <span class="ficha-label">Fabricante / Ano</span>
+                    <span class="ficha-value" id="drawer-fabricante">-</span>
+                </div>
+                <div class="ficha-item">
+                    <span class="ficha-label">Próximo Reteste</span>
+                    <span class="ficha-value" id="drawer-reteste">-</span>
+                </div>
+                <div class="ficha-item">
+                    <span class="ficha-label">Status Atual</span>
+                    <span class="ficha-value" id="drawer-status">-</span>
+                </div>
+                <div class="ficha-item" style="grid-column: span 2;">
+                    <span class="ficha-label">Localização / Posse</span>
+                    <span class="ficha-value" id="drawer-posse">-</span>
+                </div>
+            </div>
+
+            <!-- Timeline do Ledger Imutável -->
+            <h4 style="font-size: 15px; font-weight: 700; margin: 20px 0 10px 0; color: var(--color-text); display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Linha do Tempo (Ledger Imutável)
+            </h4>
+            <div class="ledger-timeline" id="drawer-timeline-container">
+                <p style="color: var(--color-text-muted); font-size: 13px;">Carregando movimentações...</p>
+            </div>
+        </div>
+
+        <div class="drawer-footer">
+            {% if is_responsavel_tecnico or is_admin %}
+            <button id="drawer-btn-bloqueio" class="action-queue-btn" style="background: #dc2626;" data-action="BLOQUEIO">
+                Acionar Bloqueio Sanitário
+            </button>
+            <button id="drawer-btn-reclassificar" class="action-queue-btn" style="background: #4f46e5;">
+                Reclassificar Gás
+            </button>
+            {% endif %}
+
+            {% if is_operador_patio or is_admin or is_responsavel_tecnico %}
+            <button id="drawer-btn-reteste" class="action-queue-btn" style="background: #0284c7;">
+                Registrar Retorno de Reteste
+            </button>
+            {% endif %}
+
+            <button id="drawer-btn-etiqueta" class="action-queue-btn" style="background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);">
+                Imprimir Etiqueta (60x40mm)
+            </button>
+        </div>
+    </dialog>
+
+    <!-- ============================================================================== -->
+    <!-- MODAL 1: BLOQUEIO / LIBERAÇÃO SANITÁRIA (RT)                                   -->
+    <!-- ============================================================================== -->
+    <dialog id="modal-bloqueio-sanitario" class="action-modal">
+        <h3 id="modal-bloqueio-acao-title" style="margin-top:0; color:var(--color-text);">Bloqueio Sanitário ANVISA</h3>
+        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
+            Ação exclusiva do Responsável Técnico (CRF/CRQ). Toda intervenção é gravada de forma perpétua na trilha de auditoria regulatória.
+        </p>
+        <form id="form-bloqueio-sanitario">
+            <input type="hidden" id="bloqueio-acao-input" value="BLOQUEIO">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Justificativa Técnica / Motivo *</label>
+                <textarea id="bloqueio-justificativa" rows="3" required style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; font-size: 13px; background: var(--color-bg); color: var(--color-text);" placeholder="Ex: Cilindro com suspeita de óleo/particulado na válvula ou quarentena por recolhimento suspeito..."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" id="btn-cancelar-bloqueio" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Cancelar</button>
+                <button type="submit" class="action-queue-btn" style="background: var(--status-danger);">Confirmar Intervenção</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- ============================================================================== -->
+    <!-- MODAL 2: REGISTRAR RETORNO DE RETESTE HIDROSTÁTICO                             -->
+    <!-- ============================================================================== -->
+    <dialog id="modal-retorno-reteste" class="action-modal">
+        <h3 style="margin-top:0; color:var(--color-text);">Registrar Retorno de Reteste Hidrostático</h3>
+        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
+            Atualização das datas normativas ABNT e aferição de nova tara após requalificação em oficina credenciada INMETRO.
+        </p>
+        <form id="form-retorno-reteste">
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Data do Teste Hidrostático *</label>
+                <input type="date" id="reteste-data-realizado" required style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);">
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Nova Tara Real Aferida (kg)</label>
+                <input type="number" step="0.01" id="reteste-nova-tara" placeholder="Ex: 54.20" style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Observações / Nº Laudo Requalificadora</label>
+                <input type="text" id="reteste-obs" placeholder="Ex: Laudo Hidrostático nº 4921/2026 - Aprovado" style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" id="btn-cancelar-reteste" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Cancelar</button>
+                <button type="submit" class="action-queue-btn" style="background: var(--status-approved);">Homologar Reteste</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- ============================================================================== -->
+    <!-- MODAL 3: RECLASSIFICAR GÁS                                                     -->
+    <!-- ============================================================================== -->
+    <dialog id="modal-reclassificar-gas" class="action-modal">
+        <h3 style="margin-top:0; color:var(--color-text);">Reclassificação de Gás Dedicado</h3>
+        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
+            Processo auditado de conversão de gás (ex: Industrial &rarr; Medicinal). Exige cumprimento das 3 etapas físicas ABNT.
+        </p>
+        <form id="form-reclassificar-gas">
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Gás de Destino *</label>
+                <select id="reclassificar-novo-gas" required style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);"></select>
+            </div>
+            <div style="background: var(--color-bg); padding: 12px; border-radius: 8px; margin-bottom: 14px; border: 1px solid var(--color-border);">
+                <strong style="font-size: 12px; text-transform: uppercase; color: var(--color-text-muted); display: block; margin-bottom: 8px;">Checklist Obrigatório ABNT NBR 12176:</strong>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; cursor: pointer;">
+                    <input type="checkbox" id="check-purga" required> Descontaminação e Purga a Vácuo / Térmica executada
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; cursor: pointer;">
+                    <input type="checkbox" id="check-valvula" required> Substituição e torqueamento de válvula padrão para o novo gás
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+                    <input type="checkbox" id="check-pintura" required> Adequação de pintura de corpo e ogiva normativa ABNT
+                </label>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Observações da Reclassificação</label>
+                <textarea id="reclassificar-obs" rows="2" style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);" placeholder="Detalhes do laudo de descontaminação e testes efetuados..."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" id="btn-cancelar-reclassificar" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Cancelar</button>
+                <button type="submit" class="action-queue-btn" style="background: var(--color-primary);">Homologar Reclassificação</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- ============================================================================== -->
+    <!-- MODAL 4: LANÇAR ESTORNO AUDITADO NO LEDGER                                     -->
+    <!-- ============================================================================== -->
+    <dialog id="modal-estorno-ledger" class="action-modal">
+        <h3 style="margin-top:0; color:#dc2626;">Lançar Estorno Auditado no Ledger</h3>
+        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 14px;">
+            O Ledger imutável não permite exclusão ou alteração de dados históricos. O estorno cria uma contra-partida que reverte o estado do cilindro de forma 100% auditável.
+        </p>
+        <form id="form-estorno-ledger">
+            <input type="hidden" id="estorno-mov-id">
+            <div style="background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; margin-bottom: 14px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); font-weight: 600;">Lançamento Alvo:</span>
+                <div id="estorno-mov-desc" style="font-size: 13px; font-weight: 700; color: var(--color-text); margin-top: 2px;"></div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Justificativa Obrigatória do Estorno *</label>
+                <textarea id="estorno-justificativa" rows="3" required style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; font-size: 13px; background: var(--color-bg); color: var(--color-text);" placeholder="Ex: Bipagem executada por equívoco no romaneio 104; o cilindro físico permaneceu no pátio..."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" id="btn-cancelar-estorno" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Cancelar</button>
+                <button type="submit" class="action-queue-btn" style="background: #dc2626;">Efetivar Estorno</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- ============================================================================== -->
+    <!-- MODAL 5: ETIQUETA TÉRMICA PATRIMONIAL (60x40mm)                                -->
+    <!-- ============================================================================== -->
+    <dialog id="modal-etiqueta-termica" class="action-modal" style="max-width: 440px;">
+        <h3 style="margin-top:0; color:var(--color-text);">Etiqueta Patrimonial (60x40mm)</h3>
+        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 12px;">Layout térmico industrial para identificação física em ogiva.</p>
+        
+        <div class="thermal-label-preview">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #000; padding-bottom: 4px;">
+                <div>
+                    <strong style="font-size: 13px; letter-spacing: -0.5px;">GASAPP PATRIMÔNIO</strong>
+                    <div style="font-size: 10px; font-weight: bold;" id="label-gas">OXIGÊNIO</div>
+                </div>
+                <div style="font-size: 11px; font-weight: bold;" id="label-serie">OGV-0000</div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0;">
+                <div style="font-size: 10px; line-height: 1.3;">
+                    <div id="label-tara">Tara: 52.4 kg | Vol: 50L</div>
+                    <div id="label-reteste">Reteste: 10/2026</div>
+                    <div style="margin-top: 4px; font-size: 11px; font-weight: bold;" id="label-qr-code">CIL-1002</div>
+                </div>
+                <div style="width: 60px; height: 60px; border: 1px solid #000; display: flex; align-items: center; justify-content: center; font-size: 9px; text-align: center;">
+                    [ QR CODE 2D ]
+                </div>
+            </div>
+            <div style="border-top: 1px solid #000; padding-top: 3px; font-size: 8px; text-align: center; font-weight: bold;">
+                CONFORME ABNT NBR 12176 / INMETRO
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+            <button type="button" id="btn-fechar-etiqueta" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Fechar</button>
+            <button type="button" onclick="window.print()" class="action-queue-btn" style="background: var(--color-primary);">Imprimir Etiqueta</button>
+        </div>
+    </dialog>
+
+    <!-- Modal Novo Produto do Catálogo Legado -->
     <div class="modal-overlay" id="modal-produto">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Cadastro de Cilindro (Gás)</h3>
+                <h3>Cadastro de SKU de Gás</h3>
                 <button class="close-modal" id="btn-fechar-modal">&times;</button>
             </div>
             <form id="form-produto">
                 <div class="form-grid">
                     <div class="form-group full-width">
-                        <label for="nome">Nome do Gás (ex: Oxigênio, Mistura para Solda)</label>
+                        <label for="nome">Nome do Gás</label>
                         <input type="text" id="nome" name="nome" required>
                     </div>
-                    
                     <div class="form-group">
                         <label for="categoria">Categoria</label>
                         <select id="categoria" name="categoria" required>
@@ -55,17 +898,14 @@
                             <option value="Industrial">Industrial</option>
                         </select>
                     </div>
-                    
                     <div class="form-group">
                         <label for="codigo_barras">Código / SKU (Opcional)</label>
                         <input type="text" id="codigo_barras" name="codigo_barras">
                     </div>
-
                     <div class="form-group">
                         <label for="capacidade">Capacidade/Peso</label>
                         <input type="number" step="0.01" id="capacidade" name="capacidade" required>
                     </div>
-                    
                     <div class="form-group">
                         <label for="unidade_medida">Unidade de Medida</label>
                         <select id="unidade_medida" name="unidade_medida" required>
@@ -74,12 +914,10 @@
                             <option value="litros">Litros</option>
                         </select>
                     </div>
-                    
                     <div class="form-group">
                         <label for="preco">Preço de Venda (R$)</label>
                         <input type="number" step="0.01" id="preco" name="preco" required>
                     </div>
-                    
                     <div class="form-group">
                         <label for="estoque">Estoque Inicial (Cilindros Cheios)</label>
                         <input type="number" id="estoque" name="estoque" required value="0">
@@ -92,32 +930,68 @@
             </form>
         </div>
     </div>
-
-    <!-- Modal Detalhes do Produto -->
-    <div class="modal-overlay" id="modal-detalhes-produto">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <h3>Detalhes do Produto</h3>
-                <button class="close-modal" id="btn-fechar-detalhes-produto">&times;</button>
+    <!-- ============================================================================== -->
+    <!-- MODAL 6: ETIQUETAS DE COLARINHO DO LOTE (ABNT NBR 12176 / IN 129/2022)         -->
+    <!-- ============================================================================== -->
+    <dialog id="modal-etiquetas-colarinho" class="action-modal" style="max-width: 800px; width: 90%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; margin-bottom: 16px;">
+            <div>
+                <h3 style="margin: 0; color: var(--color-text); font-size: 18px; font-weight: 700;">Etiquetas de Colarinho do Lote</h3>
+                <span style="font-size: 12px; color: var(--color-text-muted);">Anel de identificação física em conformidade com ABNT NBR 12176 e IN nº 129/2022 (ANVISA).</span>
             </div>
-            <div class="modal-body" style="margin-top: 15px;">
-                <div style="background:var(--color-hover); padding:15px; border-radius:8px; border:1px solid var(--color-border); margin-bottom: 15px;">
-                    <h4 style="margin-top:0; color:var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:5px;">Dados Principais</h4>
-                    <p style="margin-bottom: 8px;"><strong>Produto (Gás):</strong> <span id="det-prod-nome"></span></p>
-                    <p style="margin-bottom: 8px;"><strong>Categoria:</strong> <span id="det-prod-cat"></span></p>
-                    <p style="margin-bottom: 8px;"><strong>SKU/Código:</strong> <span id="det-prod-sku"></span></p>
-                </div>
-                <div style="background:var(--color-hover); padding:15px; border-radius:8px; border:1px solid var(--color-border);">
-                    <h4 style="margin-top:0; color:var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:5px;">Especificações e Valores</h4>
-                    <p style="margin-bottom: 8px;"><strong>Capacidade:</strong> <span id="det-prod-cap"></span></p>
-                    <p style="margin-bottom: 8px;"><strong>Preço de Venda:</strong> <span id="det-prod-preco"></span></p>
-                    <p style="margin-bottom: 8px;"><strong>Estoque Atual:</strong> <span id="det-prod-est"></span></p>
-                </div>
-            </div>
+            <button type="button" class="drawer-close-btn" onclick="document.getElementById('modal-etiquetas-colarinho').close()">&times;</button>
         </div>
-    </div>
+
+        <div id="collar-tags-container" class="collar-tags-grid">
+            <!-- Dinâmico via JS -->
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 12px;">
+            <button type="button" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" onclick="document.getElementById('modal-etiquetas-colarinho').close()">
+                Fechar
+            </button>
+            <button type="button" class="action-queue-btn" style="background: var(--color-primary); color: #fff;" onclick="window.print()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                    <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+                Imprimir Todas as Etiquetas
+            </button>
+        </div>
+    </dialog>
 {% endblock %}
 
 {% block extra_js %}
+<!-- Script Modular do Drawer e Ativo 360° -->
+<script src="{% static 'produtos/js/cilindros_drawer.js' %}"></script>
+<!-- Script Legado do Catálogo -->
 <script src="{% static 'produtos/js/index.js' %}"></script>
+<!-- Script Fase 3: Rampa em Batelada, Recebimento e Qualidade -->
+<script src="{% static 'produtos/js/fase3_rampa_recebimento_lotes.js' %}"></script>
+<script>
+    function alternarAba(aba) {
+        const abas = ['ativos', 'rampa', 'recebimento', 'lotes', 'catalogo'];
+        abas.forEach(a => {
+            const btn = document.getElementById(`tab-btn-${a}`);
+            const sec = document.getElementById(`aba-conteudo-${a}`);
+            if (btn) {
+                if (a === aba) btn.classList.add('active');
+                else btn.classList.remove('active');
+            }
+            if (sec) {
+                sec.style.display = (a === aba) ? 'block' : 'none';
+            }
+        });
+
+        // Hooks ao alternar abas
+        if (aba === 'rampa') {
+            RampaEnvase.inicializar();
+        } else if (aba === 'recebimento') {
+            RecebimentoFornecedor.inicializar();
+        } else if (aba === 'lotes') {
+            CentralLotesCQ.carregar();
+        }
+    }
+</script>
 {% endblock %}

@@ -157,5 +157,28 @@ th { background-color: var(--color-hover); font-size: 0.85rem; font-weight: 700;
 tbody tr:hover { background-color: rgba(0,0,0,0.01); }
 
 .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; background: var(--color-border); color: var(--color-text); display: inline-block;}
-.badge.ativo { background-color: #d1fae5; color: #065f46; }
-.badge.manutencao { background-color: #fef3c7; color: #92400e; }
+.badge.ativo {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.badge.manutencao {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.badge.inativo {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="high-contrast-sun"] .kanban-column,
+[data-theme="high-contrast-sun"] .kanban-item,
+[data-theme="high-contrast-sun"] .table-container,
+[data-theme="high-contrast-sun"] .modal-content {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+}
+

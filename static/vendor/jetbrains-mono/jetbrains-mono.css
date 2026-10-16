@@ -1,0 +1,57 @@
+/* Self-hosted JetBrains Mono font definition with local and system fallback stack */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: local('JetBrains Mono'), local('JetBrainsMono-Regular'), local('Fira Code'), local('Consolas'), local('Monaco'), local('Courier New');
+}
+
+:root {
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, Monaco, 'Courier New', monospace;
+}
+
+.font-mono {
+  font-family: var(--font-family-mono);
+  letter-spacing: -0.02em;
+}
+
+/* Container de Identificador Técnico com Botão de Cópia em 1-clique */
+.tech-id-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-bg, #f1f5f9);
+  color: var(--color-text, #1e293b);
+  border: 1px solid var(--color-border, #cbd5e1);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.tech-id-badge .copy-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted, #64748b);
+  border-radius: 4px;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.tech-id-badge .copy-btn:hover {
+  color: var(--color-primary, #2563eb);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.tech-id-badge .copy-btn svg {
+  width: 14px;
+  height: 14px;
+}

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etiqueta de Colarinho IN 129/2022 - Lote {{ lote.codigo_lote }}</title>
+    <link rel="stylesheet" href="/static/produtos/css/etiquetas.css">
+    <style>
+        @page {
+            size: 70mm 120mm;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="label-print-body">
+    <div class="label-toolbar">
+        <button class="btn-print-action" onclick="window.print()">
+            Imprimir Colarinho (IN 129/2022)
+        </button>
+        <button class="btn-close-action" onclick="window.close()">
+            Fechar
+        </button>
+    </div>
+
+    <!-- Etiqueta de Gargalo / Colarinho -->
+    <div class="etiqueta-colarinho-preview">
+        <div>
+            <!-- Furo de Encaixe no Gargalo -->
+            <div class="colarinho-furo-gargalo">
+                Corte do Gargalo
+            </div>
+
+            <!-- Cabeçalho da Empresa Envasadora -->
+            <div class="colarinho-header">
+                <h1 class="colarinho-company">{{ tenant.razao_social|default:tenant.nome_fantasia }}</h1>
+                <p class="colarinho-cnpj">CNPJ: {{ tenant.cnpj }}</p>
+            </div>
+
+            <!-- Gás & Transporte ONU -->
+            <div class="colarinho-gas-badge">
+                {{ gas.nome }} ({{ gas.sigla }})
+            </div>
+
+            <div class="colarinho-transport-info">
+                ONU: {{ gas.numero_onu|default:"1072" }} &bull; Classe: {{ gas.classe_risco|default:"2.2" }}
+            </div>
+
+            <!-- Lote Farmacêutico / Químico -->
+            <div class="colarinho-lote-box">
+                <span class="colarinho-lote-label">Número do Lote</span>
+                <div class="colarinho-lote-val" id="colarinho-codigo-lote">{{ lote.codigo_lote }}</div>
+            </div>
+
+            <!-- Dados Operacionais de Envase -->
+            <div class="colarinho-grid-dados">
+                <div class="colarinho-dado-item">
+                    <span class="colarinho-dado-rotulo">Data de Envase</span>
+                    <span class="colarinho-dado-valor">{{ lote.data_envase|date:"d/m/Y" }}</span>
+                </div>
+                <div class="colarinho-dado-item">
+                    <span class="colarinho-dado-rotulo">Prazo de Validade</span>
+                    <span class="colarinho-dado-valor">{{ lote.data_validade|date:"d/m/Y" }}</span>
+                </div>
+                <div class="colarinho-dado-item">
+                    <span class="colarinho-dado-rotulo">Pressão Final (21°C)</span>
+                    <span class="colarinho-dado-valor">{{ pressao_bar|default:"200" }} bar</span>
+                </div>
+                <div class="colarinho-dado-item">
+                    <span class="colarinho-dado-rotulo">Pureza Mínima</span>
+                    <span class="colarinho-dado-valor">&ge; 99,5% v/v</span>
+                </div>
+            </div>
+
+            <!-- Responsável Técnico (RT) -->
+            <div class="colarinho-rt-box">
+                <span class="colarinho-dado-rotulo">Responsável Técnico</span>
+                <span class="colarinho-rt-nome" id="colarinho-rt-info">
+                    {% if rt %}
+                        {{ rt.nome_completo }} &bull; {{ rt.conselho_classe }}-{{ rt.uf_conselho }} {{ rt.numero_registro }}
+                    {% else %}
+                        Homologado pela Garantia da Qualidade
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Alerta Regulatório Legal IN 129/2022 -->
+        <div class="colarinho-legal-warning">
+            {% if 'MED' in gas.sigla or gas.categoria == 'MEDICINAL' %}
+            Gás Medicinal. Venda sob prescrição médica. Uso exclusivo hospitalar ou domiciliar com orientação médica.
+            {% else %}
+            Gás Comprimido Industrial. Manusear com EPIs adequados conforme FISPQ / FDS.
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

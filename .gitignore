@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# SQLite Database
+*.sqlite3
+db.sqlite3
+
+# Media files
+media/
+private_media/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+step566.json
+scratch/

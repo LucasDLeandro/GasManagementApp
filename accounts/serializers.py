@@ -15,7 +15,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     userprofile = UserProfileSerializer(read_only=True)
+    papel = serializers.SerializerMethodField()
 
     class Meta: 
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'tipo_usuario', 'userprofile']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'tipo_usuario', 'papel', 'userprofile']
+
+    def get_papel(self, obj):
+        m = obj.memberships.filter(ativo=True).first()
+        return m.papel if m else getattr(obj, 'tipo_usuario', 'VENDEDOR')

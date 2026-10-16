@@ -1,0 +1,16 @@
+/* Self-hosted Inter font definition with fallback system font stack */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: local('Inter'), local('Inter-Regular'), local('Segoe UI'), local('Roboto');
+}
+
+:root {
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body, button, input, select, textarea {
+  font-family: var(--font-family-base);
+}

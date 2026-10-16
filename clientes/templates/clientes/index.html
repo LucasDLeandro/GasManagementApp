@@ -1,7 +1,7 @@
 {% extends 'base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Clientes - GasManagementApp{% endblock %}
+{% block title %}Gestão Comercial e Estadia - Clientes{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'clientes/css/index.css' %}">
@@ -9,17 +9,34 @@
 
 {% block dashboard_content %}
     <div class="clientes-header">
-        <h2>Clientes</h2>
-        <button class="btn-primary" id="btn-novo-cliente">Novo Cliente</button>
+        <div>
+            <h2 style="margin:0 0 4px 0;">Comercial & Estadia (Ativos em Clientes)</h2>
+            <p style="margin:0; font-size: 0.85rem; color: var(--color-text-muted);">
+                Gestão de clientes, contratos versionados de comodato, fechamento de faturas e prevenção de extravios.
+            </p>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-secondary" id="btn-abrir-novo-contrato" onclick="abrirModalContrato()">
+                + Novo Contrato de Comodato
+            </button>
+            <button class="btn-primary" id="btn-novo-cliente">
+                + Novo Cliente
+            </button>
+        </div>
     </div>
-    <div class="tabs-nav">
+
+    <!-- Navegação de Abas -->
+    <div class="tabs-nav" style="width: 100%; overflow-x: auto;">
         <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
         <button class="tab-btn" onclick="switchTab('pj')">Clientes PJ</button>
         <button class="tab-btn" onclick="switchTab('gov')">Governamental</button>
+        <button class="tab-btn" onclick="switchTab('contratos')">Contratos & Franquias</button>
+        <button class="tab-btn" onclick="switchTab('fechamento')">Fechamento de Faturas</button>
+        <button class="tab-btn" onclick="switchTab('extravios')">Fila de Extravios & Radar</button>
     </div>
     
     <div class="tab-content">
-        <!-- Dashboard Tab -->
+        <!-- 1. DASHBOARD TAB -->
         <div id="tab-dashboard" class="tab-pane" style="display: block;">
             <div class="metrics-grid">
                 <div class="metric-card">
@@ -38,7 +55,7 @@
             
             <div class="dashboard-row-2">
                 <div class="chart-box" style="flex: 1;">
-                    <h3 style="margin-top:0;">Top Clientes (Faturamento)</h3>
+                    <h3 style="margin-top:0;">Top Clientes (Faturamento Recente)</h3>
                     <div class="table-container" style="box-shadow: none; border: 1px solid var(--color-border); margin-top: 16px;">
                         <table style="width: 100%;">
                             <thead>
@@ -57,7 +74,7 @@
             </div>
         </div>
         
-        <!-- PJ Tab -->
+        <!-- 2. PJ TAB -->
         <div id="tab-pj" class="tab-pane" style="display: none;">
             <div class="table-container">
                 <table>
@@ -77,7 +94,7 @@
             </div>
         </div>
 
-        <!-- Gov Tab -->
+        <!-- 3. GOV TAB -->
         <div id="tab-gov" class="tab-pane" style="display: none;">
             <div class="table-container">
                 <table>
@@ -96,9 +113,335 @@
                 </table>
             </div>
         </div>
+
+        <!-- 4. CONTRATOS VERSIONADOS TAB -->
+        <div id="tab-contratos" class="tab-pane" style="display: none;">
+            <div class="comparativo-card" style="margin-bottom: 20px;">
+                <div style="display:flex; align-items:center; gap: 14px; flex-wrap: wrap;">
+                    <label for="filtro-contrato-cliente" style="font-weight: 600;">Selecione o Cliente:</label>
+                    <select id="filtro-contrato-cliente" onchange="carregarContratosCliente()" style="min-width: 280px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text);">
+                        <option value="">Selecione um cliente...</option>
+                    </select>
+                </div>
+                <div>
+                    <button class="btn-primary" onclick="abrirModalContrato(null, document.getElementById('filtro-contrato-cliente').value)">
+                        + Nova Versão de Contrato
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resumo do Contrato Ativo -->
+            <div id="painel-contrato-ativo" style="display:none; margin-bottom: 24px;">
+                <div class="resumo-financeiro-grid" id="resumo-contrato-ativo-grid"></div>
+
+                <div style="margin-top: 16px;">
+                    <h3 style="margin-bottom: 12px; font-size: 1.05rem;">Franquias Contratadas por Grupo de Modelo</h3>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Modelo do Cilindro</th>
+                                    <th>Franquia Isenta (Cascos)</th>
+                                    <th>Carência de Giro (Dias)</th>
+                                    <th>Taxa Diária Excedente</th>
+                                    <th>Valor Reposição Extravio</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-franquias-ativas">
+                                <tr><td colspan="5" style="text-align:center;">Nenhuma franquia configurada.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Histórico de Versões do Contrato -->
+            <h3 style="margin: 20px 0 12px 0; font-size: 1.05rem;">Histórico de Versões do Contrato (Auditoria e Vigências)</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Início Vigência</th>
+                            <th>Fim Vigência</th>
+                            <th>Critério Franquia</th>
+                            <th>Filiais Agrupadas</th>
+                            <th>Limite Extravio</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-versoes-contrato">
+                        <tr><td colspan="7" style="text-align:center;">Selecione um cliente para visualizar o histórico de contratos.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 5. FECHAMENTO DE FATURAS TAB (STEPPER DE 3 PASSOS) -->
+        <div id="tab-fechamento" class="tab-pane" style="display: none;">
+            <!-- Stepper Header -->
+            <div class="stepper-header">
+                <div class="step-item active" id="step-nav-1">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">
+                        <span class="step-title">Passo 1: Seleção & Prévia</span>
+                        <span class="step-subtitle">Competência & Modo Dry-Run</span>
+                    </div>
+                </div>
+                <div class="step-divider"></div>
+                <div class="step-item" id="step-nav-2">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">
+                        <span class="step-title">Passo 2: Explicação & Drill-Down</span>
+                        <span class="step-subtitle">Árvore Diária & Retroativos</span>
+                    </div>
+                </div>
+                <div class="step-divider"></div>
+                <div class="step-item" id="step-nav-3">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">
+                        <span class="step-title">Passo 3: Fechamento & Espelho</span>
+                        <span class="step-subtitle">Snapshot Imutável & PDF/CSV</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 1 PANE -->
+            <div id="step-pane-1" class="step-content-pane">
+                <div class="comparativo-card">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; width: 100%;">
+                        <div class="form-group">
+                            <label for="fechamento-competencia" style="font-weight: 600;">Competência (Mês/Ano):</label>
+                            <input type="month" id="fechamento-competencia" value="2026-10" style="padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-text);">
+                        </div>
+                        <div class="form-group">
+                            <label for="fechamento-cliente" style="font-weight: 600;">Cliente para Faturamento:</label>
+                            <select id="fechamento-cliente" style="padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-text);">
+                                <option value="">Selecione um cliente...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top: 16px; width: 100%; display: flex; justify-content: flex-end;">
+                        <button class="btn-primary" id="btn-executar-previa" onclick="executarSimulacaoPrevia()">
+                            Executar Simulação de Prévia (Modo Dry-Run) &rarr;
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Histórico de Faturas Já Fechadas -->
+                <h3 style="margin: 28px 0 12px 0; font-size: 1.05rem;">Faturas de Estadia Fechadas Recentemente</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Competência</th>
+                                <th>Cliente</th>
+                                <th>Fechamento</th>
+                                <th>Valor Bruto</th>
+                                <th>Descontos</th>
+                                <th>Ajustes/Extravios</th>
+                                <th>Líquido Total</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-faturas-fechadas">
+                            <tr><td colspan="9" style="text-align:center;">Carregando faturas...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- STEP 2 PANE (DRILL-DOWN & EXPLICAÇÃO) -->
+            <div id="step-pane-2" class="step-content-pane" style="display: none;">
+                <!-- Comparativo Mês Anterior -->
+                <div class="comparativo-card" id="card-comparativo-mes-anterior">
+                    <div>
+                        <h4 style="margin:0 0 6px 0; text-transform: uppercase; font-size: 0.8rem; color: var(--color-text-muted);">
+                            Comparativo com Mês Anterior (<span id="comp-ant-label">-</span>)
+                        </h4>
+                        <div class="comparativo-valores">
+                            <div class="comparativo-item">
+                                <span class="rotulo">Anterior</span>
+                                <span class="valor" id="comp-ant-valor">R$ 0,00</span>
+                            </div>
+                            <div style="font-size: 1.5rem; color: var(--color-text-muted);">&rarr;</div>
+                            <div class="comparativo-item">
+                                <span class="rotulo">Atual Simulado</span>
+                                <span class="valor" id="comp-atual-valor" style="color: var(--color-primary);">R$ 0,00</span>
+                            </div>
+                            <div class="comparativo-item">
+                                <span class="rotulo">Variação</span>
+                                <span class="badge" id="comp-delta-badge" style="font-size: 0.85rem; padding: 4px 8px;">0.0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-secondary" onclick="voltarParaPasso(1)">&larr; Voltar</button>
+                        <button class="btn-primary" onclick="avancarParaPasso(3)">Avançar para Fechamento Formal &rarr;</button>
+                    </div>
+                </div>
+
+                <!-- Resumo Financeiro Grid -->
+                <div class="resumo-financeiro-grid" id="resumo-drilldown-grid"></div>
+
+                <!-- Seção de Ajustes Retroativos (Caso de Ouro #7) -->
+                <div id="secao-ajustes-retroativos" style="display:none; margin-bottom: 20px;">
+                    <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--status-warning, #f59e0b); border-radius: 8px; padding: 16px;">
+                        <h4 style="margin: 0 0 8px 0; color: #b45309; display: flex; align-items: center; gap: 8px;">
+                            <span>⚠️</span> Ajustes Retroativos Compensados nesta Competência (Caso de Ouro #7)
+                        </h4>
+                        <p style="margin:0 0 10px 0; font-size: 0.85rem; color: var(--color-text);">
+                            Movimentações registradas tardiamente para faturas fechadas anteriores são compensadas nesta competência sem violar a imutabilidade fiscal.
+                        </p>
+                        <ul id="lista-ajustes-retroativos" style="margin:0; padding-left: 20px; font-size: 0.88rem;"></ul>
+                    </div>
+                </div>
+
+                <!-- Seção de Reposições de Extravio -->
+                <div id="secao-reposicoes-extravio" style="display:none; margin-bottom: 20px;">
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--status-danger, #ef4444); border-radius: 8px; padding: 16px;">
+                        <h4 style="margin: 0 0 8px 0; color: #b91c1c; display: flex; align-items: center; gap: 8px;">
+                            <span>🚨</span> Indenizações por Extravio Patrimonial Vinculadas
+                        </h4>
+                        <ul id="lista-reposicoes-extravio" style="margin:0; padding-left: 20px; font-size: 0.88rem;"></ul>
+                    </div>
+                </div>
+
+                <!-- Árvore Desdobrável Drill-Down -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                    <h3 style="margin:0; font-size: 1.05rem;">Detalhamento em Árvore: Grupo de Modelo &rarr; Cilindro &rarr; Calendário Diário</h3>
+                    <div style="font-size: 0.8rem; color: var(--color-text-muted);">
+                        Legenda: 
+                        <span class="day-pill day-carencia">Carência</span>
+                        <span class="day-pill day-franquia">Franquia</span>
+                        <span class="day-pill day-cobravel">Cobrável R$</span>
+                        <span class="day-pill day-propriedade">Cliente/Terc</span>
+                    </div>
+                </div>
+
+                <div class="tree-container" id="tree-drilldown-container">
+                    <!-- Nodos da árvore injetados via JS -->
+                </div>
+            </div>
+
+            <!-- STEP 3 PANE (FECHAMENTO FORMAL & ESPELHOS) -->
+            <div id="step-pane-3" class="step-content-pane" style="display: none;">
+                <div class="metric-card" style="margin-bottom: 24px; border-left: 6px solid var(--color-primary);">
+                    <h3 style="margin-top:0;">Confirmação de Fechamento Formal e Snapshot Imutável</h3>
+                    <p style="color: var(--color-text-muted); font-size: 0.9rem;">
+                        Ao confirmar, o sistema gera o registro fiscal imutável <code>FechamentoFaturaEstadia</code>, 
+                        congela os itens, compensa os ajustes e extravios e dispara a notificação transacional via 
+                        <strong>Webhook Outbox</strong>.
+                    </p>
+
+                    <div id="step3-previa-resumo" style="background: var(--color-hover); padding: 16px; border-radius: 8px; margin: 16px 0;"></div>
+
+                    <div style="display:flex; gap: 12px; justify-content: flex-end;">
+                        <button class="btn-secondary" onclick="voltarParaPasso(2)">&larr; Voltar para o Drill-Down</button>
+                        <button class="btn-primary" id="btn-confirmar-fechamento" onclick="executarFechamentoFormal()" style="background: var(--status-approved, #10b981);">
+                            Confirmar Fechamento Formal (Imutável)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Painel Pós-Fechamento (Downloads) -->
+                <div id="painel-sucesso-fechamento" style="display:none; background: var(--color-surface); border: 2px solid var(--status-approved, #10b981); border-radius: 12px; padding: 24px; text-align: center;">
+                    <div style="font-size: 2.5rem; margin-bottom: 12px;">✅</div>
+                    <h3 style="margin:0 0 8px 0; color: var(--status-approved, #10b981);">Fatura Fechada com Sucesso!</h3>
+                    <p style="color: var(--color-text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+                        O snapshot imutável foi gravado com segurança e o evento de faturamento foi despachado para a fila de mensageria ERP.
+                    </p>
+                    <div style="display:flex; justify-content:center; gap: 16px; flex-wrap: wrap;">
+                        <a id="btn-download-pdf" href="#" target="_blank" class="btn-primary" style="display:inline-flex; align-items:center; gap:8px;">
+                            <span>📄</span> Baixar Espelho de Medição (PDF)
+                        </a>
+                        <a id="btn-download-csv" href="#" target="_blank" class="btn-secondary" style="display:inline-flex; align-items:center; gap:8px;">
+                            <span>📊</span> Baixar Espelho Analítico (CSV)
+                        </a>
+                        <button class="btn-secondary" onclick="reiniciarStepper()">Nova Simulação</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. EXTRAVIOS & RADAR PREVENTIVO TAB -->
+        <div id="tab-extravios" class="tab-pane" style="display: none;">
+            <!-- Radar Preventivo de Carência -->
+            <div style="margin-bottom: 32px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+                    <div>
+                        <h3 style="margin:0 0 4px 0; display:flex; align-items:center; gap:8px;">
+                            <span class="radar-badge-pulse">🎯</span> Radar Preventivo de Carência (Próximos 5 Dias)
+                        </h3>
+                        <p style="margin:0; font-size: 0.85rem; color: var(--color-text-muted);">
+                            Cilindros em comodato cuja carência de giro está prestes a expirar. Contate o cliente para giro antes do início da cobrança diária.
+                        </p>
+                    </div>
+                    <button class="btn-secondary" onclick="carregarRadarCarencia()">Atualizar Radar</button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cilindro</th>
+                                <th>Cliente</th>
+                                <th>Entrega</th>
+                                <th>Idade Posse</th>
+                                <th>Carência</th>
+                                <th>Dias Restantes</th>
+                                <th>Diária Prevista</th>
+                                <th>Ação Comercial</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-radar-carencia">
+                            <tr><td colspan="8" style="text-align:center;">Carregando radar preventivo...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Fila de Extravios -->
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+                    <div>
+                        <h3 style="margin:0 0 4px 0; display:flex; align-items:center; gap:8px; color: var(--status-danger, #ef4444);">
+                            <span>🚨</span> Fila de Monitoramento de Extravios (Cilindros sem Giro &gt; Limite)
+                        </h3>
+                        <p style="margin:0; font-size: 0.85rem; color: var(--color-text-muted);">
+                            Cilindros que ultrapassaram a tolerância máxima contratual sem devolução. Ação restrita a Gerente/Admin para cobrança de reposição.
+                        </p>
+                    </div>
+                    <button class="btn-secondary" onclick="carregarAlertasExtravio()">Atualizar Fila</button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cilindro</th>
+                                <th>Cliente</th>
+                                <th>Data Entrega</th>
+                                <th>Dias sem Giro</th>
+                                <th>Limite Contrato</th>
+                                <th>Excedente</th>
+                                <th>Valor Reposição</th>
+                                <th>Ação Gerencial</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-alertas-extravio">
+                            <tr><td colspan="8" style="text-align:center;">Carregando alertas de extravio...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Modal Novo Cliente -->
+    <!-- MODAIS DO SISTEMA -->
+
+    <!-- Modal Novo Cliente (Existente) -->
     <div class="modal-overlay" id="modal-cliente">
         <div class="modal-content">
             <div class="modal-header">
@@ -151,7 +494,7 @@
         </div>
     </div>
 
-    <!-- Modal Detalhes do Cliente -->
+    <!-- Modal Detalhes do Cliente (Existente) -->
     <div class="modal-overlay" id="modal-detalhes-cliente">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
@@ -173,7 +516,149 @@
                     <p style="margin-bottom: 8px;"><strong>Cidade:</strong> <span id="det-cli-cid"></span></p>
                     <p style="margin-bottom: 8px;"><strong>Estado (UF):</strong> <span id="det-cli-uf"></span></p>
                 </div>
+
+                <!-- Ações Integradas de Ponta a Ponta -->
+                <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 8px;">
+                    <button type="button" class="btn-primary" style="font-size: 13px; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="irParaContratosCliente()">
+                        📄 Ver Contratos de Comodato & Franquia
+                    </button>
+                    <button type="button" class="btn-secondary" style="font-size: 13px; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="irParaFaturasCliente()">
+                        💰 Ver Faturas de Estadia & Medições
+                    </button>
+                    <button type="button" class="btn-secondary" style="font-size: 13px; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="irParaRadarCliente()">
+                        🎯 Auditar Cilindros em Posse & Risco de Extravio
+                    </button>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal Novo / Editar Contrato de Comodato Versionado -->
+    <div class="modal-overlay" id="modal-contrato">
+        <div class="modal-content" style="max-width: 850px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3 id="modal-contrato-titulo">Novo Contrato de Comodato / Estadia</h3>
+                <button class="close-modal" onclick="fecharModalContrato()">&times;</button>
+            </div>
+            <form id="form-contrato" onsubmit="salvarContrato(event)">
+                <input type="hidden" id="contrato-id" value="">
+                
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="contrato-cliente-select">Cliente</label>
+                        <select id="contrato-cliente-select" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="contrato-vigencia-inicio">Início da Vigência</label>
+                        <input type="date" id="contrato-vigencia-inicio" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="contrato-vigencia-fim">Fim da Vigência (Opcional)</label>
+                        <input type="date" id="contrato-vigencia-fim">
+                    </div>
+                    <div class="form-group">
+                        <label for="contrato-criterio-franquia">Critério de Franquia</label>
+                        <select id="contrato-criterio-franquia" required>
+                            <option value="FIFO">FIFO (Primeiro a Entrar, Primeiro a Isentar)</option>
+                            <option value="LIFO">LIFO (Último a Entrar, Primeiro a Isentar)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="contrato-limite-extravio">Tolerância Extravio (Dias)</label>
+                        <input type="number" id="contrato-limite-extravio" value="180" min="30" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="contrato-agrupar-filiais" checked>
+                            <span>Consolidar e Agrupar Franquia entre Matriz e Filiais do Cliente</span>
+                        </label>
+                    </div>
+
+                    <!-- Parâmetros Padrão / Fallback -->
+                    <div class="form-group full-width" style="margin-top: 10px;">
+                        <h4 style="margin:0 0 8px 0; font-size: 0.95rem; border-bottom: 1px solid var(--color-border); padding-bottom: 4px;">
+                            Parâmetros Padrão de Estadia (Fallback para modelos sem franquia específica)
+                        </h4>
+                    </div>
+                    <div class="form-group">
+                        <label for="contrato-franquia-padrao">Franquia de Cascos Isentos</label>
+                        <input type="number" id="contrato-franquia-padrao" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="contrato-carencia-padrao">Carência de Giro (Dias)</label>
+                        <input type="number" id="contrato-carencia-padrao" value="30" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="contrato-diaria-padrao">Taxa Diária Excedente (R$)</label>
+                        <input type="number" step="0.01" id="contrato-diaria-padrao" value="3.50" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="contrato-reposicao-padrao">Custo Reposição Casco (R$)</label>
+                        <input type="number" step="0.01" id="contrato-reposicao-padrao" value="1800.00" min="0">
+                    </div>
+                </div>
+
+                <!-- Tabela Dinâmica de Franquias por Modelo -->
+                <div style="margin-top: 24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                        <h4 style="margin:0; font-size: 0.95rem;">Franquias Específicas por Modelo de Cilindro</h4>
+                        <button type="button" class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="adicionarLinhaFranquiaModelo()">
+                            + Adicionar Franquia por Modelo
+                        </button>
+                    </div>
+                    <div class="table-container" style="box-shadow:none; border:1px solid var(--color-border);">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Modelo</th>
+                                    <th>Isentos</th>
+                                    <th>Carência (dias)</th>
+                                    <th>Diária (R$)</th>
+                                    <th>Reposição (R$)</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-modal-franquias">
+                                <!-- Linhas dinâmicas -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="fecharModalContrato()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Contrato Versionado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Declarar Extravio de Cilindro -->
+    <div class="modal-overlay" id="modal-declarar-extravio">
+        <div class="modal-content" style="max-width: 550px;">
+            <div class="modal-header">
+                <h3 style="color: var(--status-danger, #ef4444);">Declarar Cilindro Extraviado</h3>
+                <button class="close-modal" onclick="fecharModalExtravio()">&times;</button>
+            </div>
+            <form id="form-extravio" onsubmit="confirmarDeclaracaoExtravio(event)">
+                <input type="hidden" id="extravio-cilindro-id" value="">
+                <div style="background: var(--color-hover); padding: 14px; border-radius: 8px; margin-bottom: 16px;">
+                    <p style="margin: 0 0 6px 0;"><strong>Cilindro:</strong> <span id="extravio-info-cilindro" class="tech-id-badge"></span></p>
+                    <p style="margin: 0 0 6px 0;"><strong>Cliente Responsável:</strong> <span id="extravio-info-cliente"></span></p>
+                    <p style="margin: 0 0 6px 0;"><strong>Dias em Posse sem Giro:</strong> <span id="extravio-info-dias"></span> dias</p>
+                    <p style="margin: 0;"><strong>Valor de Indenização:</strong> <span id="extravio-info-valor" style="font-weight: 700; color: var(--status-danger, #ef4444);"></span></p>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="extravio-justificativa" style="font-weight:600;">Justificativa Operacional/Gerencial (Obrigatória):</label>
+                    <textarea id="extravio-justificativa" rows="3" required placeholder="Ex.: Cliente confirmou perda do cilindro durante mudança predial / não devolvido após 180 dias sem contato." style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text);"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="fecharModalExtravio()">Cancelar</button>
+                    <button type="submit" class="btn-primary" style="background: var(--status-danger, #ef4444);">
+                        Confirmar Extravio e Lançar Indenização
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 {% endblock %}

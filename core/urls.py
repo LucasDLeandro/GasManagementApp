@@ -1,11 +1,20 @@
 from django.urls import path
 from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
-from .views import DashboardStatsAPIView
+from .views import (
+    DashboardStatsAPIView,
+    HomeView,
+    TrocarTenantView,
+    IntegracoesView,
+    PerfilRegulatorioView,
+)
 
 app_name = 'core'
 
 urlpatterns = [
-    path('', login_required(TemplateView.as_view(template_name='core/home.html')), name='inicio'),
+    path('', HomeView.as_view(), name='inicio'),
+    path('integracoes/', IntegracoesView.as_view(), name='integracoes'),
+    path('perfil-regulatorio/', PerfilRegulatorioView.as_view(), name='perfil_regulatorio'),
+    path('trocar-tenant/', TrocarTenantView.as_view(), name='trocar_tenant'),
     path('api/stats/', DashboardStatsAPIView.as_view(), name='api_stats'),
 ]

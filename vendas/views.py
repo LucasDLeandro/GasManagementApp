@@ -1,19 +1,21 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, F
 from django.utils import timezone
 import datetime
 
+from core.mixins import TenantViewSetMixin
 from .models import Venda, ItemVenda
 from .serializers import VendaSerializer
-from django.db.models import Sum, Count, F
 
-class VendaViewSet(viewsets.ModelViewSet):
-    queryset = Venda.objects.all()
+class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    queryset = Venda.unscoped.all()
     serializer_class = VendaSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()

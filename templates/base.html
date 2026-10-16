@@ -6,9 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Sistema de Gestão de Gás{% endblock %}</title>
     
-    <!-- Fonte Moderna Padrão do Sistema -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Fonte Moderna Padrão do Sistema (Self-Hosted) -->
+    <link rel="stylesheet" href="{% static 'vendor/inter/inter.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/jetbrains-mono/jetbrains-mono.css' %}">
     
+    <!-- PWA Manifest & Mobile Config -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0F172A">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GasApp">
+
+    <!-- Isolamento Multi-tenant & Usuário PWA Offline -->
+    <meta name="current-tenant-id" content="{% if current_tenant %}{{ current_tenant.id }}{% elif tenant %}{{ tenant.id }}{% elif request.tenant %}{{ request.tenant.id }}{% endif %}">
+    <meta name="current-user-id" content="{% if user.is_authenticated %}{{ user.id }}{% endif %}">
+
     <!-- Estilos globais e específicos de outras páginas -->
     {% block css %}{% endblock %}
 </head>
@@ -38,8 +50,18 @@
     {% block footer %}{% endblock %}
 
     <!-- Scripts globais e específicos -->
+    <script src="{% static 'js/offline_sync.js' %}"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then(reg => console.log('ServiceWorker registrado:', reg.scope))
+                    .catch(err => console.warn('ServiceWorker erro:', err));
+            });
+        }
+    </script>
     {% block js %}
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script src="{% static 'vendor/sweetalert2/sweetalert2.all.min.js' %}"></script>
     {% endblock %}
 </body>
 </html>

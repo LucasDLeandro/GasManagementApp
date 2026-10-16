@@ -1,0 +1,358 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Cockpit de Integrações & Webhooks - GasManagementApp{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'core/css/integracoes.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="integracoes-container">
+    
+    <!-- Cabeçalho Principal -->
+    <div class="integracoes-header">
+        <div class="integracoes-title">
+            <h1>Cockpit de Integrações ERP & Webhooks</h1>
+            <p>Gerenciamento de disparos em tempo real com assinatura criptográfica HMAC-SHA256, blindagem anti-SSRF e exportações canônicas D9.</p>
+        </div>
+    </div>
+
+    <!-- Navegação de Abas -->
+    <div class="integracoes-tabs">
+        <button class="tab-btn active" data-target="tab-webhooks">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            Webhooks & Delivery Logs (D7)
+        </button>
+        <button class="tab-btn" data-target="tab-erp">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            Exportação Canônica ERP (D9)
+        </button>
+    </div>
+
+    <!-- ABA 1: WEBHOOKS & OUTBOX LOGS -->
+    <div id="tab-webhooks" class="tab-content" style="display: block;">
+        
+        <!-- Card: Endpoints Cadastrados -->
+        <div class="integracoes-card">
+            <div class="card-header-row">
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                    Endpoints Externos Configurados
+                </h2>
+                <button id="btn-abrir-novo-webhook" class="btn-action-sm btn-action-primary">
+                    + Cadastrar Novo Endpoint
+                </button>
+            </div>
+
+            <div class="modern-table-container">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>Descrição / URL Destino</th>
+                            <th>Eventos Inscritos</th>
+                            <th>Segredo HMAC</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-endpoints">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--color-text-muted); padding: 24px;">
+                                Carregando endpoints de webhook...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Card: Histórico de Entregas (Outbox Logs / D7) -->
+        <div class="integracoes-card">
+            <div class="card-header-row">
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+                        <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+                    </svg>
+                    Histórico de Entregas (Transactional Outbox)
+                </h2>
+                <button id="btn-atualizar-logs" class="btn-action-sm">
+                    🔄 Atualizar Logs
+                </button>
+            </div>
+
+            <div class="modern-table-container">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>Data / Hora</th>
+                            <th>Evento</th>
+                            <th>URL Destino</th>
+                            <th>Status Outbox</th>
+                            <th>Código HTTP</th>
+                            <th>Latência</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-logs">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 24px;">
+                                Carregando histórico da outbox...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ABA 2: EXPORTAÇÃO CANÔNICA ERP (D9) -->
+    <div id="tab-erp" class="tab-content" style="display: none;">
+        
+        <div class="erp-export-grid">
+            
+            <!-- Card 1: Faturas de Estadia Fechadas -->
+            <div class="erp-card">
+                <div class="erp-card-header">
+                    <div style="background: rgba(37, 99, 235, 0.12); color: #2563eb; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                        📄
+                    </div>
+                    <div>
+                        <h3>Faturas de Estadia Fechadas</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 13px; color: var(--color-text-muted);">Diárias de demurrage, carências e reposições apuradas.</p>
+                    </div>
+                </div>
+
+                <div class="erp-filter-row">
+                    <div class="filter-group">
+                        <label for="erp-fat-competencia">Competência</label>
+                        <input type="month" id="erp-fat-competencia" placeholder="YYYY-MM">
+                    </div>
+                    <div class="filter-group">
+                        <label for="erp-fat-dt-ini">Data Fechamento Início</label>
+                        <input type="date" id="erp-fat-dt-ini">
+                    </div>
+                    <div class="filter-group">
+                        <label for="erp-fat-dt-fim">Data Fechamento Fim</label>
+                        <input type="date" id="erp-fat-dt-fim">
+                    </div>
+                    <div class="filter-group">
+                        <label for="erp-fat-updated-since">Cursor Updated Since</label>
+                        <input type="datetime-local" id="erp-fat-updated-since">
+                    </div>
+                </div>
+
+                <div class="erp-actions-row">
+                    <button id="btn-download-fat-json" class="btn-action-sm btn-action-primary">
+                        📥 Baixar JSON Canônico
+                    </button>
+                    <button id="btn-download-fat-csv" class="btn-action-sm">
+                        📊 Baixar CSV (Excel)
+                    </button>
+                    <button id="btn-copy-fat-url" class="btn-action-sm">
+                        📋 Copiar URL
+                    </button>
+                </div>
+
+                <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 6px; display: block;">Endpoint da API para Polling ERP:</label>
+                <div class="api-url-snippet">
+                    <span id="erp-fat-api-url">/api/erp/faturas/</span>
+                </div>
+
+                <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 6px; display: block;">Exemplo de Consumo via cURL / Integração:</label>
+                <pre class="curl-snippet"><code><span class="curl-kw">curl</span> -X GET \
+  "<span style="color:#6ee7b7;" id="curl-fat-url">http://seu-dominio/api/erp/faturas/</span>" \
+  -H "<span class="curl-token">Authorization: Bearer &lt;TOKEN_JWT&gt;</span>" \
+  -H "X-Tenant-ID: {{ current_tenant.id }}"</code></pre>
+            </div>
+
+            <!-- Card 2: Movimentações / Romaneios Concluídos -->
+            <div class="erp-card">
+                <div class="erp-card-header">
+                    <div style="background: rgba(16, 185, 129, 0.12); color: #10b981; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                        🚚
+                    </div>
+                    <div>
+                        <h3>Movimentações & Romaneios</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 13px; color: var(--color-text-muted);">Cargas ANTT, entregas, recolhas e comprovantes digitais.</p>
+                    </div>
+                </div>
+
+                <div class="erp-filter-row">
+                    <div class="filter-group">
+                        <label for="erp-ent-status">Status Romaneio</label>
+                        <select id="erp-ent-status">
+                            <option value="">Todos</option>
+                            <option value="Concluída" selected>Concluída</option>
+                            <option value="Em Rota">Em Rota</option>
+                            <option value="Planejada">Planejada</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="erp-ent-dt-ini">Data Saída Início</label>
+                        <input type="date" id="erp-ent-dt-ini">
+                    </div>
+                    <div class="filter-group">
+                        <label for="erp-ent-dt-fim">Data Saída Fim</label>
+                        <input type="date" id="erp-ent-dt-fim">
+                    </div>
+                    <div class="filter-group">
+                        <label for="erp-ent-updated-since">Cursor Updated Since</label>
+                        <input type="datetime-local" id="erp-ent-updated-since">
+                    </div>
+                </div>
+
+                <div class="erp-actions-row">
+                    <button id="btn-download-ent-json" class="btn-action-sm btn-action-primary">
+                        📥 Baixar JSON Canônico
+                    </button>
+                    <button id="btn-download-ent-csv" class="btn-action-sm">
+                        📊 Baixar CSV (Excel)
+                    </button>
+                    <button id="btn-copy-ent-url" class="btn-action-sm">
+                        📋 Copiar URL
+                    </button>
+                </div>
+
+                <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 6px; display: block;">Endpoint da API para Polling ERP:</label>
+                <div class="api-url-snippet">
+                    <span id="erp-ent-api-url">/api/erp/entregas/</span>
+                </div>
+
+                <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 6px; display: block;">Exemplo de Consumo via cURL / TMS:</label>
+                <pre class="curl-snippet"><code><span class="curl-kw">curl</span> -X GET \
+  "<span style="color:#6ee7b7;" id="curl-ent-url">http://seu-dominio/api/erp/entregas/</span>" \
+  -H "<span class="curl-token">Authorization: Bearer &lt;TOKEN_JWT&gt;</span>" \
+  -H "X-Tenant-ID: {{ current_tenant.id }}"</code></pre>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ==============================================================================
+     MODAIS NATIVOS (<dialog>)
+     ============================================================================== -->
+
+<!-- Modal: Cadastro de Novo Webhook -->
+<dialog id="modal-novo-webhook" class="modal-secret-highlight" style="max-width: 550px;">
+    <h3 style="margin-top: 0; font-size: 18px;">Cadastrar Novo Endpoint de Webhook</h3>
+    <p style="color: var(--color-text-muted); font-size: 13px; margin-bottom: 16px;">
+        Cadastre a URL de destino externa (ERP, TMS ou sistema legado). Ela receberá notificações automáticas em tempo real assinadas com HMAC-SHA256.
+    </p>
+
+    <form id="form-novo-webhook">
+        <div style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">URL de Destino (HTTPS) *</label>
+            <input type="url" id="webhook-url" required placeholder="https://api.erp-parceiro.com.br/hooks/" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-hover); color: var(--color-text); font-family: var(--font-family-mono); font-size: 13px;">
+            <span style="font-size: 11px; color: var(--color-text-muted);">URLs de loopback (localhost) e IPs privados são bloqueadas pela trava anti-SSRF.</span>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Descrição da Integração</label>
+            <input type="text" id="webhook-descricao" placeholder="Ex.: ERP Sankhya Matriz / TMS Senior" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-hover); color: var(--color-text); font-size: 13px;">
+        </div>
+
+        <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Eventos Inscritos</label>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" name="eventos" value="fatura.fechada" checked>
+                    <span><strong>fatura.fechada</strong> (Fechamento mensal de faturas de comodato/estadia)</span>
+                </label>
+                <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" name="eventos" value="romaneio.concluido" checked>
+                    <span><strong>romaneio.concluido</strong> (Conclusão de rota de entrega e recolha de cilindros)</span>
+                </label>
+                <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" name="eventos" value="*">
+                    <span><strong>*</strong> (Todos os eventos do sistema)</span>
+                </label>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="webhook-ativo" checked>
+                <span>Habilitar endpoint imediatamente (Ativo)</span>
+            </label>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" class="btn-action-sm" onclick="document.getElementById('modal-novo-webhook').close()">Cancelar</button>
+            <button type="submit" class="btn-action-sm btn-action-primary">Salvar Endpoint</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Modal: Exibição Única de Segredo HMAC (Destaque Crítico de Segurança) -->
+<dialog id="modal-secret-highlight" class="modal-secret-highlight">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <span style="font-size: 28px;">🔐</span>
+        <div>
+            <h3 style="margin: 0; font-size: 19px; color: var(--color-text);">Chave Secreta para Assinatura HMAC-SHA256</h3>
+            <span style="font-size: 12px; color: var(--color-text-muted);">Credencial de autenticidade entre o GasManagementApp e seu ERP</span>
+        </div>
+    </div>
+
+    <div class="secret-warning-box">
+        <span style="font-size: 20px;">⚠️</span>
+        <div>
+            <strong>ATENÇÃO: Guarde esta chave secreta agora.</strong>
+            <p style="margin: 4px 0 0 0; font-size: 13px;">
+                Por conformidade e segurança criptográfica estrita, ela <strong>nunca mais será exibida</strong> em leituras futuras. Em caso de perda, será necessário rotacionar o segredo.
+            </p>
+        </div>
+    </div>
+
+    <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 6px; display: block;">Segredo Criptográfico Gerado:</label>
+    <div class="secret-display-box">
+        <input type="text" id="input-raw-secret" readonly value="">
+        <button id="btn-copy-secret" class="btn-action-sm btn-action-primary" type="button">
+            📋 Copiar Segredo
+        </button>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end;">
+        <button id="btn-close-secret" class="btn-action-sm btn-action-primary" type="button" style="padding: 10px 20px; font-size: 13px;">
+            ✅ Entendido, já guardei o segredo
+        </button>
+    </div>
+</dialog>
+
+<!-- Modal: Inspecionar Payload e Resposta do Log Outbox -->
+<dialog id="modal-inspect-log" class="modal-inspect">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="margin: 0; font-size: 17px;">Inspeção de Entrega de Webhook</h3>
+        <button id="btn-close-inspect" class="btn-action-sm">✕ Fechar</button>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+        <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 4px; display: block;">Payload JSON Enviado (com X-Signature-SHA256):</label>
+        <pre><code id="inspect-payload-code"></code></pre>
+    </div>
+
+    <div>
+        <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 4px; display: block;">Resposta do Endpoint Externo:</label>
+        <pre><code id="inspect-response-code"></code></pre>
+    </div>
+</dialog>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'core/js/integracoes.js' %}"></script>
+{% endblock %}

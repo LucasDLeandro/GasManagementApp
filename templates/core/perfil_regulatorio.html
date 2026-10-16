@@ -1,0 +1,273 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Perfil Regulatório ANVISA & Responsáveis Técnicos{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'core/css/perfil_regulatorio.css' %}">
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="perfil-regulatorio-container">
+    <div class="perfil-reg-header">
+        <div>
+            <h1>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                Perfil Regulatório ANVISA & Vigilância Sanitária
+            </h1>
+            <p>Gestão de conformidade regulatória, habilitações sanitárias (AFE/VISA/CBPF) e corpo técnico habilitado (CRF/CRQ).</p>
+        </div>
+        <div>
+            <button type="button" class="btn-primary-reg" id="btn-abrir-modal-rt">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Novo Responsável Técnico (RT)
+            </button>
+        </div>
+    </div>
+
+    <!-- 1. Banner de Alerta Crítico (Topo) -->
+    {% if tem_alerta_critico %}
+    <div class="alert-banner-regulatory" id="alert-banner-regulatory">
+        <svg class="alert-banner-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <div>
+            <h2 class="alert-banner-title">PENDÊNCIAS SANITÁRIAS DETECTADAS</h2>
+            <p class="alert-banner-desc">Existem licenças expiradas ou ausência de RT titular vigente. Operações com gases medicinais estão preventivamente bloqueadas pelo motor de validação sanitária.</p>
+            <ul class="alert-banner-list">
+                {% for msg in mensagens_alerta %}
+                <li>{{ msg }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 2. Formulário Principal do Perfil Regulatório -->
+    <form id="form-perfil-regulatorio" method="POST">
+        {% csrf_token %}
+        <div class="regulatory-card">
+            <div class="card-title-bar">
+                <div>
+                    <h2>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        Licenciamento Sanitário da Distribuidora / Envasadora
+                    </h2>
+                    <p>Defina o escopo de atuação regulatória conforme a RDC nº 658/2022 e a IN nº 129/2022.</p>
+                </div>
+                <div>
+                    <button type="submit" class="btn-primary-reg" id="btn-salvar-perfil">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group-reg">
+                <label for="id-modo-operacao" class="form-label-reg">Modo de Operação Regulatório *</label>
+                <select id="id-modo-operacao" name="modo_operacao" class="input-reg">
+                    <option value="ENVASADORA" {% if perfil.modo_operacao == 'ENVASADORA' %}selected{% endif %}>Envasadora de Gases (Fabricação/Envase)</option>
+                    <option value="DISTRIBUIDORA" {% if perfil.modo_operacao == 'DISTRIBUIDORA' %}selected{% endif %}>Distribuidora de Gases (Logística/Distribuição sem Envase)</option>
+                    <option value="MISTO" {% if perfil.modo_operacao == 'MISTO' %}selected{% endif %}>Misto (Envasadora e Distribuidora)</option>
+                </select>
+            </div>
+
+            <!-- Grid de Licenças com Badges Semânticos -->
+            <div class="form-grid-3">
+                <!-- AFE ANVISA -->
+                <div class="license-box">
+                    <div>
+                        <div class="license-box-header">
+                            <span class="license-title">AFE ANVISA</span>
+                            <span class="badge-reg {{ afe_badge.badge_class }}">{{ afe_badge.badge_text }}</span>
+                        </div>
+                        <div class="form-group-reg">
+                            <label for="id-afe-numero" class="form-label-reg">Nº Autorização</label>
+                            <input type="text" id="id-afe-numero" name="afe_numero" class="input-reg font-mono" value="{{ perfil.afe_numero }}" placeholder="Ex: 7.12345.6">
+                        </div>
+                        <div class="form-group-reg">
+                            <label for="id-afe-validade" class="form-label-reg">Validade da AFE</label>
+                            <input type="date" id="id-afe-validade" name="afe_validade" class="input-reg" value="{{ perfil.afe_validade|date:'Y-m-d' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Licença Sanitária VISA -->
+                <div class="license-box">
+                    <div>
+                        <div class="license-box-header">
+                            <span class="license-title">Licença Sanitária (VISA) *</span>
+                            <span class="badge-reg {{ licenca_badge.badge_class }}">{{ licenca_badge.badge_text }}</span>
+                        </div>
+                        <div class="form-group-reg">
+                            <label for="id-licenca-numero" class="form-label-reg">Nº Alvará / Licença</label>
+                            <input type="text" id="id-licenca-numero" name="licenca_sanitaria_numero" class="input-reg font-mono" value="{{ perfil.licenca_sanitaria_numero }}" placeholder="Ex: CEVS-355030801" required>
+                        </div>
+                        <div class="form-group-reg">
+                            <label for="id-licenca-validade" class="form-label-reg">Validade da Licença *</label>
+                            <input type="date" id="id-licenca-validade" name="licenca_sanitaria_validade" class="input-reg" value="{{ perfil.licenca_sanitaria_validade|date:'Y-m-d' }}" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CBPF / CBPDA ANVISA -->
+                <div class="license-box">
+                    <div>
+                        <div class="license-box-header">
+                            <span class="license-title">CBPF / CBPDA (Boas Práticas)</span>
+                            <span class="badge-reg {{ cbpf_badge.badge_class }}">{{ cbpf_badge.badge_text }}</span>
+                        </div>
+                        <div class="form-group-reg">
+                            <label for="id-cbpf-numero" class="form-label-reg">Nº Certificado BPF</label>
+                            <input type="text" id="id-cbpf-numero" name="cbpf_cbpda_numero" class="input-reg font-mono" value="{{ perfil.cbpf_cbpda_numero }}" placeholder="Ex: CBPF-2026/042">
+                        </div>
+                        <div class="form-group-reg">
+                            <label for="id-cbpf-validade" class="form-label-reg">Validade do CBPF</label>
+                            <input type="date" id="id-cbpf-validade" name="cbpf_cbpda_validade" class="input-reg" value="{{ perfil.cbpf_cbpda_validade|date:'Y-m-d' }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seleção do RT Titular Vigente -->
+            <div class="mt-20">
+                <label for="id-rt-vigente" class="form-label-reg">Responsável Técnico (RT) Titular Vigente perante a ANVISA</label>
+                <select id="id-rt-vigente" name="responsavel_tecnico_vigente" class="input-reg">
+                    <option value="">-- Selecione o RT Titular --</option>
+                    {% for item in rts_com_status %}
+                    <option value="{{ item.rt.id }}" {% if perfil.responsavel_tecnico_vigente_id == item.rt.id %}selected{% endif %}>
+                        {{ item.rt.nome_completo }} ({{ item.rt.conselho_classe }}-{{ item.rt.uf_conselho }} {{ item.rt.numero_registro }}) {% if not item.esta_vigente %}[VIGÊNCIA EXPIRADA]{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </form>
+
+    <!-- 3. Tabela de Responsáveis Técnicos Registrados (CRF / CRQ) -->
+    <div class="regulatory-card">
+        <div class="card-title-bar">
+            <div>
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    Corpo Técnico Habilitado (Farmacêuticos & Químicos)
+                </h2>
+                <p>Profissionais com Anotação de Responsabilidade Técnica (ART) ou Certidão de Regularidade Técnica (CRT).</p>
+            </div>
+        </div>
+
+        <div class="table-responsive-wrapper">
+            <table class="table-rts">
+                <thead>
+                    <tr>
+                        <th>Nome Completo</th>
+                        <th>Conselho de Classe</th>
+                        <th>Nº Registro / UF</th>
+                        <th>Início Vigência</th>
+                        <th>Término Vigência</th>
+                        <th>Status</th>
+                        <th class="text-right">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-rts">
+                    {% for item in rts_com_status %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.rt.nome_completo }}</strong>
+                            {% if perfil.responsavel_tecnico_vigente_id == item.rt.id %}
+                            <span class="badge-reg badge-success titular-badge-spacing">Titular Atual</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.rt.get_conselho_classe_display }}</td>
+                        <td class="font-mono">{{ item.rt.numero_registro }} / {{ item.rt.uf_conselho }}</td>
+                        <td>{{ item.rt.vigencia_inicio|date:"d/m/Y" }}</td>
+                        <td>{{ item.rt.vigencia_fim|date:"d/m/Y"|default:"Indeterminado" }}</td>
+                        <td>
+                            <span class="badge-reg {{ item.badge_vigencia.badge_class }}">
+                                {{ item.badge_vigencia.badge_text }}
+                            </span>
+                        </td>
+                        <td class="text-right">
+                            {% if perfil.responsavel_tecnico_vigente_id != item.rt.id %}
+                            <button type="button" class="btn-sm-action btn-definir-titular" data-rt-id="{{ item.rt.id }}" title="Definir como RT Titular perante a ANVISA">
+                                Definir Titular
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="empty-table-cell">
+                            Nenhum Responsável Técnico cadastrado para esta distribuidora.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nativo <dialog> para Cadastrar RT -->
+<dialog id="dialog-novo-rt" class="rt-modal-dialog">
+    <div class="rt-modal-header">
+        <h3 id="modal-rt-title">Cadastrar Responsável Técnico (RT)</h3>
+        <button type="button" id="btn-fechar-modal-rt" class="btn-close-clean">&times;</button>
+    </div>
+    <form id="form-rt">
+        <div class="rt-modal-body">
+            <input type="hidden" id="rt-id-input" name="rt_id" value="">
+            <div class="form-group-reg">
+                <label for="rt-nome-input" class="form-label-reg">Nome Completo *</label>
+                <input type="text" id="rt-nome-input" name="nome_completo" class="input-reg" placeholder="Ex: Dr. Carlos Eduardo Silva" required>
+            </div>
+            <div class="form-group-reg grid-3-col">
+                <div>
+                    <label for="rt-conselho-input" class="form-label-reg">Conselho *</label>
+                    <select id="rt-conselho-input" name="conselho_classe" class="input-reg">
+                        <option value="CRF">CRF (Farmácia)</option>
+                        <option value="CRQ">CRQ (Química)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="rt-uf-input" class="form-label-reg">UF *</label>
+                    <input type="text" id="rt-uf-input" name="uf_conselho" class="input-reg font-mono" maxlength="2" value="SP" required>
+                </div>
+                <div>
+                    <label for="rt-numero-input" class="form-label-reg">Nº Registro *</label>
+                    <input type="text" id="rt-numero-input" name="numero_registro" class="input-reg font-mono" placeholder="Ex: 45892" required>
+                </div>
+            </div>
+            <div class="form-group-reg grid-2-col">
+                <div>
+                    <label for="rt-vig-inicio-input" class="form-label-reg">Início da Vigência *</label>
+                    <input type="date" id="rt-vig-inicio-input" name="vigencia_inicio" class="input-reg" required>
+                </div>
+                <div>
+                    <label for="rt-vig-fim-input" class="form-label-reg">Término da Vigência</label>
+                    <input type="date" id="rt-vig-fim-input" name="vigencia_fim" class="input-reg">
+                </div>
+            </div>
+            <div class="form-group-reg flex-checkbox-wrapper">
+                <input type="checkbox" id="rt-ativo-input" name="ativo" checked>
+                <label for="rt-ativo-input" class="checkbox-label-clean">RT Ativo na Empresa</label>
+            </div>
+        </div>
+        <div class="rt-modal-footer">
+            <button type="button" id="btn-cancelar-modal-rt" class="btn-sm-action">Cancelar</button>
+            <button type="submit" class="btn-primary-reg" id="btn-salvar-rt">Salvar Responsável Técnico</button>
+        </div>
+    </form>
+</dialog>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'core/js/perfil_regulatorio.js' %}"></script>
+{% endblock %}

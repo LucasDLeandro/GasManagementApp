@@ -253,3 +253,318 @@ tbody tr:hover { background-color: var(--color-hover); }
     justify-content: flex-end;
     gap: 12px;
 }
+
+/* ==========================================================================
+   FASE 2: STEPPER DE FECHAMENTO, DRILL-DOWN E CONTRATOS
+   ========================================================================== */
+
+/* Stepper */
+.stepper-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px 24px;
+    margin-bottom: 24px;
+    position: relative;
+}
+
+.step-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+    cursor: default;
+}
+
+.step-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--color-hover);
+    color: var(--color-text-muted);
+    border: 2px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: all 0.25s ease;
+}
+
+.step-item.active .step-circle {
+    background: var(--color-primary);
+    color: #ffffff;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+.step-item.completed .step-circle {
+    background: var(--status-approved, #10b981);
+    color: #ffffff;
+    border-color: var(--status-approved, #10b981);
+}
+
+.step-label {
+    display: flex;
+    flex-direction: column;
+}
+
+.step-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+.step-subtitle {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.step-divider {
+    flex: 1;
+    height: 2px;
+    background: var(--color-border);
+    margin: 0 16px;
+}
+
+/* Comparativo Mês Anterior */
+.comparativo-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.comparativo-valores {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.comparativo-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.comparativo-item .rotulo {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.comparativo-item .valor {
+    font-size: 1.4rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Resumo Financeiro Grid */
+.resumo-financeiro-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.resumo-card-mini {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 16px;
+}
+
+.resumo-card-mini .rotulo {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.resumo-card-mini .valor {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Drill-Down Tree */
+.tree-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.tree-model-node {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.tree-model-header {
+    background: var(--color-hover);
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.tree-model-header:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.tree-model-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.tree-model-badges {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tree-model-body {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-top: 1px solid var(--color-border);
+}
+
+.tree-cylinder-card {
+    background: var(--color-bg, #f8fafc);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tree-cylinder-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tree-cylinder-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Calendário Diário (DiaCilindro Pills) */
+.calendar-pills-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--color-border);
+}
+
+.day-pill {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+}
+
+.day-pill.day-carencia {
+    background: rgba(16, 185, 129, 0.12);
+    color: #065f46;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.day-pill.day-franquia {
+    background: rgba(59, 130, 246, 0.12);
+    color: #1e40af;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.day-pill.day-cobravel {
+    background: rgba(245, 158, 11, 0.15);
+    color: #92400e;
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    font-weight: 700;
+}
+
+.day-pill.day-propriedade {
+    background: rgba(148, 163, 184, 0.15);
+    color: #475569;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+/* Radar & Extravios Cards */
+.radar-badge-pulse {
+    animation: radar-pulse 2s infinite;
+}
+
+@keyframes radar-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.85; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Estilos de Contratos */
+.contract-version-badge {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.contract-version-badge.ativo {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+    border: 1px solid #10b981;
+}
+
+.contract-version-badge.historico {
+    background: rgba(100, 116, 139, 0.15);
+    color: #475569;
+    border: 1px solid #94a3b8;
+}
+
+/* High Contrast Solar Mode Support */
+[data-theme="high-contrast-sun"] .stepper-header,
+[data-theme="high-contrast-sun"] .comparativo-card,
+[data-theme="high-contrast-sun"] .resumo-card-mini,
+[data-theme="high-contrast-sun"] .tree-model-node,
+[data-theme="high-contrast-sun"] .tree-cylinder-card {
+    border: 2px solid #000000 !important;
+    background: #ffffff !important;
+}
+
+[data-theme="high-contrast-sun"] .day-pill {
+    border: 1px solid #000000 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+}
+

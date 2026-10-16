@@ -35,16 +35,29 @@ class CustomLoginAPIView(APIView):
 class LoginView(TemplateView):
     template_name = 'accounts/login.html'
 
+from core.permissions import resolve_request_membership
+
 class IsAdminUserType(permissions.BasePermission):
     """
-    Permissão customizada para permitir acesso apenas a usuários com tipo_usuario == 'ADMIN' ou is_superuser.
+    Permissão baseada exclusivamente no papel do Membership ('ADMIN') ou is_superuser (D10).
     """
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and (request.user.tipo_usuario == 'ADMIN' or request.user.is_superuser))
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if request.user.is_superuser:
+            return True
+        membership = resolve_request_membership(request)
+        return bool(membership and membership.ativo and membership.papel == 'ADMIN')
 
 class AdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
-        return self.request.user.is_authenticated and (self.request.user.tipo_usuario == 'ADMIN' or self.request.user.is_superuser)
+        user = self.request.user
+        if not (user and user.is_authenticated):
+            return False
+        if user.is_superuser:
+            return True
+        membership = resolve_request_membership(self.request)
+        return bool(membership and membership.ativo and membership.papel == 'ADMIN')
 
 
 class PessoalTemplateView(AdminRequiredMixin, TemplateView):
@@ -72,8 +85,9 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
-        # Lógica para criar usuário completo de uma vez (User + Profile + Trabalhistas)
+        # Lógica para criar usuário completo de uma vez (User + Profile + Trabalhistas + Membership)
         data = request.data
+        papel = data.get('papel') or data.get('tipo_usuario', 'VENDEDOR')
         
         # 1. Cria o User base
         user = User.objects.create_user(
@@ -82,8 +96,26 @@ class UserViewSet(viewsets.ModelViewSet):
             email=data.get('email', ''),
             first_name=data.get('first_name', ''),
             last_name=data.get('last_name', ''),
-            tipo_usuario=data.get('tipo_usuario', 'VENDEDOR')
+            tipo_usuario=papel
         )
+
+        # Cria vínculo de Membership no tenant ativo exclusivamente pelo papel (D10)
+        from core.tenancy import get_current_tenant
+        from core.models import Membership
+        tenant = get_current_tenant() or getattr(request, 'tenant', None)
+        if not tenant and hasattr(request.user, 'memberships'):
+            m_origem = request.user.memberships.filter(ativo=True).first()
+            if m_origem:
+                tenant = m_origem.tenant
+
+        if tenant:
+            valid_papel = papel if papel in dict(Membership.PAPEL_CHOICES) else 'VENDEDOR'
+            Membership.objects.create(
+                user=user,
+                tenant=tenant,
+                papel=valid_papel,
+                ativo=True
+            )
 
         # 2. Cria o UserProfile
         profile = UserProfile.objects.create(
