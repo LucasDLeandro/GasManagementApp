@@ -4,12 +4,25 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Q
+from django.utils import timezone
 from vendas.models import Venda
 from core.mixins import TenantViewSetMixin
+from core.tenancy import get_current_tenant
+from produtos.models import Cilindro
 
-from .models import Cliente
+from .models import Cliente, ContratoComodato
 from .serializers import ClienteSerializer
+
+
+def _obter_tenant_id_request(request):
+    if hasattr(request, 'tenant') and request.tenant:
+        return request.tenant.id
+    tenant = get_current_tenant()
+    if tenant:
+        return tenant.id if hasattr(tenant, 'id') else tenant
+    return getattr(request, 'tenant_id', None)
+
 
 class ClienteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     """
@@ -19,27 +32,70 @@ class ClienteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
 
+    def paginate_queryset(self, queryset):
+        if self.request.query_params.get('sem_paginacao') == '1':
+            return None
+        return super().paginate_queryset(queryset)
+
     def get_queryset(self):
         queryset = super().get_queryset()
         tipo_param = self.request.query_params.get('tipo', None)
         if tipo_param:
             queryset = queryset.filter(tipo_cliente=tipo_param)
+
+        search = self.request.query_params.get('search', None)
+        if search:
+            search = search.strip()
+            queryset = queryset.filter(
+                Q(nome__icontains=search) |
+                Q(nome_fantasia__icontains=search) |
+                Q(cnpj__icontains=search)
+            )
         return queryset
 
     @action(detail=False, methods=['get'])
     def dashboard_metrics(self, request):
-        total_clientes = Cliente.objects.count()
-        total_pj = Cliente.objects.filter(tipo_cliente='PJ').count()
-        total_gov = Cliente.objects.filter(tipo_cliente='GOV').count()
+        tenant_id = _obter_tenant_id_request(request)
+        if tenant_id:
+            tenant = getattr(request, 'tenant', None) or get_current_tenant()
+            total_clientes = Cliente.unscoped.filter(tenant_id=tenant_id).count()
+            total_pj = Cliente.unscoped.filter(tenant_id=tenant_id, tipo_cliente='PJ').count()
+            total_gov = Cliente.unscoped.filter(tenant_id=tenant_id, tipo_cliente='GOV').count()
+            vendas_qs = Venda.unscoped.filter(tenant_id=tenant_id)
+            cilindros_em_posse = Cilindro.unscoped.filter(tenant_id=tenant_id, status='EM_POSSE_CLIENTE').count()
+            hoje = timezone.now().date()
+            contratos_ativos = ContratoComodato.unscoped.filter(
+                tenant_id=tenant_id
+            ).filter(
+                Q(vigencia_fim__isnull=True) | Q(vigencia_fim__gte=hoje),
+                vigencia_inicio__lte=hoje
+            ).count()
+            try:
+                from .services import calcular_radar_comodato_tenant
+                radar_data = calcular_radar_comodato_tenant(tenant)
+                receita_estimada_mes = radar_data.get('receita_locacao_acumulada', 0.0)
+            except Exception:
+                receita_estimada_mes = 0.0
+        else:
+            total_clientes = Cliente.objects.count()
+            total_pj = Cliente.objects.filter(tipo_cliente='PJ').count()
+            total_gov = Cliente.objects.filter(tipo_cliente='GOV').count()
+            vendas_qs = Venda.objects.all()
+            cilindros_em_posse = Cilindro.objects.filter(status='EM_POSSE_CLIENTE').count()
+            contratos_ativos = ContratoComodato.objects.count()
+            receita_estimada_mes = 0.0
 
-        top_clientes = Venda.objects.values(cnpj=F('cliente__cnpj'), nome=F('cliente__nome'))\
-                                    .annotate(total_comprado=Sum('valor_total'))\
-                                    .order_by('-total_comprado')[:5]
+        top_clientes = vendas_qs.values(cnpj=F('cliente__cnpj'), nome=F('cliente__nome'))\
+                                .annotate(total_comprado=Sum('valor_total'))\
+                                .order_by('-total_comprado')[:5]
 
         return Response({
             'total_clientes': total_clientes,
             'total_pj': total_pj,
             'total_gov': total_gov,
+            'cilindros_em_posse': cilindros_em_posse,
+            'contratos_ativos': contratos_ativos,
+            'receita_estimada_mes': receita_estimada_mes,
             'top_clientes': list(top_clientes)
         })
 
@@ -84,13 +140,6 @@ from .services import (
 from core.tenancy import get_current_tenant
 
 
-def _obter_tenant_id_request(request):
-    if hasattr(request, 'tenant') and request.tenant:
-        return request.tenant.id
-    tenant = get_current_tenant()
-    if tenant:
-        return tenant.id if hasattr(tenant, 'id') else tenant
-    return getattr(request, 'tenant_id', None)
 
 
 class ContratoComodatoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):

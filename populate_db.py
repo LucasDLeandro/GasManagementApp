@@ -91,35 +91,62 @@ def popular_tenant(tenant, user_vendedor, sufixo_cidade, gases):
         clientes_data = [
             {
                 "cnpj": f"{cnpj_prefix}.111/0001-11",
-                "nome": f"Hospital Regional {sufixo_cidade}",
+                "tipo_cliente": "GOV",
+                "nome": f"Hospital Regional {sufixo_cidade} - SES/{uf}",
+                "nome_fantasia": f"Hospital Regional {sufixo_cidade}",
                 "endereco": "Setor Hospitalar Sul, Quadra 716" if is_df else "Av. Universitária, 500",
-                "telefone": "6133450001" if is_df else "6232210001",
-                "estado": uf,
+                "numero": "S/N" if is_df else "500",
+                "bairro": "Asa Sul" if is_df else "Setor Universitário",
                 "cidade": cidade_nome,
-                "proprietario": "Dr. Fernando Silveira"
+                "estado": uf,
+                "cep": "70330-716" if is_df else "74605-010",
+                "telefone": "6133450001" if is_df else "6232210001",
+                "email_financeiro": f"financeiro.hr{sufixo_cidade.lower()}@saude.gov.br",
+                "proprietario": "Dr. Fernando Silveira",
+                "is_medicinal": True,
+                "cnes_licenca_sanitaria": "2678910" if is_df else "2678920"
             },
             {
                 "cnpj": f"{cnpj_prefix}.222/0001-22",
-                "nome": f"Metalúrgica {sufixo_cidade} Ltda",
+                "tipo_cliente": "PJ",
+                "nome": f"Metalúrgica {sufixo_cidade} Indústria e Comércio Ltda",
+                "nome_fantasia": f"Metalúrgica {sufixo_cidade}",
                 "endereco": "SIA Trecho 3, Lote 12" if is_df else "Pólo Moveleiro, Quadra 4",
-                "telefone": "6133450002" if is_df else "6232210002",
-                "estado": uf,
+                "numero": "12" if is_df else "4",
+                "bairro": "Zona Industrial" if is_df else "Pólo Moveleiro",
                 "cidade": cidade_nome,
-                "proprietario": "Sr. Carlos Eduardo"
+                "estado": uf,
+                "cep": "71200-030" if is_df else "74000-000",
+                "telefone": "6133450002" if is_df else "6232210002",
+                "email_financeiro": f"nfe@metalurgica{sufixo_cidade.lower()}.com.br",
+                "proprietario": "Sr. Carlos Eduardo",
+                "is_medicinal": False
             },
             {
                 "cnpj": f"{cnpj_prefix}.333/0001-33",
-                "nome": f"Clínica Vida {sufixo_cidade}",
+                "tipo_cliente": "PJ",
+                "nome": f"Clínica Médica Vida {sufixo_cidade} S/S",
+                "nome_fantasia": f"Clínica Vida {sufixo_cidade}",
                 "endereco": "Asa Norte, CLN 116" if is_df else "Setor Bueno, T-10",
-                "telefone": "6133450003" if is_df else "6232210003",
-                "estado": uf,
+                "numero": "Bloco B" if is_df else "1024",
+                "bairro": "Asa Norte" if is_df else "Setor Bueno",
                 "cidade": cidade_nome,
-                "proprietario": "Dra. Beatriz Mendes"
+                "estado": uf,
+                "cep": "70775-520" if is_df else "74223-060",
+                "telefone": "6133450003" if is_df else "6232210003",
+                "email_financeiro": f"contas@clinicavida{sufixo_cidade.lower()}.med.br",
+                "proprietario": "Dra. Beatriz Mendes",
+                "is_medicinal": True,
+                "cnes_licenca_sanitaria": "3847561" if is_df else "3847562"
             },
         ]
         clientes = []
         for cd in clientes_data:
-            cliente, _ = Cliente.objects.get_or_create(cnpj=cd['cnpj'], defaults=cd)
+            cliente, created = Cliente.objects.get_or_create(cnpj=cd['cnpj'], defaults=cd)
+            if not created:
+                for k, v in cd.items():
+                    setattr(cliente, k, v)
+                cliente.save()
             clientes.append(cliente)
 
             # Contrato de Comodato: 30 dias de carência, diária excedente R$ 3,50

@@ -62,14 +62,14 @@
                 <select name="tenant_id" class="tenant-switcher-select" onchange="this.form.submit()" title="Alternar Empresa Ativa">
                     {% for t in user_tenants %}
                         <option value="{{ t.id }}" {% if current_tenant.id == t.id %}selected{% endif %}>
-                            🏢 {{ t.nome }}
+                            🏢 {{ t.nome_fantasia|default:t.razao_social }}
                         </option>
                     {% endfor %}
                 </select>
             </form>
             {% elif current_tenant %}
             <div class="tenant-badge-single" title="Empresa Ativa">
-                🏢 {{ current_tenant.nome }}
+                🏢 {{ current_tenant.nome_fantasia|default:current_tenant.razao_social }}
             </div>
             {% endif %}
 

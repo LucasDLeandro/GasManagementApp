@@ -20,10 +20,12 @@ def set_current_tenant(tenant):
     """Define o tenant ativo no contexto atual e retorna o token de reset."""
     return _current_tenant.set(tenant)
 
-def reset_current_tenant(token):
+def reset_current_tenant(token=None):
     """Restaura o contexto do tenant anterior através do token."""
     if token is not None:
         _current_tenant.reset(token)
+    else:
+        _current_tenant.set(None)
 
 @contextmanager
 def tenant_context(tenant):

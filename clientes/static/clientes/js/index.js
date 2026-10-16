@@ -1,14 +1,41 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Referências do Modal de Cliente Básico
+    // Referências do Modal de Cliente (Redesenhado)
     const modal = document.getElementById('modal-cliente');
     const btnNovo = document.getElementById('btn-novo-cliente');
     const btnFechar = document.getElementById('btn-fechar-modal');
     const btnCancelar = document.getElementById('btn-cancelar');
     const form = document.getElementById('form-cliente');
+    const modalTitulo = document.getElementById('modal-cliente-titulo');
+    const btnSalvar = document.getElementById('btn-salvar-cliente');
+    const inputClienteIdEdicao = document.getElementById('cliente_id_edicao');
 
     let clientesGlobais = [];
     let modelosDisponiveisGlobais = [];
     let dadosSimulacaoAtual = null;
+
+    // Helper: Extrair Lista Resiliente do DRF (Array plano ou Envelope Paginado { results: [] })
+    window.extrairListaDRF = function(data) {
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.results)) return data.results;
+        return [];
+    };
+
+    // Helper: Renderizar Empty State Elegante em Tabelas
+    window.renderizarEmptyState = function(tbody, colspan, icon, titulo, subtitulo, botaoHtml = '') {
+        if (!tbody) return;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="${colspan}" style="text-align: center; padding: 48px 16px;">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+                        <span style="font-size: 38px; line-height: 1; opacity: 0.85;">${icon}</span>
+                        <strong style="font-size: 15px; color: var(--color-text);">${titulo}</strong>
+                        <span style="font-size: 13px; color: var(--color-text-muted); max-width: 380px;">${subtitulo}</span>
+                        ${botaoHtml ? `<div style="margin-top: 10px;">${botaoHtml}</div>` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    };
 
     // Helper: Formatação de Moeda
     function formatCurrency(value) {
@@ -26,6 +53,156 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return dateStr;
     }
+
+    // Máscaras de Entrada (CNPJ, CEP, Telefone)
+    function aplicarMascaraCNPJ(v) {
+        v = (v || '').replace(/\D/g, '').slice(0, 14);
+        if (v.length <= 2) return v;
+        if (v.length <= 5) return v.replace(/^(\d{2})(\d+)/, '$1.$2');
+        if (v.length <= 8) return v.replace(/^(\d{2})(\d{3})(\d+)/, '$1.$2.$3');
+        if (v.length <= 12) return v.replace(/^(\d{2})(\d{3})(\d{3})(\d+)/, '$1.$2.$3/$4');
+        return v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d+)/, '$1.$2.$3/$4-$5');
+    }
+
+    function aplicarMascaraCEP(v) {
+        v = (v || '').replace(/\D/g, '').slice(0, 8);
+        if (v.length <= 5) return v;
+        return v.replace(/^(\d{5})(\d+)/, '$1-$2');
+    }
+
+    function aplicarMascaraTelefone(v) {
+        v = (v || '').replace(/\D/g, '').slice(0, 11);
+        if (v.length <= 2) return v;
+        if (v.length <= 6) return v.replace(/^(\d{2})(\d+)/, '($1) $2');
+        if (v.length <= 10) return v.replace(/^(\d{2})(\d{4})(\d+)/, '($1) $2-$3');
+        return v.replace(/^(\d{2})(\d{5})(\d+)/, '($1) $2-$3');
+    }
+
+    // Listeners de Máscaras
+    const inputCnpj = document.getElementById('cnpj');
+    if (inputCnpj) {
+        inputCnpj.addEventListener('input', function() {
+            this.value = aplicarMascaraCNPJ(this.value);
+        });
+    }
+
+    const inputCep = document.getElementById('cep');
+    if (inputCep) {
+        inputCep.addEventListener('input', function() {
+            this.value = aplicarMascaraCEP(this.value);
+        });
+    }
+
+    const inputTel = document.getElementById('telefone');
+    if (inputTel) {
+        inputTel.addEventListener('input', function() {
+            this.value = aplicarMascaraTelefone(this.value);
+        });
+    }
+
+    // Toggle de Gás Medicinal / CNES
+    window.toggleMedicinalFields = function(isMedicinal) {
+        const container = document.getElementById('container-cnes');
+        const inputCnes = document.getElementById('cnes_licenca_sanitaria');
+        if (container) {
+            container.style.display = isMedicinal ? 'block' : 'none';
+        }
+        if (inputCnes && !isMedicinal) {
+            inputCnes.value = '';
+        }
+    };
+
+    // Consulta de CNPJ na BrasilAPI com Auto-Fill
+    window.buscarCNPJ = async function(cnpjRaw) {
+        const cnpjLimpo = (cnpjRaw || '').replace(/\D/g, '');
+        if (cnpjLimpo.length !== 14) {
+            Swal.fire('CNPJ Inválido', 'Por favor, informe um CNPJ com 14 dígitos.', 'warning');
+            return;
+        }
+
+        const btnText = document.getElementById('btn-buscar-cnpj-text');
+        const btnSpinner = document.getElementById('btn-buscar-cnpj-spinner');
+        if (btnText && btnSpinner) {
+            btnText.style.display = 'none';
+            btnSpinner.style.display = 'inline';
+        }
+
+        try {
+            const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`);
+            if (!res.ok) {
+                throw new Error(`Erro na consulta (HTTP ${res.status})`);
+            }
+            const data = await res.json();
+
+            if (data.razao_social) document.getElementById('nome').value = data.razao_social;
+            if (data.nome_fantasia) document.getElementById('nome_fantasia').value = data.nome_fantasia;
+            if (data.cep) {
+                document.getElementById('cep').value = aplicarMascaraCEP(data.cep);
+            }
+            if (data.logradouro) document.getElementById('endereco').value = data.logradouro;
+            if (data.numero) document.getElementById('numero').value = data.numero;
+            if (data.bairro) document.getElementById('bairro').value = data.bairro;
+            if (data.complemento) document.getElementById('complemento').value = data.complemento;
+            if (data.municipio) document.getElementById('cidade').value = data.municipio;
+            if (data.uf) {
+                const elUf = document.getElementById('estado');
+                if (elUf) elUf.value = data.uf.toUpperCase();
+            }
+            if (data.ddd_telefone_1) {
+                document.getElementById('telefone').value = aplicarMascaraTelefone(data.ddd_telefone_1);
+            }
+            if (data.email) {
+                document.getElementById('email_financeiro').value = data.email;
+            }
+            if (data.qsa && data.qsa.length > 0 && data.qsa[0].nome_socio) {
+                document.getElementById('proprietario').value = data.qsa[0].nome_socio;
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'CNPJ Localizado!',
+                text: `${data.razao_social || 'Cliente'} preenchido via Receita Federal.`,
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } catch (err) {
+            console.warn('Erro ao consultar BrasilAPI:', err);
+            Swal.fire({
+                icon: 'info',
+                title: 'Aviso',
+                text: 'Não foi possível preencher automaticamente os dados do CNPJ (pode ser um CNPJ de teste ou indisponibilidade da API externa). Prossiga com o preenchimento manual.',
+            });
+        } finally {
+            if (btnText && btnSpinner) {
+                btnText.style.display = 'inline';
+                btnSpinner.style.display = 'none';
+            }
+        }
+    };
+
+    // Consulta de CEP no ViaCEP
+    window.buscarCEP = async function(cepRaw) {
+        const cepLimpo = (cepRaw || '').replace(/\D/g, '');
+        if (cepLimpo.length !== 8) return;
+
+        try {
+            const res = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+            const data = await res.json();
+            if (data.erro) return;
+
+            const endInput = document.getElementById('endereco');
+            const bairroInput = document.getElementById('bairro');
+            const cidadeInput = document.getElementById('cidade');
+            const ufSelect = document.getElementById('estado');
+
+            if (data.logradouro && endInput && !endInput.value) endInput.value = data.logradouro;
+            if (data.bairro && bairroInput && !bairroInput.value) bairroInput.value = data.bairro;
+            if (data.localidade && cidadeInput) cidadeInput.value = data.localidade;
+            if (data.uf && ufSelect) ufSelect.value = data.uf.toUpperCase();
+        } catch (e) {
+            console.warn('Erro ao consultar ViaCEP:', e);
+        }
+    };
 
     // Headers de Autenticação com CSRF e JWT
     function getAuthHeaders() {
@@ -57,17 +234,73 @@ document.addEventListener('DOMContentLoaded', function() {
         return headers;
     }
 
-    // Modal Cliente Funções
-    function openModal() {
-        modal.classList.add('active');
+    // Modal Cliente Funções: Criação e Edição
+    window.abrirModalNovoCliente = function(tipoDefault = 'PJ') {
+        if (!modal) return;
         form.reset();
-    }
+        if (inputClienteIdEdicao) inputClienteIdEdicao.value = '';
+        if (modalTitulo) modalTitulo.textContent = 'Cadastro de Cliente';
+        if (btnSalvar) btnSalvar.textContent = 'Salvar Cliente';
+
+        const tipoSelect = document.getElementById('tipo_cliente');
+        if (tipoSelect) tipoSelect.value = tipoDefault;
+
+        toggleMedicinalFields(false);
+        modal.classList.add('active');
+    };
+
+    window.abrirModalEditarCliente = function(clienteId) {
+        if (!modal) return;
+        form.reset();
+
+        fetch(`/clientes/api/${clienteId}/`, { headers: getAuthHeaders() })
+            .then(res => res.json())
+            .then(cliente => {
+                if (inputClienteIdEdicao) inputClienteIdEdicao.value = cliente.id;
+                if (modalTitulo) modalTitulo.textContent = `Editar Cliente: ${cliente.nome}`;
+                if (btnSalvar) btnSalvar.textContent = 'Salvar Alterações';
+
+                document.getElementById('tipo_cliente').value = cliente.tipo_cliente || 'PJ';
+                document.getElementById('cnpj').value = cliente.cnpj || '';
+                document.getElementById('nome').value = cliente.nome || '';
+                document.getElementById('nome_fantasia').value = cliente.nome_fantasia || '';
+                document.getElementById('proprietario').value = cliente.proprietario || '';
+                document.getElementById('telefone').value = cliente.telefone || '';
+                document.getElementById('email_financeiro').value = cliente.email_financeiro || '';
+                document.getElementById('cep').value = cliente.cep || '';
+                document.getElementById('endereco').value = cliente.endereco || '';
+                document.getElementById('numero').value = cliente.numero || '';
+                document.getElementById('bairro').value = cliente.bairro || '';
+                document.getElementById('complemento').value = cliente.complemento || '';
+                document.getElementById('cidade').value = cliente.cidade || '';
+                document.getElementById('estado').value = (cliente.estado || '').toUpperCase();
+
+                const selectMatriz = document.getElementById('cliente_matriz');
+                if (selectMatriz) selectMatriz.value = cliente.cliente_matriz || '';
+
+                const checkMedicinal = document.getElementById('is_medicinal');
+                if (checkMedicinal) checkMedicinal.checked = Boolean(cliente.is_medicinal);
+
+                toggleMedicinalFields(Boolean(cliente.is_medicinal));
+                if (cliente.is_medicinal && cliente.cnes_licenca_sanitaria) {
+                    document.getElementById('cnes_licenca_sanitaria').value = cliente.cnes_licenca_sanitaria;
+                }
+
+                modal.classList.add('active');
+            })
+            .catch(err => {
+                console.error("Erro ao carregar dados do cliente:", err);
+                Swal.fire('Erro', 'Não foi possível carregar os dados do cliente para edição.', 'error');
+            });
+    };
 
     function closeModal() {
-        modal.classList.remove('active');
+        if (modal) modal.classList.remove('active');
+        if (form) form.reset();
+        if (inputClienteIdEdicao) inputClienteIdEdicao.value = '';
     }
 
-    if (btnNovo) btnNovo.addEventListener('click', openModal);
+    if (btnNovo) btnNovo.addEventListener('click', () => abrirModalNovoCliente('PJ'));
     if (btnFechar) btnFechar.addEventListener('click', closeModal);
     if (btnCancelar) btnCancelar.addEventListener('click', closeModal);
 
@@ -81,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.switchTab = function(tabId) {
         document.querySelectorAll('.tab-pane').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        
+
         const target = document.getElementById('tab-' + tabId);
         if (target) target.style.display = 'block';
 
@@ -89,7 +322,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btn) btn.classList.add('active');
 
         // Carregamentos sob demanda
-        if (tabId === 'contratos') {
+        if (tabId === 'pj') {
+            loadClientes('PJ');
+        } else if (tabId === 'gov') {
+            loadClientes('GOV');
+        } else if (tabId === 'contratos') {
             carregarModelosDisponiveis();
             carregarContratosCliente();
         } else if (tabId === 'fechamento') {
@@ -97,60 +334,125 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (tabId === 'extravios') {
             carregarAlertasExtravio();
             carregarRadarCarencia();
+        } else if (tabId === 'dashboard') {
+            loadDashboard();
         }
     };
 
-    // Carregamento de Clientes (PJ / GOV)
-    function loadClientes(tipo) {
-        fetch(`/clientes/api/?tipo=${tipo}`, { headers: getAuthHeaders() })
+    // Carregamento de Clientes (PJ / GOV) com busca e tratamento DRF
+    window.loadClientes = function(tipo, search = '') {
+        const tbodyId = tipo === 'PJ' ? 'clientes-pj-tbody' : 'clientes-gov-tbody';
+        const tbodyLocal = document.getElementById(tbodyId);
+        if (!tbodyLocal) return;
+
+        tbodyLocal.innerHTML = '<tr><td colspan="6" style="text-align:center;">Carregando clientes...</td></tr>';
+
+        const url = `/clientes/api/?tipo=${tipo}&search=${encodeURIComponent(search || '')}`;
+        fetch(url, { headers: getAuthHeaders() })
             .then(response => response.json())
             .then(data => {
-                let tbodyId = tipo === 'PJ' ? 'clientes-pj-tbody' : 'clientes-gov-tbody';
-                let tbodyLocal = document.getElementById(tbodyId);
-                if (!tbodyLocal) return;
-                
+                const clientes = extrairListaDRF(data);
                 tbodyLocal.innerHTML = '';
-                if (data.length === 0) {
-                    tbodyLocal.innerHTML = '<tr><td colspan="5" style="text-align:center;">Nenhum cliente cadastrado.</td></tr>';
+
+                if (clientes.length === 0) {
+                    if (search) {
+                        renderizarEmptyState(
+                            tbodyLocal,
+                            6,
+                            '🔍',
+                            'Nenhum cliente localizado',
+                            `Não foram encontrados registros para "${search}". Tente outro termo.`
+                        );
+                    } else {
+                        const labelTipo = tipo === 'PJ' ? 'Clientes PJ' : 'Governamentais';
+                        renderizarEmptyState(
+                            tbodyLocal,
+                            6,
+                            tipo === 'PJ' ? '🏢' : '🏛️',
+                            `Nenhum cliente ${labelTipo} cadastrado`,
+                            `Cadastre o primeiro cliente ${labelTipo} para gerenciar vendas e comodatos.`,
+                            `<button class="btn-primary" style="padding:6px 14px; font-size:12px;" onclick="abrirModalNovoCliente('${tipo}')">+ Cadastrar Cliente</button>`
+                        );
+                    }
                     return;
                 }
-                data.forEach(cliente => {
+
+                clientes.forEach(cliente => {
                     const tr = document.createElement('tr');
+
+                    // Badges dinâmicas
+                    const badges = [];
+                    if (cliente.is_medicinal) {
+                        badges.push('<span class="badge-medicinal" title="Cliente ANVISA Medicinal">🏥 Medicinal</span>');
+                    }
+                    if (cliente.tem_contrato_ativo) {
+                        badges.push('<span class="badge-contrato" title="Contrato de Comodato Vigente">📄 Contrato Ativo</span>');
+                    }
+                    if (cliente.cilindros_em_posse_count > 0) {
+                        badges.push(`<span class="badge-cilindros" title="Cilindros retidos">${cliente.cilindros_em_posse_count} em posse</span>`);
+                    }
+                    const badgesHtml = badges.length > 0 ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;">${badges.join('')}</div>` : '<span style="color:var(--color-text-muted); font-size:12px;">Padrão</span>';
+
+                    const nomeHtml = `
+                        <div style="font-weight:600; color:var(--color-text);">${cliente.nome}</div>
+                        ${cliente.nome_fantasia ? `<div style="font-size:12px; color:var(--color-text-muted);">${cliente.nome_fantasia}</div>` : ''}
+                    `;
+
                     tr.innerHTML = `
-                        <td>${cliente.cnpj}</td>
-                        <td style="font-weight:600;">${cliente.nome}</td>
-                        <td>${cliente.cidade}/${cliente.estado}</td>
-                        <td>${cliente.telefone}</td>
-                        <td style="display:flex; gap:6px;">
-                            <button class="btn-primary" style="padding:5px 10px; font-size:12px; background:var(--color-text-muted);" onclick="abrirDetalhesCliente(${cliente.id})">Detalhes</button>
-                            <button class="btn-secondary" style="padding:5px 10px; font-size:12px;" onclick="irParaContratoCliente(${cliente.id})">Contratos</button>
+                        <td class="font-mono" style="font-weight:600; font-size:13px;">${cliente.cnpj}</td>
+                        <td>${nomeHtml}</td>
+                        <td>${badgesHtml}</td>
+                        <td>${cliente.cidade || '-'}/${cliente.estado || '-'}</td>
+                        <td>${cliente.telefone || '-'}</td>
+                        <td style="display:flex; gap:6px; flex-wrap:nowrap;">
+                            <button class="btn-primary" style="padding:5px 9px; font-size:12px;" onclick="abrirModalEditarCliente(${cliente.id})" title="Editar Cadastro">Editar</button>
+                            <button class="btn-secondary" style="padding:5px 9px; font-size:12px;" onclick="abrirModalContrato(null, ${cliente.id})" title="Criar ou Atualizar Contrato de Comodato">+ Contrato</button>
+                            <button class="btn-secondary" style="padding:5px 9px; font-size:12px; background:var(--color-hover);" onclick="abrirDetalhesCliente(${cliente.id})" title="Ver Ficha Completa">Detalhes</button>
                         </td>
                     `;
                     tbodyLocal.appendChild(tr);
                 });
             })
             .catch(err => {
-                console.error("Erro ao carregar clientes", err);
+                console.error(`Erro ao carregar clientes ${tipo}:`, err);
+                renderizarEmptyState(
+                    tbodyLocal,
+                    6,
+                    '⚠️',
+                    'Erro na comunicação com o servidor',
+                    'Não foi possível listar os clientes. Verifique a conexão e tente novamente.'
+                );
             });
-    }
+    };
 
-    // Carrega todos os clientes para alimentar selects
+    window.filtrarClientesLocal = function(tipo, termo) {
+        loadClientes(tipo, termo);
+    };
+
+    // Carrega todos os clientes para alimentar selects (com ?sem_paginacao=1)
     function carregarTodosClientesSelects() {
-        fetch('/clientes/api/', { headers: getAuthHeaders() })
+        fetch('/clientes/api/?sem_paginacao=1', { headers: getAuthHeaders() })
             .then(res => res.json())
             .then(data => {
-                clientesGlobais = data;
+                clientesGlobais = extrairListaDRF(data);
+
                 const selects = [
                     document.getElementById('filtro-contrato-cliente'),
                     document.getElementById('contrato-cliente-select'),
-                    document.getElementById('fechamento-cliente')
+                    document.getElementById('fechamento-cliente'),
+                    document.getElementById('cliente_matriz')
                 ];
 
                 selects.forEach(sel => {
                     if (!sel) return;
                     const valAtual = sel.value;
-                    sel.innerHTML = '<option value="">Selecione um cliente...</option>';
-                    data.forEach(c => {
+                    const isMatriz = (sel.id === 'cliente_matriz');
+
+                    sel.innerHTML = isMatriz 
+                        ? '<option value="">Nenhum (Cliente é Matriz ou Independente)</option>' 
+                        : '<option value="">Selecione um cliente...</option>';
+
+                    clientesGlobais.forEach(c => {
                         const opt = document.createElement('option');
                         opt.value = c.id;
                         opt.textContent = `${c.nome} (${c.cnpj})`;
@@ -158,7 +460,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     if (valAtual) sel.value = valAtual;
                 });
-            });
+            })
+            .catch(err => console.error("Erro ao carregar clientes para selects:", err));
     }
 
     window.irParaContratoCliente = function(clienteId) {
@@ -177,38 +480,70 @@ document.addEventListener('DOMContentLoaded', function() {
                 const elTot = document.getElementById('metric-total');
                 const elPj = document.getElementById('metric-pj');
                 const elGov = document.getElementById('metric-gov');
-                if (elTot) elTot.textContent = data.total_clientes;
-                if (elPj) elPj.textContent = data.total_pj;
-                if (elGov) elGov.textContent = data.total_gov;
-                
+                const elCilindros = document.getElementById('metric-cilindros-posse');
+                const elContratos = document.getElementById('metric-contratos-ativos');
+                const elReceita = document.getElementById('metric-receita-estimada');
+
+                if (elTot) elTot.textContent = data.total_clientes || 0;
+                if (elPj) elPj.textContent = data.total_pj || 0;
+                if (elGov) elGov.textContent = data.total_gov || 0;
+                if (elCilindros) elCilindros.textContent = data.cilindros_em_posse || 0;
+                if (elContratos) elContratos.textContent = data.contratos_ativos || 0;
+                if (elReceita) elReceita.textContent = formatCurrency(data.receita_estimada_mes || 0);
+
                 const topBody = document.getElementById('top-clientes-tbody');
                 if (!topBody) return;
                 topBody.innerHTML = '';
-                if (data.top_clientes && data.top_clientes.length > 0) {
-                    data.top_clientes.forEach(c => {
+
+                const topClientes = extrairListaDRF(data.top_clientes || []);
+                if (topClientes.length > 0) {
+                    topClientes.forEach(c => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td style="font-size: 0.85rem; color: var(--color-text-muted);">${c.cnpj}</td>
+                            <td class="font-mono" style="font-size: 0.85rem; color: var(--color-text-muted);">${c.cnpj}</td>
                             <td style="font-weight: 500;">${c.nome}</td>
-                            <td style="font-weight: 600; color: var(--color-primary);">${formatCurrency(c.total_comprado || 0)}</td>
+                            <td style="font-weight: 700; color: var(--color-primary);">${formatCurrency(c.total_comprado || 0)}</td>
                         `;
                         topBody.appendChild(tr);
                     });
                 } else {
-                    topBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color: var(--color-text-muted);">Nenhuma venda registrada.</td></tr>';
+                    renderizarEmptyState(
+                        topBody,
+                        3,
+                        '📊',
+                        'Nenhum faturamento registrado',
+                        'Assim que os pedidos de venda forem confirmados, o ranking dos principais clientes será gerado aqui.'
+                    );
                 }
-            });
+            })
+            .catch(err => console.error("Erro ao carregar métricas do dashboard:", err));
     }
 
-    // Submissão do Form de Cliente
+    // Submissão do Form de Cliente (Criar POST ou Atualizar PATCH)
     if (form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(form);
             const data = Object.fromEntries(formData.entries());
 
-            fetch('/clientes/api/', {
-                method: 'POST',
+            const clienteId = inputClienteIdEdicao ? inputClienteIdEdicao.value : '';
+            const isEdicao = Boolean(clienteId);
+
+            // Tratamentos de dados
+            data.is_medicinal = Boolean(document.getElementById('is_medicinal') && document.getElementById('is_medicinal').checked);
+            if (!data.cliente_matriz) delete data.cliente_matriz;
+            if (!data.numero) data.numero = '';
+            if (!data.bairro) data.bairro = '';
+            if (!data.complemento) data.complemento = '';
+            if (!data.email_financeiro) data.email_financeiro = '';
+            if (!data.cnes_licenca_sanitaria) data.cnes_licenca_sanitaria = '';
+            delete data.cliente_id_edicao;
+
+            const url = isEdicao ? `/clientes/api/${clienteId}/` : '/clientes/api/';
+            const method = isEdicao ? 'PATCH' : 'POST';
+
+            fetch(url, {
+                method: method,
                 headers: getAuthHeaders(),
                 body: JSON.stringify(data)
             })
@@ -216,8 +551,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (response.ok) {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Sucesso',
-                        text: 'Cliente cadastrado com sucesso!',
+                        title: isEdicao ? 'Cliente Atualizado!' : 'Cliente Cadastrado!',
+                        text: isEdicao ? 'Os dados do cliente foram atualizados com sucesso.' : 'Novo cliente cadastrado com sucesso!',
                         timer: 2000,
                         showConfirmButton: false
                     });
@@ -228,12 +563,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     carregarTodosClientesSelects();
                 } else {
                     const err = await response.json();
-                    Swal.fire('Erro no Cadastro', JSON.stringify(err), 'error');
+                    Swal.fire('Erro no Formulário', JSON.stringify(err), 'error');
                 }
             })
             .catch(err => {
                 console.error(err);
-                Swal.fire('Erro', 'Ocorreu um erro na requisição.', 'error');
+                Swal.fire('Erro', 'Ocorreu um erro ao processar a requisição.', 'error');
             });
         });
     }
@@ -283,8 +618,9 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/clientes/api/contratos/modelos-disponiveis/', { headers: getAuthHeaders() })
             .then(res => res.json())
             .then(data => {
-                modelosDisponiveisGlobais = data;
-            });
+                modelosDisponiveisGlobais = extrairListaDRF(data);
+            })
+            .catch(err => console.error("Erro ao carregar modelos disponíveis:", err));
     }
 
     window.carregarContratosCliente = function() {
@@ -293,19 +629,33 @@ document.addEventListener('DOMContentLoaded', function() {
         const painelAtivo = document.getElementById('painel-contrato-ativo');
 
         if (!clienteId) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecione um cliente para visualizar o histórico de contratos.</td></tr>';
+            renderizarEmptyState(
+                tbody,
+                7,
+                '📋',
+                'Nenhum cliente selecionado',
+                'Selecione um cliente no campo acima para visualizar o histórico de versões de contratos de comodato.'
+            );
             painelAtivo.style.display = 'none';
             return;
         }
 
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Carregando histórico de contratos...</td></tr>';
 
-        fetch(`/clientes/api/contratos/?cliente_id=${clienteId}`, { headers: getAuthHeaders() })
+        fetch(`/clientes/api/contratos/?cliente_id=${clienteId}&sem_paginacao=1`, { headers: getAuthHeaders() })
             .then(res => res.json())
-            .then(contratos => {
+            .then(data => {
+                const contratos = extrairListaDRF(data);
                 tbody.innerHTML = '';
                 if (!contratos || contratos.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhum contrato cadastrado para este cliente. Clique em "+ Nova Versão de Contrato" para criar.</td></tr>';
+                    renderizarEmptyState(
+                        tbody,
+                        7,
+                        '📄',
+                        'Nenhum contrato cadastrado',
+                        'Este cliente ainda não possui versão de contrato de comodato cadastrada.',
+                        `<button class="btn-primary" style="padding:6px 14px; font-size:12px;" onclick="abrirModalContrato(null, ${clienteId})">+ Criar Primeiro Contrato</button>`
+                    );
                     painelAtivo.style.display = 'none';
                     return;
                 }
@@ -895,12 +1245,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const tbody = document.getElementById('tbody-faturas-fechadas');
         if (!tbody) return;
 
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Carregando faturas fechadas...</td></tr>';
+
         fetch('/clientes/api/faturas-estadia/', { headers: getAuthHeaders() })
             .then(res => res.json())
-            .then(faturas => {
+            .then(data => {
+                const faturas = extrairListaDRF(data);
                 tbody.innerHTML = '';
                 if (!faturas || faturas.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Nenhuma fatura fechada registrada ainda.</td></tr>';
+                    renderizarEmptyState(
+                        tbody,
+                        9,
+                        '🧾',
+                        'Nenhuma fatura fechada recentemente',
+                        'As faturas mensais de estadia fechadas pelos operadores aparecerão listadas aqui para auditoria, emissão e download.'
+                    );
                     return;
                 }
 

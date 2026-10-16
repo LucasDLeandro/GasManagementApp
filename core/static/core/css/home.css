@@ -177,16 +177,28 @@ body > main {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 24px;
+    padding: 0 16px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
     z-index: 10;
     flex-shrink: 0;
+    min-width: 0;
+    width: 100%;
 }
 
-.navbar-left, .navbar-right {
+.navbar-left {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
+    min-width: 0;
+    flex-shrink: 0;
+}
+
+.navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex-shrink: 1;
 }
 
 .menu-btn {
@@ -200,6 +212,7 @@ body > main {
     padding: 8px;
     border-radius: 8px;
     transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 .menu-btn:hover {
@@ -210,16 +223,20 @@ body > main {
 .logo {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     color: var(--color-primary);
     font-weight: 700;
-    font-size: 22px;
+    font-size: 19px;
     letter-spacing: -0.5px;
+    white-space: nowrap;
+    min-width: 0;
+    flex-shrink: 0;
 }
 
 .logo-icon {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
 }
 
 /* --- ÁREA DO USUÁRIO --- */
@@ -854,12 +871,16 @@ dialog.action-modal::backdrop {
     color: var(--color-text);
     border: 1px solid var(--color-border);
     border-radius: 8px;
-    padding: 6px 12px;
+    padding: 6px 10px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     outline: none;
-    max-width: 220px;
+    max-width: 190px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-block;
 }
 
 .tenant-badge-single {
@@ -867,9 +888,14 @@ dialog.action-modal::backdrop {
     color: var(--color-text);
     border: 1px solid var(--color-border);
     border-radius: 8px;
-    padding: 6px 12px;
+    padding: 6px 10px;
     font-size: 13px;
     font-weight: 600;
+    max-width: 190px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-block;
 }
 
 .role-badge-pill {
