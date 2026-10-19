@@ -13,12 +13,14 @@
     <!-- PWA Manifest & Mobile Config -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0F172A">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="GasApp">
+    <meta name="apple-mobile-web-app-title" content="Baros">
 
     <!-- Isolamento Multi-tenant & Usuário PWA Offline -->
     <meta name="current-tenant-id" content="{% if current_tenant %}{{ current_tenant.id }}{% elif tenant %}{{ tenant.id }}{% elif request.tenant %}{{ request.tenant.id }}{% endif %}">
+    <meta name="active-tenant-id" content="{% if current_tenant %}{{ current_tenant.id }}{% elif tenant %}{{ tenant.id }}{% elif request.tenant %}{{ request.tenant.id }}{% endif %}">
     <meta name="current-user-id" content="{% if user.is_authenticated %}{{ user.id }}{% endif %}">
 
     <!-- Estilos globais e específicos de outras páginas -->

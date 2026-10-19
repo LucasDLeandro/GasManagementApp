@@ -1,5 +1,5 @@
 /**
- * GasManagementApp - Fase 3 (IN 129/2022, RDC 887/2024, Qualidade & Recall)
+ * Baros - Fase 3 (IN 129/2022, RDC 887/2024, Qualidade & Recall)
  * - Estação de Rampa de Envase em Batelada (Manifold Batch Grid com áudio e teclado wedge)
  * - Central de Recebimento de Cilindros Cheios de Fornecedor (Distribuidoras)
  * - Central de Lotes, Homologação CQ e Quarentena Sanitária

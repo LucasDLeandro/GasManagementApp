@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     function getAuthHeaders() {
-        const token = localStorage.getItem('access_token');
+        let token = localStorage.getItem('access_token') || localStorage.getItem('access');
+        if (token && window.isJwtExpired && window.isJwtExpired(token)) {
+            localStorage.removeItem('access');
+            localStorage.removeItem('access_token');
+            token = null;
+        }
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = 'Bearer ' + token;
         return headers;

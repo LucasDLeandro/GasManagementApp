@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from clientes.models import Cliente
@@ -14,11 +15,32 @@ class Venda(TenantAwareModel):
         ('Cancelada', 'Cancelada'),
     ]
 
+    TIPO_OPERACAO_CHOICES = [
+        ('RECARGA_TROCA', 'Recarga com Troca (Cheio x Vazio)'),
+        ('REMESSA_COMODATO', 'Venda de Gás + Comodato de Casco'),
+        ('VENDA_CASCO', 'Venda Definitiva de Cilindro'),
+    ]
+
+    FORMA_PAGAMENTO_CHOICES = [
+        ('PIX', 'PIX'),
+        ('BOLETO', 'Boleto Bancário'),
+        ('FATURADO', 'Faturado a Prazo'),
+        ('CARTAO', 'Cartão'),
+        ('EMPENHO', 'Nota de Empenho (Gov)'),
+        ('DINHEIRO', 'Dinheiro'),
+    ]
+
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='vendas', verbose_name="Cliente")
-    vendedor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='vendas', verbose_name="Vendedor")
+    vendedor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='vendas', verbose_name="Vendedor")
     entrega = models.ForeignKey('logistica.Entrega', on_delete=models.SET_NULL, null=True, blank=True, related_name='vendas', verbose_name="Entrega Associada")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pendente', verbose_name="Status")
-    valor_total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Valor Total da Nota")
+    tipo_operacao = models.CharField(max_length=30, choices=TIPO_OPERACAO_CHOICES, default='RECARGA_TROCA', verbose_name="Tipo de Operação")
+    forma_pagamento = models.CharField(max_length=30, choices=FORMA_PAGAMENTO_CHOICES, default='BOLETO', blank=True, null=True, verbose_name="Forma de Pagamento")
+    condicao_pagamento = models.CharField(max_length=50, default='À Vista', blank=True, null=True, verbose_name="Condição de Pagamento")
+    valor_desconto = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor de Desconto (R$)")
+    documento_fiscal_ref = models.CharField(max_length=60, blank=True, null=True, verbose_name="Nº NF-e / Pedido")
+    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações / Instruções de Entrega")
+    valor_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor Total da Nota")
     prazo_entrega = models.DateField(null=True, blank=True, verbose_name="Prazo de Entrega")
     data_entrega_efetiva = models.DateField(null=True, blank=True, verbose_name="Data Efetiva de Entrega")
     data_venda = models.DateTimeField(auto_now_add=True, verbose_name="Data da Venda")
@@ -33,8 +55,9 @@ class Venda(TenantAwareModel):
         return f"Venda #{self.id} - {self.cliente.nome} ({self.status})"
 
     def calcular_total(self):
-        total = sum(item.valor_total for item in self.itens.all())
-        self.valor_total = total
+        total_itens = sum(item.valor_total for item in self.itens.all())
+        desconto = self.valor_desconto or Decimal('0.00')
+        self.valor_total = max(Decimal('0.00'), total_itens - desconto)
         self.save()
 
 

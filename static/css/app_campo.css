@@ -464,3 +464,214 @@ body {
 .bottom-nav-btn.active {
   color: var(--app-primary);
 }
+
+/* Modal Popup Centered */
+.field-modal {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.field-modal[hidden] {
+  display: none !important;
+}
+
+.field-modal.active {
+  display: flex !important;
+}
+
+.field-modal-content {
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--app-surface);
+  border: 2px solid var(--app-border);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Tab Panes da Jornada Mobile-First */
+.tab-pane {
+  display: none;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Cards de Jornada (Saída, Retorno, Frota, SOS) */
+.journey-card {
+  background: var(--app-surface);
+  border: 2px solid var(--app-border);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.journey-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.journey-step-badge {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(2, 132, 199, 0.15);
+  color: var(--app-primary);
+  border: 1px solid var(--app-primary);
+}
+
+.journey-step-badge.warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--app-warning);
+  border-color: var(--app-warning);
+}
+
+.journey-step-badge.danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--app-danger);
+  border-color: var(--app-danger);
+}
+
+.journey-step-badge.success {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--app-success);
+  border-color: var(--app-success);
+}
+
+/* Custom Camera / Foto Upload Touch Component */
+.campo-foto-box {
+  border: 2px dashed var(--app-border);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  text-align: center;
+  background: var(--app-bg);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.campo-foto-box:hover, .campo-foto-box:active {
+  border-color: var(--app-primary);
+  background: rgba(2, 132, 199, 0.08);
+}
+
+.campo-foto-preview {
+  max-width: 100%;
+  max-height: 160px;
+  border-radius: 8px;
+  margin-top: 8px;
+  display: none;
+  object-fit: cover;
+  border: 1px solid var(--app-border);
+}
+
+.campo-foto-filename {
+  font-size: 12px;
+  color: var(--app-text-muted);
+  word-break: break-all;
+}
+
+/* Conferência Cards e Balanço de Retorno */
+.conf-item-card {
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.conf-item-card.divergent {
+  border-color: var(--app-warning);
+  background: #f59e0b10;
+}
+
+.conf-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 480px) {
+  .conf-kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.conf-kpi-card {
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+.conf-kpi-val {
+  font-size: 20px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+/* Empty State Moderno */
+.empty-state-campo {
+  text-align: center;
+  padding: 36px 20px;
+  background: var(--app-surface);
+  border: 2px dashed var(--app-border);
+  border-radius: var(--border-radius);
+  margin: 16px 0;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.empty-state-title {
+  font-size: 17px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: var(--app-text);
+}
+
+.empty-state-desc {
+  font-size: 13px;
+  color: var(--app-text-muted);
+  max-width: 320px;
+  margin: 0 auto 16px auto;
+  line-height: 1.4;
+}
+

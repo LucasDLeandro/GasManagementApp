@@ -3,6 +3,7 @@ import django
 import uuid
 from decimal import Decimal
 from datetime import timedelta
+from decouple import config
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
@@ -713,9 +714,9 @@ def run():
     )
 
     # Superusuário Administrativo via Variáveis de Ambiente (.env)
-    superuser_username = os.getenv("DJANGO_SUPERUSER_USERNAME")
-    superuser_password = os.getenv("DJANGO_SUPERUSER_PASSWORD")
-    superuser_email = os.getenv("DJANGO_SUPERUSER_EMAIL", "admin@bsbgases.com.br")
+    superuser_username = config("DJANGO_SUPERUSER_USERNAME", default="gasapp.superadmin")
+    superuser_password = config("DJANGO_SUPERUSER_PASSWORD", default="@dmin2026")
+    superuser_email = config("DJANGO_SUPERUSER_EMAIL", default="lucasdl.dev@gmail.com")
     if superuser_username and superuser_password:
         admin_user, created = User.objects.get_or_create(
             username=superuser_username,
@@ -728,8 +729,9 @@ def run():
             admin_user.tipo_usuario = "ADMIN"
             admin_user.save()
             print(f"Superusuário administrativo configurado via .env: {superuser_username}")
+        Membership.objects.get_or_create(user=admin_user, tenant=tenant_a, defaults={"papel": "ADMIN", "ativo": True})
 
-    default_pwd = os.getenv("DEFAULT_USER_PASSWORD", "Agy@Gas2026!Segura")
+    default_pwd = config("DEFAULT_USER_PASSWORD", default="Agy@Gas2026!Segura")
 
     user_bsb, _ = User.objects.get_or_create(
         username="gerente.bsb",

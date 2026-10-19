@@ -109,7 +109,7 @@ def pwa_manifest_view(request):
         with open(manifest_path, 'r', encoding='utf-8') as f:
             content = f.read()
     except Exception:
-        content = '{"name": "GasApp", "short_name": "GasApp", "start_url": "/inicio/", "display": "standalone"}'
+        content = '{"name": "Baros", "short_name": "Baros", "start_url": "/inicio/", "display": "standalone"}'
     return HttpResponse(content, content_type='application/manifest+json')
 
 
@@ -897,6 +897,12 @@ class TrocarTenantView(LoginRequiredMixin, View):
     Valida se o usuário é superuser ou possui Membership ativo no tenant alvo.
     """
     def post(self, request):
+        if not request.user.is_superuser:
+            return JsonResponse({
+                'sucesso': False,
+                'erro': 'Acesso restrito a administradores do sistema.'
+            }, status=403)
+
         tenant_id = request.POST.get('tenant_id') or request.GET.get('tenant_id')
         if not tenant_id:
             try:
@@ -910,18 +916,7 @@ class TrocarTenantView(LoginRequiredMixin, View):
             return JsonResponse({'sucesso': False, 'erro': 'Parâmetro tenant_id não informado.'}, status=400)
 
         user = request.user
-        tenant = None
-        if user.is_superuser:
-            tenant = Tenant.objects.filter(id=tenant_id, ativo=True).first()
-        else:
-            membership = Membership.objects.filter(
-                user=user,
-                tenant_id=tenant_id,
-                ativo=True,
-                tenant__ativo=True
-            ).select_related('tenant').first()
-            if membership:
-                tenant = membership.tenant
+        tenant = Tenant.objects.filter(id=tenant_id, ativo=True).first()
 
         if not tenant:
             return JsonResponse({'sucesso': False, 'erro': 'Você não tem permissão para acessar esta empresa ou ela está inativa.'}, status=403)

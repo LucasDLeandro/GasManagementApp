@@ -226,7 +226,12 @@ document.addEventListener('DOMContentLoaded', function() {
             'X-CSRFToken': getCookie('csrftoken')
         };
 
-        const token = localStorage.getItem('access') || localStorage.getItem('access_token') || localStorage.getItem('token');
+        let token = localStorage.getItem('access') || localStorage.getItem('access_token') || localStorage.getItem('token');
+        if (token && window.isJwtExpired && window.isJwtExpired(token)) {
+            localStorage.removeItem('access');
+            localStorage.removeItem('access_token');
+            token = null;
+        }
         if (token) {
             headers['Authorization'] = 'Bearer ' + token;
         }

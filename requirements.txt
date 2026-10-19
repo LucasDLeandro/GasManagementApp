@@ -3,40 +3,40 @@
 # ==============================================================================
 
 # --- Core Web Framework & Tenancy ---
-Django==5.2.8
-asgiref==3.10.0
-sqlparse==0.5.3
-tzdata==2025.2
-python-decouple==3.8
+Django>=5.2.8
+asgiref>=3.10.0
+sqlparse>=0.5.3
+tzdata>=2025.2
+python-decouple>=3.8
 
 # --- REST Framework & Autenticação ---
-djangorestframework==3.16.1
-djangorestframework_simplejwt==5.5.1
-PyJWT==2.13.0
-cryptography==49.0.0
+djangorestframework>=3.16.1
+djangorestframework_simplejwt>=5.5.1
+PyJWT>=2.13.0
+cryptography>=49.0.0
 
 # --- Geração de Documentos, Laudos e Etiquetas QR ---
-reportlab==4.5.1
-qrcode==8.2
-pillow==11.2.1
+reportlab>=4.5.1
+qrcode>=8.2
+pillow>=11.2.1
 
 # --- Comunicação HTTP & Webhooks Outbox ---
-requests==2.32.3
-urllib3==2.6.3
-certifi==2026.1.4
-charset-normalizer==3.4.2
-idna==3.10
+requests>=2.32.3
+urllib3>=2.6.3
+certifi>=2026.1.4
+charset-normalizer>=3.4.2
+idna>=3.10
 
 # --- Utilitários de Data e Compatibilidade ---
-python-dateutil==2.9.0.post0
-six==1.17.0
+python-dateutil>=2.9.0.post0
+six>=1.17.0
 
 # --- Formulários, UI & Análise de Dados ---
-crispy-bootstrap5==2026.3
-django-bootstrap5==26.2
-django-crispy-forms==2.6
-django-filter==25.2
-django-widget-tweaks==1.5.1
-holidays==0.80
-numpy==2.2.5
-pandas==2.2.3
+crispy-bootstrap5>=2025.6
+django-bootstrap5>=25.3
+django-crispy-forms>=2.5
+django-filter>=25.2
+django-widget-tweaks>=1.5.1
+holidays>=0.80
+numpy>=2.2.5
+pandas>=2.2.3

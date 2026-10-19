@@ -1,5 +1,5 @@
 /**
- * GasManagementApp - Gestão de Webhooks HMAC, Delivery Logs e Exportações Canônicas ERP (Fase 5)
+ * Baros - Gestão de Webhooks HMAC, Delivery Logs e Exportações Canônicas ERP (Fase 5)
  */
 
 document.addEventListener('DOMContentLoaded', () => {

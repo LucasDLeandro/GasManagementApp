@@ -86,6 +86,11 @@ class ProdutoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     serializer_class = ProdutoSerializer
     permission_classes = [IsTenantMember]
 
+    def paginate_queryset(self, queryset):
+        if self.request.query_params.get('sem_paginacao') in ('1', 'true', 'True'):
+            return None
+        return super().paginate_queryset(queryset)
+
 
 class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
     """
@@ -561,7 +566,7 @@ class EtiquetasColarinhoAPIView(TenantViewSetMixin, APIView):
             return Response({'error': 'Informe envase_ids ou lote_id.'}, status=status.HTTP_400_BAD_REQUEST)
 
         current_tenant = getattr(request, 'tenant', None)
-        empresa_nome = current_tenant.nome_fantasia if current_tenant else 'GasManagementApp'
+        empresa_nome = current_tenant.nome_fantasia if current_tenant else 'Baros'
         empresa_cnpj = current_tenant.cnpj if current_tenant else ''
 
         etiquetas = []

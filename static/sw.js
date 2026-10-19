@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gasapp-assets-v3';
+const CACHE_NAME = 'gasapp-assets-v6';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/static/core/css/home.css',
@@ -76,7 +76,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Recursos Estáticos (/static/ e manifest): Cache-First com atualização em background
+  // Código JS e CSS da aplicação: Network-First com Cache Fallback
+  const isAppCode = url.pathname.startsWith('/static/js/') || url.pathname.startsWith('/static/css/');
+  if (isAppCode) {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Demais recursos estáticos (vendors, fontes, imagens, manifest): Cache-First
   if (url.pathname.startsWith('/static/') || url.pathname === '/manifest.json') {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
@@ -101,12 +118,12 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request).catch(() => {
         return new Response(
-          '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>GasApp Offline</title>' +
+          '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Baros Offline</title>' +
           '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
           '<style>body{background:#0F172A;color:#F8FAFC;font-family:sans-serif;padding:3rem 1.5rem;text-align:center;}' +
           'h2{color:#38BDF8;}p{color:#94A3B8;max-width:480px;margin:1rem auto;line-height:1.6;}' +
           '.badge{background:#10B981;color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block;margin-top:1rem;}' +
-          '</style></head><body><h2>GasApp - Modo Operacional Offline</h2>' +
+          '</style></head><body><h2>Baros - Modo Operacional Offline</h2>' +
           '<p>Você está temporariamente sem conexão com a internet. Suas bipagens locais continuam seguras no dispositivo e serão sincronizadas automaticamente assim que o sinal for restabelecido.</p>' +
           '<span class="badge">Operação Local Ativa</span></body></html>',
           { headers: { 'Content-Type': 'text/html; charset=utf-8' } }

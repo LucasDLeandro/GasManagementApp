@@ -1,8 +1,73 @@
-const token = localStorage.getItem('access_token')
+// ---- Gerenciamento de Sessão & Tokens JWT (Core) ----
+window.isJwtExpired = function(token) {
+    if (!token || typeof token !== 'string') return true;
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return true;
+        const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(payloadStr);
+        if (!payload.exp) return false;
+        return (payload.exp * 1000) <= (Date.now() + 10000);
+    } catch (e) {
+        return true;
+    }
+};
 
-if (!token) {
-    window.location.href = '/accounts/login/';
-}
+window.renovarTokenSeNecessario = async function() {
+    let access = localStorage.getItem('access_token') || localStorage.getItem('access');
+    const refresh = localStorage.getItem('refresh_token');
+
+    if (access && !window.isJwtExpired(access)) {
+        return access;
+    }
+
+    if (refresh && !window.isJwtExpired(refresh)) {
+        try {
+            const res = await fetch('/api/token/refresh/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.access) {
+                    localStorage.setItem('access_token', data.access);
+                    localStorage.setItem('access', data.access);
+                    return data.access;
+                }
+            } else {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('access');
+                localStorage.removeItem('refresh_token');
+            }
+        } catch (e) {
+            console.warn('Falha na renovação silenciosa do token JWT:', e);
+        }
+    } else {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('access');
+    }
+    return null;
+};
+
+// Executa verificação inicial de autenticação
+(function verificarAutenticacaoInicial() {
+    const metaUserId = document.querySelector('meta[name="current-user-id"]');
+    const isSessionAuth = metaUserId && metaUserId.content && metaUserId.content.trim() !== '';
+    const hasAnyToken = localStorage.getItem('access_token') || localStorage.getItem('refresh_token');
+
+    // Se não há sessão web ativa nem tokens no localStorage, redireciona para login
+    if (!isSessionAuth && !hasAnyToken) {
+        window.location.href = '/accounts/login/';
+        return;
+    }
+
+    // Se há tokens, garante que estão válidos ou tenta renovar em segundo plano
+    if (hasAnyToken) {
+        window.renovarTokenSeNecessario();
+    }
+})();
+
 
 const btnLogout = document.getElementById('btn-logout');
 
@@ -208,4 +273,71 @@ window.showToast = function({ icon = 'success', title = 'Sucesso', text = '' }) 
     } else {
         alert(`${title}: ${text}`);
     }
-};
+};
+
+// ---- Gerenciador do Menu Lateral / Sidebar (Mobile, Tablet & Desktop) ----
+(function initSidebarToggle() {
+    const toggleBtn = document.getElementById('toggle-sidebar');
+    const sidebar = document.getElementById('app-sidebar') || document.querySelector('.sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+
+    if (!toggleBtn || !sidebar) return;
+
+    function isMobileOrTablet() {
+        return window.innerWidth <= 1024;
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('active');
+        document.body.classList.remove('sidebar-drawer-active');
+    }
+
+    function openSidebar() {
+        sidebar.classList.add('open');
+        if (backdrop) backdrop.classList.add('active');
+        document.body.classList.add('sidebar-drawer-active');
+    }
+
+    toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isMobileOrTablet()) {
+            if (sidebar.classList.contains('open')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        } else {
+            // Desktop: alterna estado recolhido (collapsed)
+            sidebar.classList.toggle('collapsed');
+        }
+    });
+
+    if (backdrop) {
+        backdrop.addEventListener('click', () => {
+            closeSidebar();
+        });
+    }
+
+    // Fecha ao pressionar Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+            closeSidebar();
+        }
+    });
+
+    // Fecha gaveta em mobile/tablet ao clicar em qualquer item do menu
+    sidebar.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (link && isMobileOrTablet()) {
+            closeSidebar();
+        }
+    });
+
+    // Ajusta classes ao redimensionar a tela
+    window.addEventListener('resize', () => {
+        if (!isMobileOrTablet() && sidebar.classList.contains('open')) {
+            closeSidebar();
+        }
+    });
+})();

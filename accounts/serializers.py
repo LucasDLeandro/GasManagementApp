@@ -22,5 +22,14 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'first_name', 'last_name', 'email', 'tipo_usuario', 'papel', 'userprofile']
 
     def get_papel(self, obj):
+        request = self.context.get('request')
+        tenant = None
+        if request:
+            from core.tenancy import get_current_tenant
+            tenant = get_current_tenant() or getattr(request, 'tenant', None)
+        if tenant:
+            m = obj.memberships.filter(tenant=tenant, ativo=True).first()
+            if m:
+                return m.papel
         m = obj.memberships.filter(ativo=True).first()
         return m.papel if m else getattr(obj, 'tipo_usuario', 'VENDEDOR')

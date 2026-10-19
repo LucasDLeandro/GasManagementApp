@@ -701,3 +701,105 @@ def gerar_envelope_transporte_antt_pdf(entrega):
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def veiculo_apto_para_operar(veiculo, tenant=None):
+    """
+    Avalia a prontidão operacional e documental de um veículo para alocação em entregas
+    ou início de rota logística.
+    Retorna uma tupla (apto: bool, motivos: list[str]).
+    Critérios de reprovação:
+    1. status_ativo != 'Ativo' (ou status operacional inativo/oficina/manutenção)
+    2. Documento obrigatório ausente (conforme configurado por empresa em DocumentoObrigatorioVeiculo)
+       ou qualquer documento do veículo com validade vencida.
+    3. Ordem de Serviço (OS) imobilizante aberta (gancho para Sprint L3).
+    """
+    motivos = []
+    if not veiculo:
+        return False, ["Veículo não informado."]
+
+    # 1. Status operacional do ativo
+    status_ativo = getattr(veiculo, 'status_ativo', None) or getattr(veiculo, 'status', 'Ativo')
+    if status_ativo != 'Ativo':
+        motivos.append(f"Veículo com status operacional '{status_ativo}'.")
+
+    # 2. Documentação obrigatória e validade
+    # Não hardcode quais documentos são obrigatórios: configurável por empresa via DocumentoObrigatorioVeiculo.
+    # NOTA DE CONFORMIDADE: A lista obrigatória real por empresa deve ser confirmada
+    # e validada com o responsável de conformidade / compliance de cada transportadora.
+    from logistica.models import DocumentoObrigatorioVeiculo, VeiculoDocumento
+    tenant_obj = tenant or getattr(veiculo, 'tenant', None)
+    hoje = timezone.localdate()
+
+    docs_veiculo = veiculo.documentos.filter(ativo=True) if hasattr(veiculo, 'documentos') else []
+    
+    # Validação de validade: nenhum documento ativo no veículo pode estar vencido
+    tipos_presentes = set()
+    for doc in docs_veiculo:
+        tipos_presentes.add(doc.tipo)
+        if doc.vencimento and doc.vencimento < hoje:
+            motivos.append(f"Documento '{doc.tipo}' vencido em {doc.vencimento.strftime('%d/%m/%Y')}.")
+
+    # Validação de obrigatoriedade por empresa
+    if tenant_obj:
+        docs_obrigatorios_qs = DocumentoObrigatorioVeiculo.objects.filter(tenant=tenant_obj, ativo=True)
+        for doc_obrig in docs_obrigatorios_qs:
+            tipo_obrig = getattr(doc_obrig, 'tipo', getattr(doc_obrig, 'tipo_documento', ''))
+            tipo_base = tipo_obrig.split('/')[0].strip()
+            presente = any(tipo_base.lower() in t.lower() for t in tipos_presentes)
+            if not presente:
+                motivos.append(f"Documento obrigatório '{tipo_obrig}' ausente.")
+
+    # 3. Gancho de OS / Manutenção Imobilizante (L3)
+    if getattr(veiculo, '_tem_os_imobilizante', False) or getattr(veiculo, 'tem_os_imobilizante_aberta', False):
+        motivos.append("Veículo possui Ordem de Serviço (OS) imobilizante aberta na oficina.")
+
+    # 4. Gancho de Apólice de Seguro Ativa (L5 - Configurável por Empresa)
+    if tenant_obj:
+        try:
+            from logistica.models import ConfiguracaoSeguros, ApoliceVeiculo
+            cfg_seguros = ConfiguracaoSeguros.get_para_tenant(tenant_obj)
+            if getattr(cfg_seguros, 'exigir_apolice_ativa_para_operar', False):
+                tem_apolice_valida = ApoliceVeiculo.objects.filter(
+                    veiculo=veiculo,
+                    apolice__ativa=True,
+                    apolice__vigencia_fim__gte=hoje
+                ).exists()
+                if not tem_apolice_valida:
+                    motivos.append("Veículo sem apólice de seguro ativa ou com vigência expirada.")
+        except Exception:
+            pass
+
+    apto = len(motivos) == 0
+    return apto, motivos
+
+
+from .validacao_carga import (
+    criar_validacao_carga,
+    aprovar_validacao_carga,
+    rejeitar_validacao_carga,
+    aplicar_efeitos_validacao,
+    obter_relatorio_divergencias
+)
+
+from .seguros_sinistros import (
+    criar_sinistro,
+    transicionar_status_sinistro,
+    vincular_ou_criar_os_sinistro,
+    processar_ajuste_estoque_sinistro_carga,
+    liberar_veiculo_sinistrado,
+    obter_indicadores_sinistralidade
+)
+
+from .rentabilidade import (
+    estimar_custo_combustivel_pre_saida,
+    calcular_rateios_viagem,
+    apurar_receita_frete_entrega,
+    verificar_alerta_averbacao,
+    verificar_alerta_baixa_ocupacao,
+    consolidar_custo_viagem,
+    obter_indicadores_rentabilidade,
+    obter_tco_frota,
+    gerar_csv_rentabilidade
+)
+

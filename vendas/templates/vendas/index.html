@@ -1,7 +1,7 @@
 {% extends 'base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Vendas - GasManagementApp{% endblock %}
+{% block title %}Vendas & Pedidos - Baros{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'vendas/css/index.css' %}">
@@ -11,13 +11,16 @@
 <div class="vendas-header">
     <div>
         <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0;">Gestão de Vendas & Pedidos</h2>
-        <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Emissão comercial de pedidos com faturamento por cilindro ou m³/kg e integração logística.</p>
+        <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Emissão comercial de pedidos, faturamento por cilindro ou m³/kg e integração automática com logística.</p>
     </div>
     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         <a href="{% url 'logistica:index' %}" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
             🚚 Montagem de Carga & Expedição &rarr;
         </a>
-        <button class="btn-primary" id="btn-nova-venda">+ Nova Venda</button>
+        <button class="btn-primary" id="btn-nova-venda" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            + Nova Venda
+        </button>
     </div>
 </div>
 
@@ -25,8 +28,9 @@
 <div class="tabs-container">
     <div class="tabs-nav">
         <button class="tab-btn active" data-target="tab-dashboard">Dashboard</button>
-        <button class="tab-btn" data-target="tab-pendentes">Pendentes</button>
-        <button class="tab-btn" data-target="tab-finalizadas">Finalizadas</button>
+        <button class="tab-btn" data-target="tab-ativas">Fila Ativa (Pendentes & Em Entrega)</button>
+        <button class="tab-btn" data-target="tab-concluidas">Concluídas</button>
+        <button class="tab-btn" data-target="tab-canceladas">Canceladas</button>
     </div>
 
     <div class="tabs-content">
@@ -74,7 +78,7 @@
             <div class="dashboard-row-2">
                 <!-- Gráfico de Evolução -->
                 <div class="chart-box" style="flex: 2;">
-                    <h3 style="margin-top: 0; color: var(--color-text); font-size: 1rem; margin-bottom: 16px;">Evolução de Vendas</h3>
+                    <h3 style="margin-top: 0; color: var(--color-text); font-size: 1rem; margin-bottom: 16px;">Evolução de Vendas (Mês Atual)</h3>
                     <div id="vendasChart" style="min-height: 260px;"></div>
                 </div>
                 
@@ -103,46 +107,84 @@
             </div>
         </div>
 
-        <!-- Aba 2: Pendentes -->
-        <div id="tab-pendentes" class="tab-pane">
+        <!-- Aba 2: Fila Ativa (Pendentes, Em Separação e Em Rota) -->
+        <div id="tab-ativas" class="tab-pane">
+            <div class="table-toolbar">
+                <div class="search-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" id="search-ativas" placeholder="Buscar por cliente, CNPJ ou Nº pedido...">
+                </div>
+                <div class="filter-pills" id="pills-status-ativas">
+                    <button class="pill active" data-filter="">Todas Ativas</button>
+                    <button class="pill" data-filter="Pendente">Pendentes</button>
+                    <button class="pill" data-filter="Em Separação">Em Separação</button>
+                    <button class="pill" data-filter="Em Rota">Em Rota</button>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Nº</th>
+                            <th>Nº Pedido</th>
                             <th>Data</th>
                             <th>Cliente</th>
-                            <th>Entrega</th>
+                            <th>Operação / Pgto</th>
+                            <th>Logística / Entrega</th>
                             <th>Itens</th>
                             <th>Total (R$)</th>
                             <th>Status</th>
-                            <th>Ações</th>
+                            <th style="text-align: right;">Ações</th>
                         </tr>
                     </thead>
-                    <tbody id="tbody-pendentes">
+                    <tbody id="tbody-ativas">
                         <!-- Carregado via JS -->
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Aba 4: Finalizadas -->
-        <div id="tab-finalizadas" class="tab-pane">
+        <!-- Aba 3: Concluídas -->
+        <div id="tab-concluidas" class="tab-pane">
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Nº</th>
+                            <th>Nº Pedido</th>
                             <th>Data</th>
                             <th>Cliente</th>
-                            <th>Entrega</th>
+                            <th>Operação / Pgto</th>
+                            <th>Logística / Entrega</th>
                             <th>Itens</th>
                             <th>Total (R$)</th>
                             <th>Status</th>
-                            <th>Ações</th>
+                            <th style="text-align: right;">Ações</th>
                         </tr>
                     </thead>
-                    <tbody id="tbody-finalizadas">
+                    <tbody id="tbody-concluidas">
+                        <!-- Carregado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Aba 4: Canceladas -->
+        <div id="tab-canceladas" class="tab-pane">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nº Pedido</th>
+                            <th>Data</th>
+                            <th>Cliente</th>
+                            <th>Operação / Pgto</th>
+                            <th>Itens</th>
+                            <th>Total (R$)</th>
+                            <th>Status</th>
+                            <th style="text-align: right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-canceladas">
                         <!-- Carregado via JS -->
                     </tbody>
                 </table>
@@ -151,55 +193,124 @@
     </div>
 </div>
 
-<!-- Modal Nova Venda (Simplificado para o plano) -->
+<!-- Modal Nova Venda Redesenhado -->
 <div class="modal-overlay" id="modal-venda">
-    <div class="modal-content" style="max-width: 800px;">
+    <div class="modal-content modal-venda-redesign">
         <div class="modal-header">
-            <h3>Registrar Nova Venda</h3>
+            <div>
+                <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--color-text);">Registrar Nova Venda & Pedido</h3>
+                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--color-text-muted);">Emissão comercial com validação sanitária, formas de faturamento e despacho logístico.</p>
+            </div>
             <button class="close-modal" id="btn-fechar-modal-venda">&times;</button>
         </div>
+
+        <!-- Banner Preventivo Sanitário ANVISA -->
+        <div id="alerta-sanitario-modal" class="sanitary-alert" style="display: none;">
+            <div style="font-size: 1.25rem;">⚠️</div>
+            <div>
+                <strong>Atenção Regulatória (ANVISA RDC nº 658/2022 / RDC nº 870/2024):</strong>
+                <span id="alerta-sanitario-texto">Este cliente não possui credenciamento sanitário/CNES para produtos medicinais. Certifique-se da exigência de prescrição ou documentação técnica.</span>
+            </div>
+        </div>
+
         <form id="form-venda">
-            <div class="form-grid">
-                <div class="form-group full-width">
-                    <label for="cliente">Cliente</label>
+            <!-- Seção 1: Cliente & Operação -->
+            <div class="form-section-title">1. Dados do Cliente e Operação</div>
+            <div class="form-grid-3">
+                <div class="form-group span-2">
+                    <label for="cliente">Cliente *</label>
                     <select id="cliente" name="cliente" required>
-                        <option value="">Selecione um cliente...</option>
+                        <option value="">Carregando clientes...</option>
                     </select>
                 </div>
-            </div>
-            
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--color-border);">
-            <h4>Itens da Venda</h4>
-            <div id="itens-container">
-                <div class="item-row">
-                    <div class="form-group" style="flex:2;">
-                        <label>Produto (Cilindro)</label>
-                        <select class="produto-select" required>
-                            <option value="">Selecione...</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex:1.5;">
-                        <label>Forma Fat.</label>
-                        <select class="forma-faturamento" required>
-                            <option value="cilindro">Por Cilindro</option>
-                            <option value="medida">Por Medida (m³/kg)</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex:1;">
-                        <label>V. Unit.</label>
-                        <input type="number" step="0.01" class="item-valor" required placeholder="0.00">
-                    </div>
-                    <div class="form-group" style="flex:1;">
-                        <label>Qtd.</label>
-                        <input type="number" class="item-qtd" value="1" min="1" required>
-                    </div>
+                <div class="form-group">
+                    <label for="tipo_operacao">Tipo de Operação *</label>
+                    <select id="tipo_operacao" name="tipo_operacao" required>
+                        <option value="RECARGA_TROCA">Recarga com Troca (Cheio x Vazio)</option>
+                        <option value="REMESSA_COMODATO">Venda de Gás + Comodato de Casco</option>
+                        <option value="VENDA_CASCO">Venda Definitiva de Cilindro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="prazo_entrega">Previsão / Prazo de Entrega</label>
+                    <input type="date" id="prazo_entrega" name="prazo_entrega">
+                </div>
+                <div class="form-group span-2" style="justify-content: flex-end;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="gerar_entrega_logistica" checked>
+                        <span><strong>🚚 Enviar automaticamente para fila de Logística/Expedição</strong> (cria agendamento de rota)</span>
+                    </label>
                 </div>
             </div>
-            <button type="button" class="btn-secondary" id="btn-add-item" style="margin-bottom: 20px;">+ Adicionar Produto</button>
 
-            <div class="form-actions">
+            <!-- Seção 2: Grade de Itens da Venda -->
+            <div class="form-section-title" style="margin-top: 24px;">2. Produtos e Itens do Pedido</div>
+            
+            <div class="itens-table-container">
+                <div class="itens-grid-header">
+                    <div style="flex: 2.6;">Produto / SKU de Gás *</div>
+                    <div style="flex: 1.5;">Forma Fat. *</div>
+                    <div style="flex: 0.9;">Qtd *</div>
+                    <div style="flex: 1.2;">V. Unit. (R$) *</div>
+                    <div style="flex: 1.3;">Subtotal (R$)</div>
+                    <div style="width: 44px; text-align: center;">Ação</div>
+                </div>
+                <div id="itens-container">
+                    <!-- Linhas geradas via JS -->
+                </div>
+                <button type="button" class="btn-secondary" id="btn-add-item" style="margin-top: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    + Adicionar Linha de Produto
+                </button>
+            </div>
+
+            <!-- Seção 3: Pagamento, Fiscal e Fechamento -->
+            <div class="form-section-title" style="margin-top: 24px;">3. Condições Comerciais e Faturamento</div>
+            <div class="form-grid-3">
+                <div class="form-group">
+                    <label for="forma_pagamento">Forma de Pagamento</label>
+                    <select id="forma_pagamento" name="forma_pagamento">
+                        <option value="BOLETO">Boleto Bancário</option>
+                        <option value="PIX">PIX</option>
+                        <option value="FATURADO">Faturado a Prazo</option>
+                        <option value="CARTAO">Cartão de Crédito/Débito</option>
+                        <option value="EMPENHO">Nota de Empenho (Governo)</option>
+                        <option value="DINHEIRO">Dinheiro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="condicao_pagamento">Condição de Pagamento</label>
+                    <input type="text" id="condicao_pagamento" name="condicao_pagamento" value="À Vista" placeholder="Ex: À Vista, 14 dias, 28 dias">
+                </div>
+                <div class="form-group">
+                    <label for="documento_fiscal_ref">Nº NF-e / Pedido Ref.</label>
+                    <input type="text" id="documento_fiscal_ref" name="documento_fiscal_ref" placeholder="Ex: NF-004829">
+                </div>
+                <div class="form-group span-3">
+                    <label for="observacoes">Observações / Instruções para Entrega</label>
+                    <textarea id="observacoes" name="observacoes" rows="2" placeholder="Ex: Entregar pela portaria 2 com aviso prévio ao almoxarifado..."></textarea>
+                </div>
+            </div>
+
+            <!-- Resumo Financeiro Dinâmico -->
+            <div class="order-summary-card">
+                <div class="summary-line">
+                    <span>Subtotal dos Itens:</span>
+                    <strong id="summary-subtotal" class="font-mono">R$ 0,00</strong>
+                </div>
+                <div class="summary-line" style="align-items: center;">
+                    <label for="valor_desconto" style="margin: 0; font-size: 0.85rem; color: var(--color-text-muted);">Desconto Comercial (R$):</label>
+                    <input type="number" id="valor_desconto" step="0.01" value="0.00" min="0" style="width: 130px; text-align: right; padding: 6px 10px; font-weight: 600;">
+                </div>
+                <div class="summary-total-line">
+                    <span>VALOR TOTAL DO PEDIDO:</span>
+                    <span id="summary-total" class="font-mono" style="color: var(--color-primary); font-size: 1.5rem; font-weight: 800;">R$ 0,00</span>
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top: 24px;">
                 <button type="button" class="btn-secondary" id="btn-cancelar-venda">Cancelar</button>
-                <button type="submit" class="btn-primary">Registrar Venda</button>
+                <button type="submit" class="btn-primary" id="btn-submit-venda" style="padding: 10px 24px;">Concluir e Registrar Pedido</button>
             </div>
         </form>
     </div>
@@ -222,13 +333,13 @@
         <!-- Invoice Header -->
         <div class="receipt-box" style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
             <div style="flex: 1; min-width: 200px;">
-                <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: var(--color-text);">GasManagementApp</h2>
+                <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: var(--color-text);">Baros</h2>
                 <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--color-text-muted);">Distribuidora & Envasadora de Gases</p>
-                <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--color-text-muted);" class="font-mono">Documento Auxiliar de Venda</p>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--color-text-muted);" class="font-mono">Documento Auxiliar de Venda & Expedição</p>
             </div>
             <div style="text-align: right; min-width: 180px;">
                 <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--color-primary);">RECIBO DE VENDA</h3>
-                <p style="margin: 4px 0 0 0; font-size: 13px;"><strong>Nº Documento:</strong> <span id="detalhe-id" class="font-mono"></span></p>
+                <p style="margin: 4px 0 0 0; font-size: 13px;"><strong>Nº Pedido:</strong> <span id="detalhe-id" class="font-mono"></span></p>
                 <p style="margin: 2px 0 0 0; font-size: 13px; color: var(--color-text-muted);"><strong>Emissão:</strong> <span id="detalhe-data"></span></p>
             </div>
         </div>
@@ -242,19 +353,27 @@
             </div>
         </div>
 
-        <!-- Additional Info -->
-        <div class="receipt-box" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+        <!-- Commercial & Logística Info -->
+        <div class="receipt-box" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
             <div>
-                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); display: block;">Status</span>
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); display: block;">Status Pedido</span>
                 <span id="detalhe-status" style="font-weight: 600;"></span>
+            </div>
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); display: block;">Operação</span>
+                <span id="detalhe-operacao" style="font-weight: 500;"></span>
+            </div>
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); display: block;">Pagamento</span>
+                <span id="detalhe-pagamento" style="font-weight: 500;"></span>
+            </div>
+            <div>
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); display: block;">Logística</span>
+                <span id="detalhe-logistica" style="font-weight: 600;"></span>
             </div>
             <div>
                 <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); display: block;">Prazo Previsto</span>
                 <span id="detalhe-prazo"></span>
-            </div>
-            <div>
-                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); display: block;">Entrega Efetiva</span>
-                <span id="detalhe-efetiva"></span>
             </div>
         </div>
 
@@ -275,9 +394,12 @@
         </div>
 
         <!-- Total -->
-        <div class="receipt-total-box">
-            <p style="margin: 0; font-size: 18px; font-weight: 700; color: var(--color-text);">
-                VALOR TOTAL DA NOTA: <span id="detalhe-total" style="color: var(--color-primary);" class="font-mono"></span>
+        <div class="receipt-total-box" style="display: flex; justify-content: space-between; align-items: center;">
+            <div id="detalhe-obs-box" style="font-size: 12px; color: var(--color-text-muted); text-align: left;">
+                <span id="detalhe-obs"></span>
+            </div>
+            <p style="margin: 0; font-size: 18px; font-weight: 700; color: var(--color-text); text-align: right;">
+                VALOR TOTAL: <span id="detalhe-total" style="color: var(--color-primary);" class="font-mono"></span>
             </p>
         </div>
 
@@ -296,5 +418,5 @@
 
 {% block extra_js %}
 <script src="{% static 'vendor/apexcharts/apexcharts.min.js' %}"></script>
-<script src="{% static 'vendas/js/index.js' %}"></script>
+<script src="{% static 'vendas/js/index.js' %}?v=20261016_v2"></script>
 {% endblock %}

@@ -1,7 +1,7 @@
 {
-  "name": "GasManagementApp - Operação PWA",
-  "short_name": "GasApp",
-  "description": "PWA Offline-First para Motoristas e Operadores de Pátio",
+  "name": "Baros - Gestão de Gases & Logística",
+  "short_name": "Baros",
+  "description": "Plataforma Baros: Gestão de Gases, Ativos 360°, Cilindros e Logística Offline-First",
   "start_url": "/inicio/",
   "scope": "/",
   "display": "standalone",

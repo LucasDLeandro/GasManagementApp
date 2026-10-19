@@ -1,5 +1,5 @@
 /**
- * GasManagementApp - Barra de Comando Global (Ctrl+K / Cmd+K)
+ * Baros - Barra de Comando Global (Ctrl+K / Cmd+K)
  * Navegação por teclado, debounce 250ms e busca federada.
  */
 document.addEventListener('DOMContentLoaded', () => {
@@ -143,7 +143,12 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         try {
-            const token = localStorage.getItem('access_token');
+            let token = localStorage.getItem('access_token') || localStorage.getItem('access');
+            if (token && window.isJwtExpired && window.isJwtExpired(token)) {
+                localStorage.removeItem('access');
+                localStorage.removeItem('access_token');
+                token = null;
+            }
             const headers = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = 'Bearer ' + token;
 

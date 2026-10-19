@@ -224,7 +224,7 @@ body > main {
     display: flex;
     align-items: center;
     gap: 10px;
-    color: var(--color-primary);
+    color: var(--color-text, #0f172a);
     font-weight: 700;
     font-size: 19px;
     letter-spacing: -0.5px;
@@ -233,10 +233,11 @@ body > main {
     flex-shrink: 0;
 }
 
-.logo-icon {
-    width: 28px;
-    height: 28px;
-    flex-shrink: 0;
+.baros-logo-svg {
+    display: block;
+    height: 36px;
+    width: auto;
+    max-width: 140px;
 }
 
 /* --- ÁREA DO USUÁRIO --- */
@@ -323,10 +324,32 @@ body > main {
     z-index: 5;
 }
 
-/* Classe a ser manipulada pelo JS */
+/* Classe a ser manipulada pelo JS no Desktop */
 .sidebar.collapsed {
-    width: var(--sidebar-collapsed-width);
+    width: 0 !important;
+    min-width: 0 !important;
     transform: translateX(-100%);
+    overflow: hidden !important;
+    border-right: none !important;
+    visibility: hidden;
+    padding: 0 !important;
+}
+
+/* Backdrop da gaveta mobile/tablet */
+.sidebar-backdrop {
+    position: fixed;
+    inset: var(--navbar-height) 0 0 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 1040;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.sidebar-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .sidebar-menu {
@@ -441,19 +464,26 @@ body > main {
     color: var(--color-text);
 }
 
-/* --- RESPONSIVIDADE --- */
-@media (max-width: 768px) {
+/* --- RESPONSIVIDADE (Tablets e Celulares) --- */
+@media (max-width: 1024px) {
     .sidebar {
         position: fixed;
+        top: var(--navbar-height);
+        left: 0;
+        bottom: 0;
         height: calc(100vh - var(--navbar-height));
+        width: 280px;
+        max-width: 85vw;
+        z-index: 1050;
         transform: translateX(-100%);
-        width: 260px; /* Garante que mantém tamanho ao abrir */
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: none;
     }
     
-    /* Classe pro JS abrir em mobile */
+    /* Classe pro JS abrir em mobile/tablet */
     .sidebar.open {
         transform: translateX(0);
-        box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
     }
     
     .user-profile {
@@ -467,6 +497,7 @@ body > main {
     
     .content-area {
         padding: 20px;
+        width: 100%;
     }
 }
 
@@ -671,7 +702,12 @@ dialog.drawer-dialog {
     flex-direction: column;
 }
 
+dialog.drawer-dialog:not([open]) {
+    display: none;
+}
+
 dialog.drawer-dialog[open] {
+    display: flex;
     transform: translateX(0);
 }
 

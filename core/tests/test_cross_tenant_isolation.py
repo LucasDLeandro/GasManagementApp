@@ -501,3 +501,106 @@ class CrossTenantIsolationTestSuite(TestCase):
             get_current_tenant(),
             "Vazamento Crítico de Contexto: ContextVar do DRF não foi limpo após exceção!"
         )
+
+    def test_tenant_resolution_via_session_active_tenant_id(self):
+        """
+        Valida que requisições ao DRF sem o header HTTP_X_TENANT_ID respeitam
+        estritamente o active_tenant_id armazenado na sessão do usuário,
+        permitindo a alternância de empresas no Tenant Switcher sem vazamento.
+        """
+        user_dual = User.objects.create_user(
+            username='gestor.dual',
+            password='senha_dual_123',
+            tipo_usuario='ADMIN_TENANT'
+        )
+        Membership.objects.create(
+            user=user_dual,
+            tenant=self.tenant_a,
+            papel='ADMIN_TENANT',
+            ativo=True
+        )
+        Membership.objects.create(
+            user=user_dual,
+            tenant=self.tenant_b,
+            papel='ADMIN_TENANT',
+            ativo=True
+        )
+
+        self.client.force_login(user_dual)
+
+        # 1. Definir Tenant B na sessão
+        session = self.client.session
+        session['active_tenant_id'] = str(self.tenant_b.id)
+        session.save()
+
+        res_b = self.client.get('/clientes/api/')
+        self.assertEqual(res_b.status_code, status.HTTP_200_OK)
+        items_b = res_b.data.get('results') if isinstance(res_b.data, dict) else res_b.data
+        ids_b = [item['id'] for item in items_b]
+        self.assertIn(self.cliente_b.id, ids_b, "Cliente do Tenant B deveria estar presente quando active_tenant_id na sessão é Tenant B")
+        self.assertNotIn(self.cliente_a.id, ids_b, "Vazamento: Cliente do Tenant A presente quando active_tenant_id na sessão é Tenant B!")
+
+        # 2. Alternar para Tenant A na sessão
+        session['active_tenant_id'] = str(self.tenant_a.id)
+        session.save()
+
+        res_a = self.client.get('/clientes/api/')
+        self.assertEqual(res_a.status_code, status.HTTP_200_OK)
+        items_a = res_a.data.get('results') if isinstance(res_a.data, dict) else res_a.data
+        ids_a = [item['id'] for item in items_a]
+        self.assertIn(self.cliente_a.id, ids_a, "Cliente do Tenant A deveria estar presente quando active_tenant_id na sessão é Tenant A")
+        self.assertNotIn(self.cliente_b.id, ids_a, "Vazamento: Cliente do Tenant B presente quando active_tenant_id na sessão é Tenant A!")
+
+    def test_tenant_resolution_session_spoofing_prevented(self):
+        """
+        Valida que se um usuário tentar forjar um active_tenant_id na sessão para o qual
+        NÃO possui membership ativo, o TenantViewSetMixin não autoriza o acesso ao tenant forjado
+        e recai com segurança sobre seu próprio tenant ativo (Fail-Closed).
+        """
+        self.client.force_login(self.user_a)
+
+        session = self.client.session
+        session['active_tenant_id'] = str(self.tenant_b.id)
+        session.save()
+
+        res = self.client.get('/clientes/api/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        items = res.data.get('results') if isinstance(res.data, dict) else res.data
+        ids = [item['id'] for item in items]
+        self.assertNotIn(self.cliente_b.id, ids, "Vazamento Crítico: Usuário conseguiu acessar dados de Tenant B forjando active_tenant_id na sessão!")
+        self.assertIn(self.cliente_a.id, ids, "Deveria ter recaído com segurança para o membership ativo do usuário (Tenant A)")
+
+    def test_trocar_tenant_view_proibido_para_usuario_comum(self):
+        """
+        Valida que a view de troca de tenant (/inicio/trocar-tenant/) retorna 403 Forbidden
+        quando um usuário comum (não superuser) tenta acioná-la via POST.
+        """
+        self.client.force_login(self.user_a)
+        res = self.client.post('/inicio/trocar-tenant/', {'tenant_id': str(self.tenant_b.id)})
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        data = res.json()
+        self.assertFalse(data.get('sucesso'))
+        self.assertIn('Acesso restrito a administradores', data.get('erro', ''))
+
+    def test_trocar_tenant_view_permitido_para_superuser(self):
+        """
+        Valida que administradores globais (is_superuser=True) conseguem alternar o tenant ativo
+        com sucesso via TrocarTenantView.
+        """
+        superuser = User.objects.create_superuser(
+            username='super_baros_admin',
+            password='Password123!',
+            email='admin@baros.com.br'
+        )
+        self.client.force_login(superuser)
+        res = self.client.post(
+            '/inicio/trocar-tenant/',
+            {'tenant_id': str(self.tenant_b.id)},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.json()
+        self.assertTrue(data.get('sucesso'))
+        self.assertEqual(data.get('tenant_id'), str(self.tenant_b.id))
+        self.assertEqual(self.client.session.get('active_tenant_id'), str(self.tenant_b.id))
+

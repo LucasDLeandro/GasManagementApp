@@ -1,7 +1,7 @@
 {% extends 'base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Gestão de Pessoal & Usuários - GasManagementApp{% endblock %}
+{% block title %}Gestão de Pessoal & Usuários - Baros{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'accounts/css/index.css' %}">
@@ -24,6 +24,17 @@
     </button>
 </div>
 
+<!-- Barra de Busca Rápida de Funcionários -->
+<div class="accounts-search-bar">
+    <div class="accounts-search-input-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="input-busca-funcionario" placeholder="Filtrar por nome, usuário, cargo, matrícula ou papel RBAC...">
+    </div>
+    <span id="contagem-funcionarios" style="font-size: 13px; color: var(--color-text-muted); font-weight: 500;"></span>
+</div>
+
 <div class="table-container">
     <table>
         <thead>
@@ -41,107 +52,137 @@
     </table>
 </div>
 
-<!-- Modal Novo Funcionário -->
+<!-- Modal Funcionário (Criação & Edição) -->
 <div class="modal-overlay" id="modal-funcionario">
-    <div class="modal-content" style="max-width: 720px;">
+    <div class="modal-content" style="max-width: 760px;">
         <div class="modal-header">
-            <h3>Cadastrar Novo Funcionário</h3>
+            <h3 id="modal-func-title">Cadastrar Novo Funcionário</h3>
             <button class="close-modal" id="btn-fechar-modal">&times;</button>
         </div>
         <form id="form-funcionario" enctype="multipart/form-data">
-            <!-- Dados de Login (User) -->
-            <h4 class="profile-section-title">Dados de Acesso (Login & Credenciais)</h4>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Nome de Usuário (Login)*</label>
-                    <input type="text" name="username" class="font-mono" required placeholder="ex: joao.silva">
+            <input type="hidden" name="user_id" id="form-func-id" value="">
+
+            <!-- Abas do Modal -->
+            <div class="modal-tabs">
+                <button type="button" class="modal-tab-btn active" data-tab="tab-acesso">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    1. Acesso & RBAC
+                </button>
+                <button type="button" class="modal-tab-btn" data-tab="tab-pessoal">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    2. Dados Pessoais
+                </button>
+                <button type="button" class="modal-tab-btn" data-tab="tab-trabalho">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    3. Vínculo Funcional
+                </button>
+            </div>
+
+            <!-- Aba 1: Acesso & Papel RBAC -->
+            <div class="modal-tab-pane" id="tab-acesso">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nome de Usuário (Login)*</label>
+                        <input type="text" name="username" id="func-username" class="font-mono" required placeholder="ex: joao.silva" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label id="label-func-password">Senha de Acesso*</label>
+                        <input type="password" name="password" id="func-password" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+                        <small id="hint-func-password" style="font-size: 11px; color: var(--color-text-muted); display: none;">Deixe em branco para não alterar a senha do usuário.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>E-mail Corporativo</label>
+                        <input type="email" name="email" id="func-email" placeholder="usuario@empresa.com.br">
+                    </div>
+                    <div class="form-group">
+                        <label>Papel no Tenant Ativo (Função RBAC)*</label>
+                        <select name="papel" id="func-papel" required>
+                            <option value="ADMIN">Administrador (Acesso Total)</option>
+                            <option value="GERENTE">Gerente de Operações</option>
+                            <option value="RESPONSAVEL_TECNICO">Responsável Técnico (CRF/CRQ)</option>
+                            <option value="OPERADOR_PATIO">Operador de Pátio / Envase</option>
+                            <option value="MOTORISTA">Motorista de Entrega</option>
+                            <option value="VENDEDOR" selected>Vendedor Comercial</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Senha Provisória*</label>
-                    <input type="password" name="password" required placeholder="Mínimo 8 caracteres">
-                </div>
-                <div class="form-group">
-                    <label>E-mail Corporativo</label>
-                    <input type="email" name="email" placeholder="usuario@empresa.com.br">
-                </div>
-                <div class="form-group">
-                    <label>Papel na Empresa (Função RBAC)*</label>
-                    <select name="papel" required>
-                        <option value="ADMIN">Administrador (Acesso Total)</option>
-                        <option value="GERENTE">Gerente de Operações</option>
-                        <option value="RESPONSAVEL_TECNICO">Responsável Técnico (CRF/CRQ)</option>
-                        <option value="OPERADOR_PATIO">Operador de Pátio / Envase</option>
-                        <option value="MOTORISTA">Motorista de Entrega</option>
-                        <option value="VENDEDOR" selected>Vendedor Comercial</option>
-                    </select>
+
+                <!-- Dica visual de RT Regulatório ANVISA -->
+                <div id="rt-anvisa-alert" class="rt-anvisa-tip" style="display: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
+                        <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span><strong>Atenção Regulatória:</strong> Para Responsáveis Técnicos Farmacêuticos ou Químicos, certifique-se de registrar o número de registro e conselho de classe (CRF/CRQ) no <a href="{% url 'core:perfil_regulatorio' %}" style="color: inherit; text-decoration: underline; font-weight: 700;">Perfil Regulatório ANVISA</a> para validação em laudos de liberação e recall.</span>
                 </div>
             </div>
 
-            <!-- Dados Pessoais (UserProfile) -->
-            <h4 class="profile-section-title" style="margin-top: 24px;">Dados Pessoais & Documentação</h4>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Primeiro Nome*</label>
-                    <input type="text" name="first_name" required placeholder="Nome">
-                </div>
-                <div class="form-group">
-                    <label>Sobrenome*</label>
-                    <input type="text" name="last_name" required placeholder="Sobrenome">
-                </div>
-                <div class="form-group">
-                    <label>CPF*</label>
-                    <input type="text" name="cpf" id="func-cpf-input" class="font-mono mask-cpf" maxlength="14" required placeholder="000.000.000-00">
-                </div>
-                <div class="form-group">
-                    <label>RG</label>
-                    <input type="text" name="rg" class="font-mono" maxlength="15" placeholder="Documento de Identidade">
-                </div>
-                <div class="form-group">
-                    <label>Data de Nascimento</label>
-                    <input type="date" name="birth_date">
-                </div>
-                <div class="form-group">
-                    <label>Telefone / Celular</label>
-                    <input type="text" name="telefone" id="func-tel-input" class="font-mono mask-phone" placeholder="(00) 00000-0000">
-                </div>
-                <div class="form-group full-width">
-                    <label>Foto de Perfil (Opcional)</label>
-                    <input type="file" name="foto_perfil" accept="image/*">
+            <!-- Aba 2: Dados Pessoais & Documentação -->
+            <div class="modal-tab-pane" id="tab-pessoal" style="display: none;">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Primeiro Nome*</label>
+                        <input type="text" name="first_name" id="func-first-name" required placeholder="Nome">
+                    </div>
+                    <div class="form-group">
+                        <label>Sobrenome*</label>
+                        <input type="text" name="last_name" id="func-last-name" required placeholder="Sobrenome">
+                    </div>
+                    <div class="form-group">
+                        <label>CPF*</label>
+                        <input type="text" name="cpf" id="func-cpf-input" class="font-mono mask-cpf" maxlength="14" required placeholder="000.000.000-00">
+                    </div>
+                    <div class="form-group">
+                        <label>RG</label>
+                        <input type="text" name="rg" id="func-rg-input" class="font-mono" maxlength="15" placeholder="Documento de Identidade">
+                    </div>
+                    <div class="form-group">
+                        <label>Data de Nascimento</label>
+                        <input type="date" name="birth_date" id="func-birth-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Telefone / Celular</label>
+                        <input type="text" name="telefone" id="func-tel-input" class="font-mono mask-phone" placeholder="(00) 00000-0000">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Foto de Perfil (Opcional)</label>
+                        <input type="file" name="foto_perfil" id="func-foto-perfil" accept="image/*">
+                    </div>
                 </div>
             </div>
 
-            <!-- Dados Trabalhistas -->
-            <h4 class="profile-section-title" style="margin-top: 24px;">Dados Funcionais & Lotação</h4>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Matrícula / Registro*</label>
-                    <input type="text" name="matricula" class="font-mono" required placeholder="ex: MAT-1029">
-                </div>
-                <div class="form-group">
-                    <label>Cargo / Função*</label>
-                    <input type="text" name="cargo" required placeholder="ex: Operador de Enchimento">
-                </div>
-                <div class="form-group">
-                    <label>Setor / Lotação</label>
-                    <input type="text" name="lotacao" placeholder="ex: Base Operacional 01">
-                </div>
-                <div class="form-group">
-                    <label>Salário Base (R$)</label>
-                    <input type="number" step="0.01" name="salario" placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label>Data de Admissão</label>
-                    <input type="date" name="data_admissao">
-                </div>
-                <div class="form-group">
-                    <label>Empresa de Registro</label>
-                    <input type="text" name="empresa" placeholder="Razão Social ou Filial">
+            <!-- Aba 3: Dados Trabalhistas & Lotação -->
+            <div class="modal-tab-pane" id="tab-trabalho" style="display: none;">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Matrícula / Registro*</label>
+                        <input type="text" name="matricula" id="func-matricula" class="font-mono" required placeholder="ex: MAT-1029">
+                    </div>
+                    <div class="form-group">
+                        <label>Cargo / Função*</label>
+                        <input type="text" name="cargo" id="func-cargo" required placeholder="ex: Operador de Enchimento">
+                    </div>
+                    <div class="form-group">
+                        <label>Setor / Lotação</label>
+                        <input type="text" name="lotacao" id="func-lotacao" placeholder="ex: Base Operacional 01">
+                    </div>
+                    <div class="form-group">
+                        <label>Salário Base (R$)</label>
+                        <input type="number" step="0.01" name="salario" id="func-salario" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Data de Admissão</label>
+                        <input type="date" name="data_admissao" id="func-data-admissao">
+                    </div>
+                    <div class="form-group">
+                        <label>Empresa de Registro</label>
+                        <input type="text" name="empresa" id="func-empresa" placeholder="Razão Social ou Filial">
+                    </div>
                 </div>
             </div>
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
-                <button type="submit" class="btn-primary">Salvar Funcionário</button>
+                <button type="submit" class="btn-primary" id="btn-submit-func">Salvar Funcionário</button>
             </div>
         </form>
     </div>
@@ -157,7 +198,7 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"></path>
                 </svg>
-                <span style="font-size: 13px; font-weight: 700; letter-spacing: 0.5px;">GasManagementApp</span>
+                <span style="font-size: 14px; font-weight: 800; letter-spacing: 0.5px;">Baros</span>
             </div>
             
             <div class="badge-modal-avatar-frame">

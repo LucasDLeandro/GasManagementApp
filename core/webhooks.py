@@ -50,7 +50,7 @@ def processar_envio_webhook_log(log_id):
 
         headers = {
             'Content-Type': 'application/json',
-            'User-Agent': 'GasManagementApp-Webhooks/1.0',
+            'User-Agent': 'Baros-Webhooks/1.0',
             'X-Tenant-ID': str(log.tenant_id),
             'X-Event': log.evento,
             'X-Signature-SHA256': signature,

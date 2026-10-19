@@ -1,16 +1,28 @@
 {% extends 'base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Meu Perfil - GasManagementApp{% endblock %}
+{% block title %}Meu Perfil - Baros{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'accounts/css/index.css' %}">
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="page-header" style="margin-bottom: 24px;">
-    <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 6px 0;">Meu Perfil</h2>
-    <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Informações cadastrais, credenciais e parâmetros funcionais da sua conta.</p>
+<div class="page-header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 6px 0;">Meu Perfil</h2>
+        <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Informações cadastrais, credenciais e parâmetros funcionais da sua conta.</p>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <button id="btn-editar-contato" class="btn-secondary" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Atualizar Contato
+        </button>
+        <button id="btn-alterar-senha" class="btn-primary" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            Alterar Senha
+        </button>
+    </div>
 </div>
 
 <div class="profile-card">
@@ -44,7 +56,7 @@
                 </div>
                 <div class="profile-field">
                     <span class="profile-field-label">E-mail Corporativo</span>
-                    <span class="profile-field-val">{{ user_obj.email|default:"Não informado" }}</span>
+                    <span class="profile-field-val" id="disp-user-email">{{ user_obj.email|default:"Não informado" }}</span>
                 </div>
                 <div class="profile-field">
                     <span class="profile-field-label">Papel RBAC no Tenant</span>
@@ -65,7 +77,7 @@
                 </div>
                 <div class="profile-field">
                     <span class="profile-field-label">Telefone / Ramal</span>
-                    <span class="profile-field-val">{{ profile.telefone|default:"Não informado" }}</span>
+                    <span class="profile-field-val font-mono" id="disp-user-tel">{{ profile.telefone|default:"Não informado" }}</span>
                 </div>
                 <div class="profile-field">
                     <span class="profile-field-label">Data de Nascimento</span>
@@ -100,4 +112,167 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Alterar Senha -->
+<div class="modal-overlay" id="modal-alterar-senha">
+    <div class="modal-content" style="max-width: 440px;">
+        <div class="modal-header">
+            <h3>Alterar Senha de Acesso</h3>
+            <button class="close-modal" id="btn-fechar-senha">&times;</button>
+        </div>
+        <form id="form-alterar-senha">
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label>Senha Atual*</label>
+                <input type="password" name="senha_atual" id="input-senha-atual" required autocomplete="current-password" placeholder="Digite sua senha atual">
+            </div>
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label>Nova Senha* (Mínimo 6 caracteres)</label>
+                <input type="password" name="nova_senha" id="input-nova-senha" required autocomplete="new-password" placeholder="Nova senha segura">
+            </div>
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>Confirmar Nova Senha*</label>
+                <input type="password" name="confirmar_senha" id="input-confirmar-senha" required autocomplete="new-password" placeholder="Confirme a nova senha">
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="btn-cancelar-senha">Cancelar</button>
+                <button type="submit" class="btn-primary">Atualizar Senha</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Atualizar Contato -->
+<div class="modal-overlay" id="modal-editar-contato">
+    <div class="modal-content" style="max-width: 440px;">
+        <div class="modal-header">
+            <h3>Atualizar Dados de Contato</h3>
+            <button class="close-modal" id="btn-fechar-contato">&times;</button>
+        </div>
+        <form id="form-editar-contato">
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label>E-mail Corporativo</label>
+                <input type="email" name="email" id="input-edit-email" value="{{ user_obj.email }}" placeholder="usuario@empresa.com.br">
+            </div>
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>Telefone / Ramal</label>
+                <input type="text" name="telefone" id="input-edit-tel" class="mask-phone font-mono" value="{{ profile.telefone|default:'' }}" placeholder="(00) 00000-0000">
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="btn-cancelar-contato">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar Contato</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function getAuthHeaders() {
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        };
+        const token = localStorage.getItem('access') || localStorage.getItem('access_token');
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        return headers;
+    }
+
+    // Modal Senha
+    const modalSenha = document.getElementById('modal-alterar-senha');
+    const btnOpenSenha = document.getElementById('btn-alterar-senha');
+    const btnCloseSenha = document.getElementById('btn-fechar-senha');
+    const btnCancelSenha = document.getElementById('btn-cancelar-senha');
+    const formSenha = document.getElementById('form-alterar-senha');
+
+    btnOpenSenha.addEventListener('click', () => { formSenha.reset(); modalSenha.classList.add('active'); });
+    btnCloseSenha.addEventListener('click', () => modalSenha.classList.remove('active'));
+    btnCancelSenha.addEventListener('click', () => modalSenha.classList.remove('active'));
+
+    formSenha.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const senhaAtual = document.getElementById('input-senha-atual').value;
+        const novaSenha = document.getElementById('input-nova-senha').value;
+        const confirmar = document.getElementById('input-confirmar-senha').value;
+
+        if (novaSenha !== confirmar) {
+            Swal.fire('Aviso', 'A confirmação de senha não confere.', 'warning');
+            return;
+        }
+
+        fetch('/accounts/api/users/alterar_senha/', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha })
+        })
+        .then(async res => {
+            const data = await res.json();
+            if (res.ok) {
+                Swal.fire({ icon: 'success', title: 'Sucesso', text: data.mensagem || 'Senha alterada com sucesso!', timer: 2000, showConfirmButton: false });
+                modalSenha.classList.remove('active');
+            } else {
+                Swal.fire('Erro', data.erro || 'Erro ao alterar a senha.', 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            Swal.fire('Erro', 'Ocorreu um erro na requisição.', 'error');
+        });
+    });
+
+    // Modal Contato
+    const modalContato = document.getElementById('modal-editar-contato');
+    const btnOpenContato = document.getElementById('btn-editar-contato');
+    const btnCloseContato = document.getElementById('btn-fechar-contato');
+    const btnCancelContato = document.getElementById('btn-cancelar-contato');
+    const formContato = document.getElementById('form-editar-contato');
+
+    btnOpenContato.addEventListener('click', () => modalContato.classList.add('active'));
+    btnCloseContato.addEventListener('click', () => modalContato.classList.remove('active'));
+    btnCancelContato.addEventListener('click', () => modalContato.classList.remove('active'));
+
+    formContato.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const email = document.getElementById('input-edit-email').value;
+        const telefone = document.getElementById('input-edit-tel').value;
+
+        fetch('/accounts/api/users/atualizar_meu_perfil/', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ email: email, telefone: telefone })
+        })
+        .then(async res => {
+            const data = await res.json();
+            if (res.ok) {
+                Swal.fire({ icon: 'success', title: 'Sucesso', text: data.mensagem || 'Dados de contato atualizados!', timer: 2000, showConfirmButton: false });
+                document.getElementById('disp-user-email').textContent = email || 'Não informado';
+                document.getElementById('disp-user-tel').textContent = telefone || 'Não informado';
+                modalContato.classList.remove('active');
+            } else {
+                Swal.fire('Erro', data.erro || 'Erro ao atualizar dados.', 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            Swal.fire('Erro', 'Ocorreu um erro na requisição.', 'error');
+        });
+    });
+});
+</script>
 {% endblock %}

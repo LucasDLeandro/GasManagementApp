@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>App de Campo - GasManagement</title>
+    <title>App de Campo - Baros</title>
     
     <!-- PWA e Identificação Multi-tenant -->
     <link rel="manifest" href="/manifest.json">
@@ -24,9 +24,9 @@
     </script>
     {% endif %}
 
-    <!-- CSS Base e Ergonomia de Rua -->
+    <!-- CSS Base e Ergonomia de Rua com Cache Busting -->
     <link rel="stylesheet" href="{% static 'vendor/inter/inter.css' %}">
-    <link rel="stylesheet" href="{% static 'css/app_campo.css' %}">
+    <link rel="stylesheet" href="{% static 'css/app_campo.css' %}?v=20261017_v6">
 </head>
 <body>
 
@@ -61,9 +61,16 @@
                 </a>
             </div>
         </div>
+    </header>
 
-        <!-- Card de Lotação ANTT e Veículo -->
-        <div class="load-summary-card">
+    <!-- ========================================================================= -->
+    <!-- 3. NAVEGAÇÃO MOBILE-FIRST EM 4 ETAPAS DA JORNADA                         -->
+    <!-- ========================================================================= -->
+
+    <!-- ABA 1: MINHA ROTA (Tela Principal Padrão) -->
+    <div class="tab-pane active" id="tab-pane-rota">
+        <!-- Card Compacto de Lotação ANTT e Veículo -->
+        <div class="load-summary-card" style="margin-top: 0; margin-bottom: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
                 <span>🚚 <strong id="rota-veiculo">Carregando veículo...</strong></span>
                 <span id="rota-selo-estimado"></span>
@@ -71,87 +78,240 @@
             <div class="load-bar-wrapper">
                 <div class="load-bar-fill" id="rota-barra-fill" style="width: 0%; background-color: var(--app-success);"></div>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--app-text-muted);">
-                <span>Lotação Regulamentar ANTT:</span>
-                <span id="rota-lotacao-texto">0% (Normal)</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--app-text-muted);">
+                <span>Lotação ANTT: <span id="rota-lotacao-texto" style="font-weight: 700;">0%</span></span>
+                <button type="button" class="btn-touch btn-touch-outline" id="btn-baixar-rota" style="min-height: 36px; padding: 4px 10px; font-size: 12px; border-color: var(--app-primary); color: var(--app-primary);" title="Baixar Rota para Operação Offline">
+                    📥 Baixar Rota para Operação Offline
+                </button>
             </div>
         </div>
 
-        <!-- Botão Pre-flight Sync da Rota -->
-        <div style="margin-top: 12px; display: flex; gap: 8px;">
-            <button type="button" class="btn-touch btn-touch-primary btn-touch-full" id="btn-baixar-rota">
-                📥 Baixar Rota para Operação Offline
-            </button>
-        </div>
-    </header>
-
-    <!-- 3. VISÃO 1: Lista de Paradas da Rota -->
-    <main id="view-rota">
-        <div class="stops-container">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="font-size: 16px; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Paradas Programadas</h2>
-                <span style="font-size: 12px; color: var(--app-text-muted);">Sequência de Entrega</span>
-            </div>
-            <div id="stops-list">
-                <div style="text-align: center; padding: 30px; color: var(--app-text-muted);">
-                    Carregando dados da rota...
+        <!-- VISÃO 1: Lista de Paradas da Rota (Na primeira dobra!) -->
+        <main id="view-rota">
+            <div class="stops-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h2 style="font-size: 15px; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Paradas Programadas</h2>
+                    <span style="font-size: 12px; color: var(--app-text-muted);">Sequência de Entrega</span>
+                </div>
+                <div id="stops-list">
+                    <div style="text-align: center; padding: 24px; color: var(--app-text-muted);">
+                        Carregando paradas da rota...
+                    </div>
                 </div>
             </div>
-        </div>
-    </main>
+        </main>
 
-    <!-- 4. VISÃO 2: Execução da Parada Ativa -->
-    <section id="view-parada" style="display: none; padding: 16px;">
-        <!-- Topo da Parada -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <button type="button" class="btn-touch btn-touch-outline" style="min-height: 44px; padding: 6px 14px; font-size: 14px;" onclick="window.voltarParaRota()">
-                ⬅️ Voltar à Rota
+        <!-- VISÃO 2: Execução da Parada Ativa (Bipagem Full-for-Empty) -->
+        <section id="view-parada" style="display: none; padding: 4px 0 16px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <button type="button" class="btn-touch btn-touch-outline" style="min-height: 44px; padding: 6px 14px; font-size: 14px;" onclick="window.voltarParaRota()">
+                    ⬅️ Voltar à Lista de Paradas
+                </button>
+                <span class="stop-comodato-badge" id="parada-cliente-saldo">0 em comodato</span>
+            </div>
+
+            <div style="background: var(--app-surface); border: 2px solid var(--app-border); border-radius: var(--border-radius); padding: 14px; margin-bottom: 16px;">
+                <h2 style="margin: 0 0 4px 0; font-size: 18px;" id="parada-cliente-nome">Nome do Cliente</h2>
+                <div style="font-size: 13px; color: var(--app-text-muted);">Bipagem e conferência Full-for-Empty da parada</div>
+            </div>
+
+            <!-- Abas de Bipagem: Entregar Cheios vs. Recolher Vazios -->
+            <div class="operation-tabs">
+                <button type="button" class="tab-touch-btn active tab-deliver" id="btn-tab-deliver">
+                    ⬆️ Entregar Cheios (<span id="count-deliver">0</span>)
+                </button>
+                <button type="button" class="tab-touch-btn" id="btn-tab-collect">
+                    ⬇️ Recolher Vazios (<span id="count-collect">0</span>)
+                </button>
+            </div>
+
+            <!-- Formulário de Bipagem Rápida -->
+            <form id="form-bip" class="bip-input-box">
+                <input type="text" id="input-bip-codigo" class="input-touch" placeholder="Bipar QR Code / Nº de Série" autofocus autocomplete="off">
+                <button type="submit" class="btn-touch btn-touch-primary" style="min-width: 90px;">
+                    Adicionar
+                </button>
+            </form>
+
+            <!-- Listas de Cilindros Bipados na Parada -->
+            <div style="margin-top: 16px;">
+                <h3 style="font-size: 14px; text-transform: uppercase; color: var(--app-text-muted); margin-bottom: 8px;">Cilindros Cheios Prontos para Entrega</h3>
+                <div id="list-deliver-items"></div>
+
+                <h3 style="font-size: 14px; text-transform: uppercase; color: var(--app-text-muted); margin: 16px 0 8px 0;">Cilindros Vazios a Recolher</h3>
+                <div id="list-collect-items"></div>
+            </div>
+
+            <!-- Botão de Finalização da Parada com Assinatura -->
+            <div style="margin-top: 24px;">
+                <button type="button" class="btn-touch btn-touch-success btn-touch-full" id="btn-finalizar-parada" disabled>
+                    ✍️ Finalizar Bips da Parada e Assinar
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <!-- ABA 2: SAÍDA & RETORNO (Conferências de Pátio da Base) -->
+    <div class="tab-pane" id="tab-pane-patio">
+        <div style="margin-bottom: 14px;">
+            <h2 style="font-size: 16px; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">Conferências de Pátio</h2>
+            <div style="font-size: 13px; color: var(--app-text-muted);">Etapas obrigatórias antes da partida e no regresso à base.</div>
+        </div>
+
+        <!-- 1º Passo: Checklist Pré-Saída -->
+        <div class="journey-card">
+            <div class="journey-card-header">
+                <span class="journey-step-badge">1º Passo — Antes de Partir</span>
+                <span style="font-size: 12px; color: var(--app-text-muted);">Inspeção ANTT</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 800;">📋 Checklist Pré-Saída do Veículo</div>
+            <div style="font-size: 13px; color: var(--app-text-muted);">
+                Verificação obrigatória de freios, pneus, tacógrafo, extintor, EPIs e luzes do caminhão.
+            </div>
+            <button type="button" class="btn-touch btn-touch-primary btn-touch-full" id="btn-abrir-checklist-campo" style="background: #3b82f6;">
+                📋 Abrir Checklist Pré-Saída
             </button>
-            <span class="stop-comodato-badge" id="parada-cliente-saldo">0 em comodato</span>
         </div>
 
-        <div style="background: var(--app-surface); border: 2px solid var(--app-border); border-radius: var(--border-radius); padding: 14px; margin-bottom: 16px;">
-            <h2 style="margin: 0 0 4px 0; font-size: 18px;" id="parada-cliente-nome">Nome do Cliente</h2>
-            <div style="font-size: 13px; color: var(--app-text-muted);">Bipagem e conferência Full-for-Empty da parada</div>
-        </div>
-
-        <!-- Abas de Bipagem: Entregar Cheios vs. Recolher Vazios -->
-        <div class="operation-tabs">
-            <button type="button" class="tab-touch-btn active tab-deliver" id="btn-tab-deliver">
-                ⬆️ Entregar Cheios (<span id="count-deliver">0</span>)
-            </button>
-            <button type="button" class="tab-touch-btn" id="btn-tab-collect">
-                ⬇️ Recolher Vazios (<span id="count-collect">0</span>)
-            </button>
-        </div>
-
-        <!-- Formulário de Bipagem Rápida / Keyboard Wedge -->
-        <form id="form-bip" class="bip-input-box">
-            <input type="text" id="input-bip-codigo" class="input-touch" placeholder="Bipar QR Code / Nº de Série" autofocus autocomplete="off">
-            <button type="submit" class="btn-touch btn-touch-primary" style="min-width: 90px;">
-                Adicionar
-            </button>
-        </form>
-
-        <!-- Listas de Cilindros Bipados na Parada -->
-        <div style="margin-top: 16px;">
-            <h3 style="font-size: 14px; text-transform: uppercase; color: var(--app-text-muted); margin-bottom: 8px;">Cilindros Cheios Prontos para Entrega</h3>
-            <div id="list-deliver-items"></div>
-
-            <h3 style="font-size: 14px; text-transform: uppercase; color: var(--app-text-muted); margin: 16px 0 8px 0;">Cilindros Vazios a Recolher</h3>
-            <div id="list-collect-items"></div>
-        </div>
-
-        <!-- Botão de Finalização da Parada com Assinatura -->
-        <div style="margin-top: 24px;">
-            <button type="button" class="btn-touch btn-touch-success btn-touch-full" id="btn-finalizar-parada" disabled>
-                ✍️ Finalizar Bips da Parada e Assinar
+        <!-- 2º Passo: Conferência de Saída -->
+        <div class="journey-card">
+            <div class="journey-card-header">
+                <span class="journey-step-badge success">2º Passo — Expedição</span>
+                <span style="font-size: 12px; color: var(--app-text-muted);">Conferência de Carga</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 800;">🔍 Conferência de Carga na Saída</div>
+            <div style="font-size: 13px; color: var(--app-text-muted);">
+                Conferência dos cilindros e produtos carregados no veículo contra o romaneio de expedição.
+            </div>
+            <button type="button" class="btn-touch btn-touch-success btn-touch-full" id="btn-abrir-conferencia-saida">
+                🔍 Iniciar Conferência de Saída
             </button>
         </div>
-    </section>
 
-    <!-- 5. Modal / Sheet: Comprovante Eletrônico da Parada (D8) -->
-    <div class="modal-sheet-overlay" id="modal-assinatura">
+        <!-- 3º Passo: Balanço de Retorno -->
+        <div class="journey-card">
+            <div class="journey-card-header">
+                <span class="journey-step-badge warning">3º Passo — Ao Retornar</span>
+                <span style="font-size: 12px; color: var(--app-text-muted);">Prestação de Contas</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 800;">🏁 Balanço de Retorno de Viagem</div>
+            <div style="font-size: 13px; color: var(--app-text-muted);">
+                Conferência de vasilhames vazios recolhidos, cilindros cheios devolvidos e pendências de entrega.
+            </div>
+            <button type="button" class="btn-touch btn-touch-primary btn-touch-full" id="btn-abrir-conferencia-retorno" style="background: #8b5cf6;">
+                🏁 Registrar Balanço de Retorno
+            </button>
+        </div>
+    </div>
+
+    <!-- ABA 3: FROTA & SOS (Ocorrências e Manutenção) -->
+    <div class="tab-pane" id="tab-pane-apoio">
+        <div style="margin-bottom: 14px;">
+            <h2 style="font-size: 16px; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">Frota, Manutenção & SOS</h2>
+            <div style="font-size: 13px; color: var(--app-text-muted);">Lançamento de combustível, defeitos e ocorrências da rota.</div>
+        </div>
+
+        <!-- Card de Emergência: Sinistro / Acidente (Topo em destaque!) -->
+        <div class="journey-card" style="border-color: #ef4444; background: rgba(239, 68, 68, 0.08);">
+            <div class="journey-card-header">
+                <span class="journey-step-badge danger">🚨 Emergência na Via</span>
+                <span style="font-size: 11px; color: #ef4444; font-weight: 700;">Seguros & Sinistros</span>
+            </div>
+            <div style="font-size: 16px; font-weight: 800; color: #ef4444;">🚨 Reportar Ocorrência / Sinistro</div>
+            <div style="font-size: 13px; color: var(--app-text-muted);">
+                Colisão, tombamento, avaria de carga ou roubo. Em caso de vítimas, ligue SAMU 192 / Bombeiros 193.
+            </div>
+            <button type="button" class="btn-touch btn-touch-danger btn-touch-full" id="btn-abrir-sinistro-campo" style="background: #dc2626; font-weight: 800;">
+                🚨 Acionar Registro de Ocorrência
+            </button>
+        </div>
+
+        <!-- Card: Abastecimento -->
+        <div class="journey-card">
+            <div class="journey-card-header">
+                <span class="journey-step-badge warning">⛽ Combustível</span>
+                <span style="font-size: 12px; color: var(--app-text-muted);">Gestão de Abastecimento</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 800;">⛽ Registrar Abastecimento</div>
+            <div style="font-size: 13px; color: var(--app-text-muted);">
+                Registro na bomba com foto do cupom fiscal, odômetro, litros e valor pago.
+            </div>
+            <button type="button" class="btn-touch btn-touch-warning btn-touch-full" id="btn-abrir-abastecimento-campo" style="background: #f59e0b; color: #000; font-weight: 800;">
+                ⛽ Registrar Novo Abastecimento
+            </button>
+        </div>
+
+        <!-- Card: Reportar Defeito Mecânico -->
+        <div class="journey-card">
+            <div class="journey-card-header">
+                <span class="journey-step-badge danger">🔧 Manutenção</span>
+                <span style="font-size: 12px; color: var(--app-text-muted);">Ordem de Serviço (OS)</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 800;">⚠️ Reportar Defeito Mecânico / Elétrico</div>
+            <div style="font-size: 13px; color: var(--app-text-muted);">
+                Informe falhas mecânicas, freios, luzes ou barulhos anormais para abertura automática de OS.
+            </div>
+            <button type="button" class="btn-touch btn-touch-outline btn-touch-full" id="btn-abrir-defeito-campo" style="border-color: #ef4444; color: #ef4444; font-weight: 700;">
+                ⚠️ Abrir Relato de Defeito
+            </button>
+        </div>
+    </div>
+
+    <!-- ABA 4: SINCRONIZAÇÃO & PENDÊNCIAS OFFLINE -->
+    <div class="tab-pane" id="tab-pane-sync">
+        <div style="margin-bottom: 14px;">
+            <h2 style="font-size: 16px; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">Central de Sincronização</h2>
+            <div style="font-size: 13px; color: var(--app-text-muted);">Status do banco local e transmissão de dados da rota.</div>
+        </div>
+
+        <div class="journey-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 14px; font-weight: 700;">Status do Banco Offline:</span>
+                <span class="journey-step-badge success">IndexedDB v6 Ativo</span>
+            </div>
+            <div style="font-size: 12px; color: var(--app-text-muted); line-height: 1.5; margin-top: 4px;">
+                Isolamento estrito por empresa e motorista. Bipagens e fotos são armazenadas com segurança localmente quando não há sinal de internet.
+            </div>
+        </div>
+
+        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+            <button type="button" class="btn-touch btn-touch-primary btn-touch-full" id="btn-forcar-sync-manual" style="min-height: 52px;">
+                🔄 Forçar Sincronização Agora
+            </button>
+            <button type="button" class="btn-touch btn-touch-outline btn-touch-full" id="btn-abrir-modal-pendencias" style="min-height: 52px;">
+                ⚠️ Ver Fila de Bipagens e Rejeições
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 4. BARRA DE NAVEGAÇÃO INFERIOR FIXA (MOBILE BOTTOM NAV)                  -->
+    <!-- ========================================================================= -->
+    <nav class="bottom-nav" id="app-bottom-nav">
+        <button type="button" class="bottom-nav-btn active" data-tab-target="tab-pane-rota" id="nav-btn-rota">
+            <span style="font-size: 20px;">🚚</span>
+            <span>Minha Rota</span>
+        </button>
+        <button type="button" class="bottom-nav-btn" data-tab-target="tab-pane-patio" id="nav-btn-patio">
+            <span style="font-size: 20px;">📋</span>
+            <span>Saída / Retorno</span>
+        </button>
+        <button type="button" class="bottom-nav-btn" data-tab-target="tab-pane-apoio" id="nav-btn-apoio">
+            <span style="font-size: 20px;">🛠️</span>
+            <span>Frota & SOS</span>
+        </button>
+        <button type="button" class="bottom-nav-btn" data-tab-target="tab-pane-sync" id="nav-btn-sync">
+            <span style="font-size: 20px;">🔄</span>
+            <span>Sincronizar</span>
+        </button>
+    </nav>
+
+    <!-- ========================================================================= -->
+    <!-- 5. MODAIS / BOTTOM SHEETS ISOLADOS (TOTALMENTE OCULTOS POR PADRÃO)       -->
+    <!-- ========================================================================= -->
+
+    <!-- Modal 1: Comprovante Eletrônico da Parada (Canvas de Assinatura) -->
+    <div class="modal-sheet-overlay" id="modal-assinatura" style="display: none;" hidden>
         <div class="modal-sheet">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--app-border); padding-bottom: 12px; margin-bottom: 14px;">
                 <h3 style="margin: 0; font-size: 18px; font-weight: 800;">Comprovante Eletrônico da Parada</h3>
@@ -202,17 +362,410 @@
         </div>
     </div>
 
-    <!-- Scripts da Aplicação PWA -->
+    <!-- Modal 2: Registrar Abastecimento no Campo -->
+    <div class="modal-sheet-overlay" id="modal-campo-abastecimento" style="display: none;" hidden>
+        <div class="modal-sheet">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--app-border); padding-bottom: 12px; margin-bottom: 14px;">
+                <h3 style="margin: 0; font-size: 18px; font-weight: 800;">⛽ Registrar Abastecimento</h3>
+                <button type="button" class="btn-touch btn-touch-outline" id="btn-fechar-abastecimento-campo" style="min-height: 40px; padding: 4px 10px; font-size: 18px;">&times;</button>
+            </div>
+
+            <form id="form-campo-abastecimento">
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Veículo *</label>
+                    <select id="campo-abast-veiculo" class="input-touch" required>
+                        <option value="">Carregando veículos...</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Tipo de Combustível *</label>
+                    <select id="campo-abast-tipo" class="input-touch" required>
+                        <option value="Diesel S10" selected>Diesel S10</option>
+                        <option value="Diesel S500">Diesel S500</option>
+                        <option value="Gasolina Comum">Gasolina Comum</option>
+                        <option value="Etanol">Etanol</option>
+                        <option value="GNV">GNV</option>
+                        <option value="Arla 32">Arla 32</option>
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Odômetro Atual</label>
+                        <input type="text" id="campo-abast-odo-anterior" class="input-touch" readonly style="background: var(--app-bg); font-weight:700;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Novo Odômetro (km) *</label>
+                        <input type="number" id="campo-abast-odometro" class="input-touch" required inputmode="numeric" placeholder="Ex: 24500" style="font-weight:700;">
+                    </div>
+                </div>
+                <div id="campo-abast-aviso-odo" style="display:none; color:var(--app-danger); font-size:12px; font-weight:700; margin-bottom:10px;">
+                    ⚠️ Odômetro informado é menor que o atual do veículo!
+                </div>
+
+                <div style="margin-bottom: 12px; background: var(--app-bg); padding: 10px; border-radius: var(--border-radius); border: 1px solid var(--app-border); display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="campo-abast-tanque-cheio" checked style="width: 22px; height: 22px;">
+                    <label for="campo-abast-tanque-cheio" style="margin: 0; font-size: 13px; font-weight: 600;">Encheu o tanque? (Tanque Cheio)</label>
+                </div>
+
+                <!-- 3 Valores com Auto-cálculo -->
+                <div style="background: var(--app-bg); padding: 12px; border-radius: var(--border-radius); border: 1px solid var(--app-border); margin-bottom: 12px;">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--app-text-muted); margin-bottom: 8px;">
+                        VALORES NA BOMBA (informe 2 para calcular o 3º)
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <div>
+                            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Litros *</label>
+                            <input type="number" id="campo-abast-litros" class="input-touch" step="0.001" inputmode="decimal" placeholder="0,000">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Valor / Litro (R$) *</label>
+                            <input type="number" id="campo-abast-valor-litro" class="input-touch" step="0.0001" inputmode="decimal" placeholder="R$ 0,0000">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Valor Total Pago (R$) *</label>
+                        <input type="number" id="campo-abast-valor-total" class="input-touch" step="0.01" inputmode="decimal" placeholder="R$ 0,00" style="font-size: 18px; font-weight: 800; color: var(--app-primary);">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Posto / Cidade</label>
+                    <input type="text" id="campo-abast-posto" class="input-touch" placeholder="Ex: Posto Ipiranga - Goiânia/GO">
+                </div>
+
+                <!-- Componente Customizado Touch Foto Cupom -->
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Foto do Cupom / Nota Fiscal</label>
+                    <input type="file" id="campo-abast-foto" accept="image/*" capture="environment" style="display: none;">
+                    <div class="campo-foto-box" id="box-upload-abast-foto" onclick="document.getElementById('campo-abast-foto').click()">
+                        <span style="font-size: 24px;">📷</span>
+                        <span style="font-weight: 700; font-size: 14px;">Tirar Foto do Cupom / NF</span>
+                        <span class="campo-foto-filename" id="filename-abast-foto">Nenhum arquivo selecionado</span>
+                        <img class="campo-foto-preview" id="preview-abast-foto" alt="Prévia do cupom">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-touch btn-touch-success btn-touch-full" id="btn-salvar-abastecimento-campo">
+                    💾 Confirmar e Gravar Abastecimento
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Checklist Pré-Saída -->
+    <div class="field-modal" id="modal-campo-checklist" style="display: none;" hidden>
+        <div class="field-modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--app-border); padding-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 17px; color: var(--app-primary);">📋 Checklist Pré-Saída de Rota</h3>
+                <button type="button" class="btn-touch btn-touch-outline" id="btn-fechar-checklist-campo" style="min-height: 38px; padding: 4px 10px; font-size: 13px;">✕ Fechar</button>
+            </div>
+
+            <form id="form-campo-checklist">
+                <div style="background: var(--app-bg); padding: 10px; border-radius: var(--border-radius); border: 1px solid var(--app-border); margin-bottom: 12px; font-size: 13px;">
+                    <div>Veículo: <strong id="campo-chk-veiculo-info">Caminhão da Rota</strong></div>
+                    <div style="margin-top: 8px;">
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Odômetro Atual (km) *</label>
+                        <input type="number" id="campo-chk-odometro" class="input-touch" required inputmode="numeric" placeholder="Ex: 45000" style="font-weight:700;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--app-text-muted); margin-bottom: 6px; text-transform: uppercase;">
+                        Inspeção de Itens Operacionais
+                    </div>
+                    <div id="campo-chk-itens-lista" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Itens renderizados dinamicamente pelo JS -->
+                    </div>
+                </div>
+
+                <!-- Componente Customizado Touch Foto Checklist -->
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Foto de Evidência / Geral (Opcional)</label>
+                    <input type="file" id="campo-chk-foto" accept="image/*" capture="environment" style="display: none;">
+                    <div class="campo-foto-box" id="box-upload-chk-foto" onclick="document.getElementById('campo-chk-foto').click()">
+                        <span style="font-size: 24px;">📷</span>
+                        <span style="font-weight: 700; font-size: 14px;">Tirar Foto da Inspeção</span>
+                        <span class="campo-foto-filename" id="filename-chk-foto">Nenhum arquivo selecionado</span>
+                        <img class="campo-foto-preview" id="preview-chk-foto" alt="Prévia da inspeção">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Observações do Motorista</label>
+                    <textarea id="campo-chk-obs" class="input-touch" rows="2" placeholder="Apontamentos de ruídos, luzes de painel, etc..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-touch btn-touch-success btn-touch-full" id="btn-salvar-checklist-campo">
+                    💾 Gravar e Transmitir Checklist
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 4: Reportar Defeito Mecânico / Elétrico -->
+    <div class="field-modal" id="modal-campo-defeito" style="display: none;" hidden>
+        <div class="field-modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--app-border); padding-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 17px; color: #ef4444;">⚠️ Reportar Defeito Mecânico / Elétrico</h3>
+                <button type="button" class="btn-touch btn-touch-outline" id="btn-fechar-defeito-campo" style="min-height: 38px; padding: 4px 10px; font-size: 13px;">✕ Fechar</button>
+            </div>
+
+            <form id="form-campo-defeito">
+                <div style="background: var(--app-bg); padding: 10px; border-radius: var(--border-radius); border: 1px solid var(--app-border); margin-bottom: 12px; font-size: 13px;">
+                    <div>Veículo: <strong id="campo-defeito-veiculo-info">Caminhão da Rota</strong></div>
+                    <div style="margin-top: 8px;">
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Odômetro no momento da falha (km)</label>
+                        <input type="number" id="campo-defeito-odometro" class="input-touch" inputmode="numeric" placeholder="Ex: 45020">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Descrição Detalhada do Problema / Sintoma *</label>
+                    <textarea id="campo-defeito-descricao" class="input-touch" rows="3" required placeholder="Descreva o barulho, vazamento, falha elétrica, freio baixo, etc..."></textarea>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Gravidade / Prioridade</label>
+                        <select id="campo-defeito-prioridade" class="input-touch">
+                            <option value="Normal">Normal (Pode rodar)</option>
+                            <option value="Alta">Alta (Requer reparo breve)</option>
+                            <option value="Crítica">Crítica (Impedimento imediato)</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:20px;">
+                        <input type="checkbox" id="campo-defeito-imobiliza" style="width:22px; height:22px;">
+                        <label for="campo-defeito-imobiliza" style="margin:0; font-size:12px; font-weight:700; color:#ef4444; cursor:pointer;">
+                            🛑 Inapto para Rodar
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Componente Customizado Touch Foto Defeito -->
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Foto do Defeito / Painel (Opcional)</label>
+                    <input type="file" id="campo-defeito-foto" accept="image/*" capture="environment" style="display: none;">
+                    <div class="campo-foto-box" id="box-upload-defeito-foto" onclick="document.getElementById('campo-defeito-foto').click()">
+                        <span style="font-size: 24px;">📷</span>
+                        <span style="font-weight: 700; font-size: 14px;">Tirar Foto da Avaria / Painel</span>
+                        <span class="campo-foto-filename" id="filename-defeito-foto">Nenhum arquivo selecionado</span>
+                        <img class="campo-foto-preview" id="preview-defeito-foto" alt="Prévia do defeito">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-touch btn-touch-danger btn-touch-full" id="btn-salvar-defeito-campo">
+                    🚨 Transmitir Relato de Defeito (Gerar OS)
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 5: Conferência de Carga na Saída -->
+    <div class="field-modal" id="modal-campo-conferencia-saida" style="display: none;" hidden>
+        <div class="field-modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--app-border); padding-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 17px; color: #10b981;">🔍 Conferência de Carga na Saída</h3>
+                <button type="button" class="btn-touch btn-touch-outline" id="btn-fechar-conf-saida-campo" style="min-height: 38px; padding: 4px 10px; font-size: 13px;">✕ Fechar</button>
+            </div>
+
+            <div style="background: #0284c715; border-left: 4px solid var(--app-primary); padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 12px;">
+                <strong>Regra Operacional:</strong> A saída só é liberada com 100% dos itens conferidos ou divergências devidamente justificadas.
+            </div>
+
+            <!-- Leitor Opcional de Código / Bipagem -->
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <input type="text" id="campo-saida-barcode-input" class="input-touch" placeholder="Escanear código / QR do produto (opcional)" style="flex: 1;">
+                <button type="button" class="btn-touch btn-touch-primary" id="btn-campo-bipar-saida" style="min-width: 80px;">Bipar</button>
+            </div>
+
+            <!-- Lista de Itens do Romaneio -->
+            <div id="campo-saida-itens-container" style="max-height: 300px; overflow-y: auto; margin-bottom: 12px;">
+                <div style="text-align: center; padding: 20px; color: var(--app-text-muted);">
+                    Carregando romaneio de carga...
+                </div>
+            </div>
+
+            <!-- Status de Lotação e ANTT -->
+            <div id="campo-saida-status-box" style="background: var(--app-bg); border: 1px solid var(--app-border); border-radius: var(--border-radius); padding: 10px; font-size: 13px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Itens Esperados: <strong id="campo-saida-total-esp">0</strong></span>
+                    <span>Itens Conferidos: <strong id="campo-saida-total-conf">0</strong></span>
+                </div>
+                <div style="margin-top: 6px; display: flex; justify-content: space-between;">
+                    <span>Lotação Veículo: <strong id="campo-saida-lotacao">0%</strong></span>
+                    <span id="campo-saida-aviso-liberacao" style="font-weight: 700; color: #10b981;">Aguardando conferência</span>
+                </div>
+            </div>
+
+            <button type="button" class="btn-touch btn-touch-success btn-touch-full" id="btn-salvar-conferencia-saida">
+                ✅ Salvar Conferência e Liberar Rota
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal 6: Balanço de Retorno de Viagem -->
+    <div class="field-modal" id="modal-campo-conferencia-retorno" style="display: none;" hidden>
+        <div class="field-modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--app-border); padding-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 17px; color: #8b5cf6;">🏁 Balanço de Retorno de Viagem</h3>
+                <button type="button" class="btn-touch btn-touch-outline" id="btn-fechar-conf-retorno-campo" style="min-height: 38px; padding: 4px 10px; font-size: 13px;">✕ Fechar</button>
+            </div>
+
+            <!-- Grid 2x3 ou 3x2 responsivo -->
+            <div class="conf-kpi-grid">
+                <div class="conf-kpi-card">
+                    <div style="font-size: 11px; color: var(--app-text-muted); text-transform: uppercase;">🚚 Despachado</div>
+                    <div class="conf-kpi-val" id="campo-ret-despachado" style="color: var(--app-primary);">0</div>
+                </div>
+                <div class="conf-kpi-card">
+                    <div style="font-size: 11px; color: var(--app-text-muted); text-transform: uppercase;">✅ Entregue</div>
+                    <div class="conf-kpi-val" id="campo-ret-entregue" style="color: #10b981;">0</div>
+                </div>
+                <div class="conf-kpi-card">
+                    <div style="font-size: 11px; color: var(--app-text-muted); text-transform: uppercase;">🔄 Vazios Recolhidos</div>
+                    <div class="conf-kpi-val" id="campo-ret-vazios" style="color: #f59e0b;">0</div>
+                </div>
+                <div class="conf-kpi-card">
+                    <div style="font-size: 11px; color: var(--app-text-muted); text-transform: uppercase;">🔙 Cheios Retornados</div>
+                    <div class="conf-kpi-val" id="campo-ret-cheios-retorno" style="color: var(--app-text);">0</div>
+                </div>
+                <div class="conf-kpi-card">
+                    <div style="font-size: 11px; color: var(--app-text-muted); text-transform: uppercase;">⚖️ Justificado</div>
+                    <div class="conf-kpi-val" id="campo-ret-justificado" style="color: #38bdf8;">0</div>
+                </div>
+                <div class="conf-kpi-card">
+                    <div style="font-size: 11px; color: var(--app-text-muted); text-transform: uppercase;">⚠️ Pendente</div>
+                    <div class="conf-kpi-val" id="campo-ret-pendente" style="color: #ef4444;">0</div>
+                </div>
+            </div>
+
+            <div id="campo-ret-aviso-pendencia" style="display: none; background: #ef444415; border-left: 4px solid var(--app-danger); padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; color: #f87171;">
+                <strong>Atenção:</strong> Há cilindros com diferença não justificada no balanço da viagem. Essa pendência será registrada no romaneio para auditoria de estoque.
+            </div>
+
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Observações da Prestação de Contas</label>
+                <textarea id="campo-ret-obs" class="input-touch" rows="3" placeholder="Justificativa de sobras, vasilhames avariados ou divergências..."></textarea>
+            </div>
+
+            <button type="button" class="btn-touch btn-touch-success btn-touch-full" id="btn-salvar-conferencia-retorno">
+                💾 Confirmar e Registrar Retorno de Viagem
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal 7: Reportar Ocorrência / Sinistro -->
+    <div class="field-modal" id="modal-campo-sinistro" style="display: none;" hidden>
+        <div class="field-modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--app-border); padding-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 17px; color: #ef4444; display: flex; align-items: center; gap: 6px;">
+                    🚨 Reportar Ocorrência / Sinistro
+                </h3>
+                <button type="button" class="btn-touch btn-touch-outline" id="btn-fechar-sinistro-campo" style="min-height: 38px; padding: 4px 10px; font-size: 13px;">✕ Fechar</button>
+            </div>
+
+            <!-- Banner Fixo e Destacado de Emergência / Vítimas -->
+            <div id="campo-sinistro-aviso-emergencia" style="background: #ef4444; color: #ffffff; border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 12px; line-height: 1.4; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);">
+                <div style="font-weight: 800; font-size: 13px; text-transform: uppercase; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                    🚑 Atenção com Vítimas / Emergência
+                </div>
+                Em caso de feridos ou perigo iminente (fogo, vazamento químico), <strong>ligue imediatamente para os serviços de socorro antes de qualquer registro no app:</strong>
+                <div style="margin-top: 6px; font-weight: 700; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <span>🚑 SAMU: 192</span>
+                    <span>🚒 Bombeiros: 193</span>
+                    <span>🚔 Polícia: 190</span>
+                </div>
+                <div style="margin-top: 4px; font-size: 11px; opacity: 0.9;">* Esta orientação de segurança não substitui instruções oficiais dos órgãos de socorro.</div>
+            </div>
+
+            <form id="form-campo-sinistro">
+                <input type="hidden" id="campo-sinistro-veiculo-id">
+                <input type="hidden" id="campo-sinistro-entrega-id">
+                <input type="hidden" id="campo-sinistro-lat">
+                <input type="hidden" id="campo-sinistro-lng">
+
+                <!-- Dados do Contexto Operacional -->
+                <div style="background: var(--app-bg); padding: 10px; border-radius: var(--border-radius); border: 1px solid var(--app-border); margin-bottom: 12px; font-size: 13px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Veículo: <strong id="campo-sinistro-veiculo-info">Caminhão da Rota</strong></span>
+                        <span id="campo-sinistro-gps-badge" style="font-size: 11px; color: #10b981; font-weight: 700;">📡 GPS Ativo</span>
+                    </div>
+                    <div style="margin-top: 4px; font-size: 11px; color: var(--app-text-muted);" id="campo-sinistro-local-texto">
+                        Coordenadas: Buscando localização...
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Tipo de Ocorrência *</label>
+                    <select id="campo-sinistro-tipo" class="input-touch" required style="font-weight: 700;">
+                        <option value="Colisão">Colisão / Batida</option>
+                        <option value="Tombamento">Tombamento</option>
+                        <option value="Avaria de Carga">Avaria / Queda de Carga</option>
+                        <option value="Roubo de Carga">Roubo de Carga</option>
+                        <option value="Roubo/Furto de Veículo">Roubo/Furto de Veículo</option>
+                        <option value="Incêndio">Incêndio</option>
+                        <option value="Vazamento de Produto">Vazamento de Produto / Gás</option>
+                        <option value="Dano a Terceiro">Dano a Terceiro</option>
+                        <option value="Outro">Outro Sinistro</option>
+                    </select>
+                </div>
+
+                <!-- Checkbox de Vítimas -->
+                <div style="margin-bottom: 14px; background: #fee2e2; border: 1px solid #f87171; border-radius: var(--border-radius); padding: 10px; display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="campo-sinistro-houve-vitimas" style="width: 24px; height: 24px; cursor: pointer;">
+                    <label for="campo-sinistro-houve-vitimas" style="margin: 0; font-size: 13px; font-weight: 800; color: #991b1b; cursor: pointer;">
+                        ⚠️ Houve vítimas ou pessoas feridas?
+                    </label>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Descrição Sucinta da Ocorrência *</label>
+                    <textarea id="campo-sinistro-descricao" class="input-touch" rows="3" required placeholder="Ex: Veículo atingido na traseira no semáforo; vasilhames caíram na pista..."></textarea>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Nº do Boletim de Ocorrência (BO) (se já lavrado)</label>
+                    <input type="text" id="campo-sinistro-bo" class="input-touch" placeholder="Ex: BO-2026-98124">
+                </div>
+
+                <!-- Componente Customizado Touch Foto Sinistro -->
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Foto da Ocorrência / Avaria</label>
+                    <input type="file" id="campo-sinistro-foto" accept="image/*" capture="environment" style="display: none;">
+                    <div class="campo-foto-box" id="box-upload-sinistro-foto" onclick="document.getElementById('campo-sinistro-foto').click()">
+                        <span style="font-size: 24px;">📷</span>
+                        <span style="font-weight: 700; font-size: 14px;">Tirar Foto da Ocorrência</span>
+                        <span class="campo-foto-filename" id="filename-sinistro-foto">Nenhum arquivo selecionado</span>
+                        <img class="campo-foto-preview" id="preview-sinistro-foto" alt="Prévia da ocorrência">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-touch btn-touch-danger btn-touch-full" id="btn-salvar-sinistro-campo" style="font-weight: 800; font-size: 15px; background: #dc2626;">
+                    🚨 Transmitir Ocorrência para a Gestão
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts da Aplicação PWA com Cache Busting -->
     <script src="{% static 'vendor/sweetalert2/sweetalert2.all.min.js' %}"></script>
-    <script src="{% static 'js/offline_sync.js' %}"></script>
-    <script src="{% static 'js/app_campo.js' %}"></script>
+    <script src="{% static 'js/offline_sync.js' %}?v=20261017_v6"></script>
+    <script src="{% static 'js/app_campo.js' %}?v=20261017_v6"></script>
 
     <!-- Registro do Service Worker -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then(reg => console.log('[App de Campo] Service Worker registrado com sucesso:', reg.scope))
+            .then(reg => {
+                console.log('[App de Campo] Service Worker registrado com sucesso:', reg.scope);
+                // Força atualização se houver worker esperando
+                if (reg.waiting) {
+                    reg.waiting.postMessage({ action: 'skipWaiting' });
+                }
+            })
             .catch(err => console.warn('[App de Campo] Falha ao registrar Service Worker:', err));
         });
       }

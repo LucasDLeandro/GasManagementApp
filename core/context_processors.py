@@ -18,6 +18,7 @@ def tenant_membership_context(request):
             user_tenants = [m.tenant for m in request.user.memberships.filter(ativo=True, tenant__ativo=True).select_related('tenant').order_by('tenant__nome_fantasia')]
 
     has_multiple_tenants = len(user_tenants) > 1
+    can_switch_tenant = bool(is_super and len(user_tenants) > 1)
 
     return {
         'current_tenant': tenant,
@@ -25,6 +26,7 @@ def tenant_membership_context(request):
         'user_papel': papel,
         'user_tenants': user_tenants,
         'has_multiple_tenants': has_multiple_tenants,
+        'can_switch_tenant': can_switch_tenant,
         'is_admin': papel == 'ADMIN' or is_super,
         'is_gerente': papel in ('ADMIN', 'GERENTE') or is_super,
         'is_responsavel_tecnico': papel == 'RESPONSAVEL_TECNICO' or is_super,

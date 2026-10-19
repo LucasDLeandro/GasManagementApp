@@ -1,5 +1,5 @@
 /**
- * GasManagementApp - Cilindros Ativo 360° & Drawer de Auditoria (Fase 1)
+ * Baros - Cilindros Ativo 360° & Drawer de Auditoria (Fase 1)
  * Modular Vanilla JS com zero dependências externas e suporte a RBAC nativo.
  */
 
@@ -189,6 +189,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 abrirDrawerAtivo(id);
             });
         });
+
+        document.querySelectorAll('.btn-abrir-drawer').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.getAttribute('data-id');
+                abrirDrawerAtivo(id);
+            });
+        });
     }
 
     function atualizarControlesPaginacao(count, next, previous) {
@@ -211,13 +219,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==============================================================================
     async function abrirDrawerAtivo(cilindroId) {
         activeCilindroId = cilindroId;
-        if (!drawerDialog) return;
+        if (!drawerDialog) {
+            console.error("Elemento #cylinder-drawer não encontrado no DOM!");
+            return;
+        }
 
         // Limpa e abre o dialog nativo
-        document.getElementById('drawer-qr-title').textContent = 'Carregando...';
-        document.getElementById('drawer-serie-title').textContent = '';
-        document.getElementById('drawer-timeline-container').innerHTML = '<p style="color: var(--color-text-muted);">Carregando histórico do ledger...</p>';
-        drawerDialog.showModal();
+        const elQrTitle = document.getElementById('drawer-qr-title');
+        const elSerieTitle = document.getElementById('drawer-serie-title');
+        const elTimeline = document.getElementById('drawer-timeline-container');
+        if (elQrTitle) elQrTitle.textContent = 'Carregando...';
+        if (elSerieTitle) elSerieTitle.textContent = '';
+        if (elTimeline) elTimeline.innerHTML = '<p style="color: var(--color-text-muted);">Carregando histórico do ledger...</p>';
+
+        if (!drawerDialog.open) {
+            drawerDialog.showModal();
+        }
 
         try {
             // Busca dados do cilindro

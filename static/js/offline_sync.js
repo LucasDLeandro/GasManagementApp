@@ -11,7 +11,7 @@ class GasAppOfflineQueue {
     this._userId = null;
     this._dbName = null;
     this.STORE_NAME = 'movimentacoes_queue';
-    this.DB_VERSION = 2;
+    this.DB_VERSION = 6;
     this.initScope();
   }
 
@@ -27,31 +27,61 @@ class GasAppOfflineQueue {
   initDB() {
     this.initScope();
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this._dbName, this.DB_VERSION);
+      const openWithVersion = (version) => {
+        const request = (typeof version === 'number' && version > 0)
+          ? indexedDB.open(this._dbName, version)
+          : indexedDB.open(this._dbName);
 
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains(this.STORE_NAME)) {
-          const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'client_uuid' });
-          store.createIndex('criado_em', 'criado_em', { unique: false });
-          store.createIndex('status_local', 'status_local', { unique: false });
-          store.createIndex('tipo', 'tipo', { unique: false });
-        }
-        if (!db.objectStoreNames.contains('rota_pacote')) {
-          db.createObjectStore('rota_pacote', { keyPath: 'key' });
-        }
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+            const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'client_uuid' });
+            store.createIndex('criado_em', 'criado_em', { unique: false });
+            store.createIndex('status_local', 'status_local', { unique: false });
+            store.createIndex('tipo', 'tipo', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('rota_pacote')) {
+            db.createObjectStore('rota_pacote', { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains('abastecimentos_queue')) {
+            const abastStore = db.createObjectStore('abastecimentos_queue', { keyPath: 'client_uuid' });
+            abastStore.createIndex('criado_em', 'criado_em', { unique: false });
+            abastStore.createIndex('status_local', 'status_local', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('checklists_queue')) {
+            const chkStore = db.createObjectStore('checklists_queue', { keyPath: 'client_uuid' });
+            chkStore.createIndex('criado_em', 'criado_em', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('defeitos_queue')) {
+            const defStore = db.createObjectStore('defeitos_queue', { keyPath: 'client_uuid' });
+            defStore.createIndex('criado_em', 'criado_em', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('sinistros_queue')) {
+            const sinStore = db.createObjectStore('sinistros_queue', { keyPath: 'client_uuid' });
+            sinStore.createIndex('criado_em', 'criado_em', { unique: false });
+          }
+        };
+
+        request.onsuccess = (event) => {
+          this.db = event.target.result;
+          this.updateBadge();
+          resolve(this.db);
+        };
+
+        request.onerror = (event) => {
+          const err = event.target.error;
+          // Autocorreção Segura contra VersionError (SEM apagar dados pendentes)
+          if (err && err.name === 'VersionError' && version !== null) {
+            console.warn('[IndexedDB] VersionError detectado. Tentando abrir na versão mais alta existente no dispositivo...', err);
+            openWithVersion(null);
+            return;
+          }
+          console.error('[IndexedDB] Erro ao abrir banco local isolado:', err);
+          reject(err);
+        };
       };
 
-      request.onsuccess = (event) => {
-        this.db = event.target.result;
-        this.updateBadge();
-        resolve(this.db);
-      };
-
-      request.onerror = (event) => {
-        console.error('[IndexedDB] Erro ao abrir banco local isolado:', event.target.error);
-        reject(event.target.error);
-      };
+      openWithVersion(this.DB_VERSION);
     });
   }
 
@@ -388,11 +418,472 @@ class GasAppOfflineQueue {
           this._mostrarNotificacao(`Atenção: ${rejeitados} movimentação(ões) foram rejeitadas e exigem revisão.`, 'erro');
         }
       }
+
+      // Sincroniza também abastecimentos, checklists e relatos de defeito offline pendentes
+      await this.sincronizarAbastecimentos();
+      await this.sincronizarChecklists();
+      await this.sincronizarDefeitos();
     } catch (err) {
       console.error('[PWA Sync] Falha ao enviar lote de sincronização:', err);
     } finally {
       this.isSyncing = false;
       this.updateBadge();
+    }
+  }
+
+  /**
+   * Adiciona um registro de abastecimento à fila offline local com client_uuid exclusivo
+   */
+  async enfileirarAbastecimento(dados) {
+    const db = await this.getDB();
+    const item = {
+      client_uuid: dados.client_uuid || (crypto.randomUUID ? crypto.randomUUID() : this._gerarUUID()),
+      status_local: 'PENDENTE',
+      motivo_rejeicao: null,
+      veiculo_id: dados.veiculo_id,
+      tipo_combustivel: dados.tipo_combustivel,
+      odometro_km: dados.odometro_km,
+      litros: dados.litros,
+      valor_litro: dados.valor_litro,
+      valor_total: dados.valor_total,
+      tanque_cheio: dados.tanque_cheio !== undefined ? dados.tanque_cheio : true,
+      posto_nome: dados.posto_nome || '',
+      posto_cidade: dados.posto_cidade || '',
+      posto_uf: dados.posto_uf || '',
+      forma_pagamento: dados.forma_pagamento || 'Cartão frota',
+      numero_cupom: dados.numero_cupom || '',
+      observacoes: dados.observacoes || '',
+      origem: 'PWA',
+      data_hora: dados.data_hora || new Date().toISOString(),
+      criado_em: new Date().toISOString()
+    };
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['abastecimentos_queue'], 'readwrite');
+      const store = tx.objectStore('abastecimentos_queue');
+      const req = store.put(item);
+      req.onsuccess = () => {
+        console.log('[IndexedDB] Abastecimento salvo na fila offline:', item.client_uuid);
+        this.updateBadge();
+        if (navigator.onLine) {
+          this.sincronizarAbastecimentos();
+        }
+        resolve(item);
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async listarAbastecimentosPendentes() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['abastecimentos_queue'], 'readonly');
+      const store = tx.objectStore('abastecimentos_queue');
+      const req = store.getAll();
+      req.onsuccess = () => resolve((req.result || []).filter(i => i.status_local !== 'REJEITADO'));
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async removerAbastecimento(clientUuid) {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['abastecimentos_queue'], 'readwrite');
+      const store = tx.objectStore('abastecimentos_queue');
+      const req = store.delete(clientUuid);
+      req.onsuccess = () => {
+        this.updateBadge();
+        resolve();
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async sincronizarAbastecimentos() {
+    if (!navigator.onLine) return;
+    const pendentes = await this.listarAbastecimentosPendentes();
+    if (pendentes.length === 0) return;
+
+    console.log(`[PWA Sync] Sincronizando ${pendentes.length} abastecimentos offline...`);
+    const token = localStorage.getItem('access_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': this._getCSRFToken(),
+    };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const metaTenant = document.querySelector('meta[name="current-tenant-id"]');
+    if (metaTenant && metaTenant.content) headers['X-Tenant-ID'] = metaTenant.content;
+
+    for (const abast of pendentes) {
+      try {
+        const payload = {
+          client_uuid: abast.client_uuid,
+          veiculo: abast.veiculo_id,
+          tipo_combustivel: abast.tipo_combustivel,
+          odometro_km: abast.odometro_km,
+          litros: abast.litros,
+          valor_litro: abast.valor_litro,
+          valor_total: abast.valor_total,
+          tanque_cheio: abast.tanque_cheio,
+          posto_nome: abast.posto_nome,
+          posto_cidade: abast.posto_cidade,
+          posto_uf: abast.posto_uf,
+          forma_pagamento: abast.forma_pagamento,
+          numero_cupom: abast.numero_cupom,
+          observacoes: abast.observacoes,
+          data_hora: abast.data_hora,
+          origem: 'PWA'
+        };
+
+        const res = await fetch('/logistica/api/abastecimentos/', {
+          method: 'POST',
+          headers,
+          credentials: 'same-origin',
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok || res.status === 201 || res.status === 200) {
+          await this.removerAbastecimento(abast.client_uuid);
+          this._mostrarNotificacao(`⛽ Abastecimento transmitido com sucesso (${abast.litros} L)`, 'sucesso');
+        }
+      } catch (err) {
+        console.warn('[PWA Sync] Falha de rede ao transmitir abastecimento:', err);
+      }
+    }
+  }
+
+  /**
+   * Checklist offline: enfileiramento e sincronização
+   */
+  async enfileirarChecklist(dados) {
+    const db = await this.getDB();
+    const item = {
+      client_uuid: dados.client_uuid || (crypto.randomUUID ? crypto.randomUUID() : this._gerarUUID()),
+      status_local: 'PENDENTE',
+      veiculo_id: dados.veiculo_id,
+      odometro: dados.odometro,
+      respostas_itens: dados.respostas_itens,
+      observacoes: dados.observacoes || '',
+      data_hora: dados.data_hora || new Date().toISOString(),
+      criado_em: new Date().toISOString()
+    };
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['checklists_queue'], 'readwrite');
+      const store = tx.objectStore('checklists_queue');
+      const req = store.put(item);
+      req.onsuccess = () => {
+        console.log('[IndexedDB] Checklist salvo na fila offline:', item.client_uuid);
+        this.updateBadge();
+        if (navigator.onLine) {
+          this.sincronizarChecklists();
+        }
+        resolve(item);
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async listarChecklistsPendentes() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['checklists_queue'], 'readonly');
+      const store = tx.objectStore('checklists_queue');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async removerChecklist(clientUuid) {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['checklists_queue'], 'readwrite');
+      const store = tx.objectStore('checklists_queue');
+      const req = store.delete(clientUuid);
+      req.onsuccess = () => {
+        this.updateBadge();
+        resolve();
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async sincronizarChecklists() {
+    if (!navigator.onLine) return;
+    const pendentes = await this.listarChecklistsPendentes();
+    if (pendentes.length === 0) return;
+
+    console.log(`[PWA Sync] Sincronizando ${pendentes.length} checklists offline...`);
+    const token = localStorage.getItem('access_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': this._getCSRFToken(),
+    };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const metaTenant = document.querySelector('meta[name="current-tenant-id"]');
+    if (metaTenant && metaTenant.content) headers['X-Tenant-ID'] = metaTenant.content;
+
+    for (const chk of pendentes) {
+      try {
+        const payload = {
+          client_uuid: chk.client_uuid,
+          veiculo: chk.veiculo_id,
+          odometro: chk.odometro,
+          respostas_itens: chk.respostas_itens,
+          observacoes: chk.observacoes,
+          data_hora: chk.data_hora
+        };
+
+        const res = await fetch('/logistica/api/checklists/', {
+          method: 'POST',
+          headers,
+          credentials: 'same-origin',
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok || res.status === 201 || res.status === 200) {
+          await this.removerChecklist(chk.client_uuid);
+          this._mostrarNotificacao(`📋 Checklist sincronizado com sucesso`, 'sucesso');
+        }
+      } catch (err) {
+        console.warn('[PWA Sync] Falha ao transmitir checklist offline:', err);
+      }
+    }
+  }
+
+  /**
+   * Defeitos / Relato de falha offline: enfileiramento e sincronização
+   */
+  async enfileirarDefeito(dados) {
+    const db = await this.getDB();
+    const item = {
+      client_uuid: dados.client_uuid || (crypto.randomUUID ? crypto.randomUUID() : this._gerarUUID()),
+      status_local: 'PENDENTE',
+      veiculo_id: dados.veiculo_id,
+      odometro_entrada: dados.odometro_entrada,
+      descricao_problema: dados.descricao_problema,
+      prioridade: dados.prioridade || 'Normal',
+      imobiliza_veiculo: !!dados.imobiliza_veiculo,
+      tipo: 'Corretiva',
+      origem: 'Motorista',
+      criado_em: new Date().toISOString()
+    };
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['defeitos_queue'], 'readwrite');
+      const store = tx.objectStore('defeitos_queue');
+      const req = store.put(item);
+      req.onsuccess = () => {
+        console.log('[IndexedDB] Defeito salvo na fila offline:', item.client_uuid);
+        this.updateBadge();
+        if (navigator.onLine) {
+          this.sincronizarDefeitos();
+        }
+        resolve(item);
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async listarDefeitosPendentes() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['defeitos_queue'], 'readonly');
+      const store = tx.objectStore('defeitos_queue');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async removerDefeito(clientUuid) {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['defeitos_queue'], 'readwrite');
+      const store = tx.objectStore('defeitos_queue');
+      const req = store.delete(clientUuid);
+      req.onsuccess = () => {
+        this.updateBadge();
+        resolve();
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async sincronizarDefeitos() {
+    if (!navigator.onLine) return;
+    const pendentes = await this.listarDefeitosPendentes();
+    if (pendentes.length === 0) return;
+
+    console.log(`[PWA Sync] Sincronizando ${pendentes.length} relatos de defeito offline...`);
+    const token = localStorage.getItem('access_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': this._getCSRFToken(),
+    };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const metaTenant = document.querySelector('meta[name="current-tenant-id"]');
+    if (metaTenant && metaTenant.content) headers['X-Tenant-ID'] = metaTenant.content;
+
+    for (const def of pendentes) {
+      try {
+        const payload = {
+          client_uuid: def.client_uuid,
+          veiculo: def.veiculo_id,
+          odometro_entrada: def.odometro_entrada,
+          descricao_problema: def.descricao_problema,
+          prioridade: def.prioridade,
+          imobiliza_veiculo: def.imobiliza_veiculo,
+          tipo: 'Corretiva',
+          origem: 'Motorista'
+        };
+
+        const res = await fetch('/logistica/api/ordens-servico/', {
+          method: 'POST',
+          headers,
+          credentials: 'same-origin',
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok || res.status === 201 || res.status === 200) {
+          await this.removerDefeito(def.client_uuid);
+          this._mostrarNotificacao(`⚠️ Relato de defeito transmitido (OS gerada)`, 'sucesso');
+        }
+      } catch (err) {
+        console.warn('[PWA Sync] Falha ao transmitir relato de defeito offline:', err);
+      }
+    }
+  }
+
+  /**
+   * Sinistros / Ocorrências de campo offline (Sprint L5): enfileiramento e sincronização idempotente
+   */
+  async enfileirarSinistro(dados) {
+    const db = await this.getDB();
+    const item = {
+      client_uuid: dados.client_uuid || (crypto.randomUUID ? crypto.randomUUID() : this._gerarUUID()),
+      status_local: 'PENDENTE',
+      veiculo_id: dados.veiculo_id || null,
+      entrega_id: dados.entrega_id || null,
+      tipo: dados.tipo || 'Colisão',
+      descricao: dados.descricao || '',
+      houve_vitimas: !!dados.houve_vitimas,
+      boletim_ocorrencia_numero: dados.boletim_ocorrencia_numero || '',
+      latitude: dados.latitude || null,
+      longitude: dados.longitude || null,
+      endereco: dados.endereco || '',
+      data_hora: dados.data_hora || new Date().toISOString(),
+      status: 'Rascunho',
+      foto_base64: dados.foto_base64 || null,
+      foto_nome: dados.foto_nome || null,
+      criado_em: new Date().toISOString()
+    };
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['sinistros_queue'], 'readwrite');
+      const store = tx.objectStore('sinistros_queue');
+      const req = store.put(item);
+      req.onsuccess = () => {
+        console.log('[IndexedDB] Ocorrência/Sinistro salvo na fila offline:', item.client_uuid);
+        this.updateBadge();
+        if (navigator.onLine) {
+          this.sincronizarSinistros();
+        }
+        resolve(item);
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async listarSinistrosPendentes() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['sinistros_queue'], 'readonly');
+      const store = tx.objectStore('sinistros_queue');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async removerSinistro(clientUuid) {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['sinistros_queue'], 'readwrite');
+      const store = tx.objectStore('sinistros_queue');
+      const req = store.delete(clientUuid);
+      req.onsuccess = () => {
+        this.updateBadge();
+        resolve();
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async sincronizarSinistros() {
+    if (!navigator.onLine) return;
+    const pendentes = await this.listarSinistrosPendentes();
+    if (pendentes.length === 0) return;
+
+    console.log(`[PWA Sync] Sincronizando ${pendentes.length} ocorrências/sinistros offline...`);
+    const token = localStorage.getItem('access_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': this._getCSRFToken(),
+    };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const metaTenant = document.querySelector('meta[name="current-tenant-id"]');
+    if (metaTenant && metaTenant.content) headers['X-Tenant-ID'] = metaTenant.content;
+
+    for (const sin of pendentes) {
+      try {
+        const payload = {
+          client_uuid: sin.client_uuid,
+          veiculo: sin.veiculo_id,
+          entrega: sin.entrega_id,
+          tipo: sin.tipo,
+          descricao: sin.descricao,
+          houve_vitimas: sin.houve_vitimas,
+          boletim_ocorrencia_numero: sin.boletim_ocorrencia_numero,
+          latitude: sin.latitude,
+          longitude: sin.longitude,
+          endereco: sin.endereco,
+          data_hora: sin.data_hora,
+          status: 'Rascunho'
+        };
+
+        const res = await fetch('/logistica/api/sinistros/', {
+          method: 'POST',
+          headers,
+          credentials: 'same-origin',
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok || res.status === 201 || res.status === 200) {
+          const dadosCriado = await res.json();
+          if (sin.foto_base64 && dadosCriado.id) {
+            try {
+              await fetch(`/logistica/api/sinistros/${dadosCriado.id}/adicionar-anexo/`, {
+                method: 'POST',
+                headers,
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                  tipo: 'Foto Local',
+                  descricao: sin.foto_nome || 'Foto Ocorrência Campo',
+                  arquivo_base64: sin.foto_base64
+                })
+              });
+            } catch (anexoErr) {
+              console.warn('[PWA Sync] Falha ao enviar foto da ocorrência:', anexoErr);
+            }
+          }
+          await this.removerSinistro(sin.client_uuid);
+          this._mostrarNotificacao(`🛡️ Ocorrência (${sin.tipo}) transmitida à gestão`, 'sucesso');
+        }
+      } catch (err) {
+        console.warn('[PWA Sync] Falha ao sincronizar ocorrência/sinistro offline:', err);
+      }
     }
   }
 
@@ -571,6 +1062,9 @@ window.addEventListener('online', () => {
   console.log('[PWA] Conexão restabelecida. Sincronizando fila...');
   window.GasAppOffline.updateBadge();
   window.GasAppOffline.sincronizarLote();
+  window.GasAppOffline.sincronizarChecklists();
+  window.GasAppOffline.sincronizarDefeitos();
+  window.GasAppOffline.sincronizarSinistros();
 });
 
 window.addEventListener('offline', () => {
@@ -582,5 +1076,6 @@ window.addEventListener('offline', () => {
 setInterval(() => {
   if (navigator.onLine) {
     window.GasAppOffline.sincronizarLote();
+    window.GasAppOffline.sincronizarSinistros();
   }
 }, 30000);

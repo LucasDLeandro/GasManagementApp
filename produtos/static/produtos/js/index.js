@@ -7,21 +7,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const tbody = document.getElementById('produtos-tbody');
 
     function openModal() {
-        modal.classList.add('active');
-        form.reset();
+        if (modal) modal.classList.add('active');
+        if (form) form.reset();
     }
 
     function closeModal() {
-        modal.classList.remove('active');
+        if (modal) modal.classList.remove('active');
     }
 
-    btnNovo.addEventListener('click', openModal);
-    btnFechar.addEventListener('click', closeModal);
-    btnCancelar.addEventListener('click', closeModal);
+    if (btnNovo && modal) btnNovo.addEventListener('click', openModal);
+    if (btnFechar && modal) btnFechar.addEventListener('click', closeModal);
+    if (btnCancelar && modal) btnCancelar.addEventListener('click', closeModal);
 
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) closeModal();
-    });
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeModal();
+        });
+    }
 
     function getAuthHeaders() {
         function getCookie(name) {
@@ -44,7 +46,12 @@ document.addEventListener('DOMContentLoaded', function() {
             'X-CSRFToken': getCookie('csrftoken')
         };
 
-        const token = localStorage.getItem('access') || localStorage.getItem('access_token') || localStorage.getItem('token');
+        let token = localStorage.getItem('access') || localStorage.getItem('access_token') || localStorage.getItem('token');
+        if (token && window.isJwtExpired && window.isJwtExpired(token)) {
+            localStorage.removeItem('access');
+            localStorage.removeItem('access_token');
+            token = null;
+        }
         if (token) {
             headers['Authorization'] = 'Bearer ' + token;
         }
@@ -57,15 +64,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function loadProdutos() {
+        if (!tbody) return;
         fetch('/produtos/api/')
             .then(response => response.json())
             .then(data => {
                 tbody.innerHTML = '';
-                if (data.length === 0) {
+                const list = Array.isArray(data) ? data : (data.results || []);
+                if (list.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhum produto cadastrado.</td></tr>';
                     return;
                 }
-                data.forEach(prod => {
+                list.forEach(prod => {
                     const tr = document.createElement('tr');
                     const badgeClass = prod.categoria === 'Medicinal' ? 'badge-medicinal' : 'badge-industrial';
                     tr.innerHTML = `
@@ -84,80 +93,93 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(err => {
                 console.error("Erro ao carregar produtos", err);
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Erro ao carregar dados.</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Erro ao carregar dados.</td></tr>';
             });
     }
 
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData.entries());
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
 
-        fetch('/produtos/api/', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(data)
-        })
-        .then(async response => {
-            if (response.ok) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Sucesso',
-                    text: 'Cilindro cadastrado com sucesso!',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-                closeModal();
-                loadProdutos();
-            } else {
-                const err = await response.json();
-                let errStr = JSON.stringify(err);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro no Cadastro',
-                    text: errStr
-                });
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            Swal.fire('Erro', 'Ocorreu um erro na requisição.', 'error');
+            fetch('/produtos/api/', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(data)
+            })
+            .then(async response => {
+                if (response.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sucesso',
+                        text: 'Cilindro cadastrado com sucesso!',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    closeModal();
+                    loadProdutos();
+                } else {
+                    const err = await response.json();
+                    let errStr = JSON.stringify(err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro no Cadastro',
+                        text: errStr
+                    });
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.fire('Erro', 'Ocorreu um erro na requisição.', 'error');
+            });
         });
-    });
+    }
 
     // Detalhes Produto
     const modalDetalhesProduto = document.getElementById('modal-detalhes-produto');
     const btnFecharDetalhesProduto = document.getElementById('btn-fechar-detalhes-produto');
 
     function closeDetalhesProduto() {
-        modalDetalhesProduto.classList.remove('active');
+        if (modalDetalhesProduto) modalDetalhesProduto.classList.remove('active');
     }
 
-    btnFecharDetalhesProduto.addEventListener('click', closeDetalhesProduto);
+    if (btnFecharDetalhesProduto) btnFecharDetalhesProduto.addEventListener('click', closeDetalhesProduto);
 
-    modalDetalhesProduto.addEventListener('click', function(e) {
-        if (e.target === modalDetalhesProduto) closeDetalhesProduto();
-    });
+    if (modalDetalhesProduto) {
+        modalDetalhesProduto.addEventListener('click', function(e) {
+            if (e.target === modalDetalhesProduto) closeDetalhesProduto();
+        });
+    }
 
     window.abrirDetalhesProduto = function(id) {
         fetch(`/produtos/api/${id}/`, { headers: getAuthHeaders() })
             .then(res => res.json())
             .then(data => {
-                document.getElementById('det-prod-nome').textContent = data.nome || '-';
-                document.getElementById('det-prod-cat').textContent = data.categoria || '-';
-                document.getElementById('det-prod-sku').textContent = data.codigo_barras || '-';
-                document.getElementById('det-prod-cap').textContent = (data.capacidade && data.unidade_medida) ? `${data.capacidade} ${data.unidade_medida}` : '-';
-                document.getElementById('det-prod-preco').textContent = formatCurrency(data.preco) || '-';
-                document.getElementById('det-prod-est').textContent = `${data.estoque} un.` || '-';
+                const elNome = document.getElementById('det-prod-nome');
+                const elCat = document.getElementById('det-prod-cat');
+                const elSku = document.getElementById('det-prod-sku');
+                const elCap = document.getElementById('det-prod-cap');
+                const elPreco = document.getElementById('det-prod-preco');
+                const elEst = document.getElementById('det-prod-est');
 
-                modalDetalhesProduto.classList.add('active');
+                if (elNome) elNome.textContent = data.nome || '-';
+                if (elCat) elCat.textContent = data.categoria || '-';
+                if (elSku) elSku.textContent = data.codigo_barras || '-';
+                if (elCap) elCap.textContent = (data.capacidade && data.unidade_medida) ? `${data.capacidade} ${data.unidade_medida}` : '-';
+                if (elPreco) elPreco.textContent = formatCurrency(data.preco) || '-';
+                if (elEst) elEst.textContent = `${data.estoque} un.` || '-';
+
+                if (modalDetalhesProduto) modalDetalhesProduto.classList.add('active');
             })
             .catch(err => {
                 console.error(err);
                 Swal.fire('Erro', 'Erro ao carregar detalhes.', 'error');
             });
-    }
+    };
 
-    loadProdutos();
+    if (tbody) {
+        loadProdutos();
+    }
 });
