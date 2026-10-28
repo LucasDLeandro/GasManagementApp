@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ObjectDoesNotExist
 
 class User(AbstractUser):
     class TipoUsuario(models.TextChoices):
@@ -17,6 +18,18 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} - ({self.get_tipo_usuario_display()})"
+
+    @property
+    def vinculo_b2b(self):
+        """
+        Vínculo do Portal B2B (clientes.UsuarioClienteB2B) deste usuário, ou None
+        caso seja um usuário interno. Alias da relação reversa legada 'usuarioclienteb2b'.
+        """
+        try:
+            from clientes.models import UsuarioClienteB2B
+            return UsuarioClienteB2B.unscoped.filter(user=self).first()
+        except Exception:
+            return None
 # Create your models here.
 
 class UserProfile(models.Model):
@@ -43,3 +56,10 @@ class DadosTrabalhistas(models.Model):
 
     def __str__(self):
         return f"{self.user_profile.user.username} - {self.cargo}"
+
+
+def __getattr__(name):
+    if name == 'UsuarioClienteB2B':
+        from clientes.models import UsuarioClienteB2B
+        return UsuarioClienteB2B
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
