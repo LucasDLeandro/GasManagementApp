@@ -25,8 +25,54 @@ class Cliente(TenantAwareModel):
     telefone = models.CharField(max_length=20, verbose_name="Telefone")
     email_financeiro = models.EmailField(max_length=255, blank=True, null=True, verbose_name="E-mail Financeiro")
     proprietario = models.CharField(max_length=255, verbose_name="Responsável / Proprietário")
+
+    @property
+    def nome_razao_social(self):
+        return self.nome
+
+    @nome_razao_social.setter
+    def nome_razao_social(self, val):
+        self.nome = val
+
+    @property
+    def cpf_cnpj(self):
+        return self.cnpj
+
+    @cpf_cnpj.setter
+    def cpf_cnpj(self, val):
+        self.cnpj = val
+
     is_medicinal = models.BooleanField(default=False, verbose_name="Cliente de Gás Medicinal")
+    tipo_estabelecimento = models.CharField(
+        max_length=30,
+        choices=[
+            ('GERAL', 'Geral / Industrial / Comercial'),
+            ('HOSPITAL', 'Hospital / Clínica / Saúde'),
+        ],
+        default='GERAL',
+        verbose_name="Tipo de Estabelecimento"
+    )
     cnes_licenca_sanitaria = models.CharField(max_length=50, blank=True, null=True, verbose_name="CNES / Licença Sanitária")
+    # Isenção controlada de bloqueio financeiro (Sprint 11C - Task 6)
+    bloqueio_isento = models.BooleanField(default=False, verbose_name="Isento de Bloqueio Financeiro")
+    isencao_justificativa = models.TextField(blank=True, default='', verbose_name="Justificativa da Isenção")
+    isencao_validade = models.DateField(null=True, blank=True, verbose_name="Validade da Isenção")
+    # Campos fiscais (Sprint 11A - Task 3)
+    ie = models.CharField(max_length=20, blank=True, default='', verbose_name="Inscrição Estadual")
+    indicador_ie = models.CharField(
+        max_length=1,
+        choices=[
+            ('1', '1 - Contribuinte ICMS'),
+            ('2', '2 - Contribuinte Isento'),
+            ('9', '9 - Não Contribuinte'),
+        ],
+        default='9',
+        verbose_name="Indicador da IE"
+    )
+    municipio_ibge = models.CharField(max_length=7, blank=True, default='', verbose_name="Código Município IBGE")
+    # Coordenadas geográficas para roteirização e logística (Sprint 12A - Tarefa 1)
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True, verbose_name="Latitude")
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True, verbose_name="Longitude")
     cliente_matriz = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
@@ -38,6 +84,7 @@ class Cliente(TenantAwareModel):
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
+
     class Meta:
         verbose_name = "Cliente"
         verbose_name_plural = "Clientes"
@@ -48,6 +95,16 @@ class Cliente(TenantAwareModel):
 
     def __str__(self):
         return f"{self.nome} - {self.cnpj}"
+
+    @property
+    def documento(self):
+        """Identificador fiscal principal do cliente (compatibilidade de interface)."""
+        return self.cnpj
+
+    @property
+    def email(self):
+        """E-mail para contatos e notificações financeiras."""
+        return self.email_financeiro
 
     @property
     def contrato_comodato(self):
@@ -65,6 +122,29 @@ class Cliente(TenantAwareModel):
             # Fallback para o mais recente registrado
             contrato_vigente = self.contratos_comodato.order_by('-vigencia_inicio').first()
         return contrato_vigente
+
+
+class GeocodificacaoCache(TenantAwareModel):
+    """
+    Cache de geocodificação de endereços para roteirização e cálculo de rotas (Sprint 12A - Tarefa 1).
+    Evita chamadas repetidas a provedores externos de geocoding.
+    """
+    endereco_chave = models.CharField(max_length=255, db_index=True, verbose_name="Chave Normalizada do Endereço")
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, verbose_name="Latitude")
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, verbose_name="Longitude")
+    provedor = models.CharField(max_length=50, default='LOCAL', verbose_name="Provedor de Geocodificação")
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Cache de Geocodificação"
+        verbose_name_plural = "Caches de Geocodificação"
+        constraints = [
+            models.UniqueConstraint(fields=['tenant', 'endereco_chave'], name='unique_tenant_geocodificacao_cache')
+        ]
+
+    def __str__(self):
+        return f"{self.endereco_chave} -> ({self.latitude}, {self.longitude})"
 
 
 class ContratoComodato(TenantAwareModel):
@@ -348,6 +428,14 @@ class FechamentoFaturaEstadia(TenantAwareModel):
         on_delete=models.PROTECT,
         related_name='faturas_estadia',
         verbose_name="Cliente"
+    )
+    filial = models.ForeignKey(
+        'core.Filial',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='faturas_estadia',
+        verbose_name="Filial"
     )
     competencia_ano_mes = models.CharField(
         max_length=7,
@@ -697,4 +785,117 @@ class ExtravioCilindroRegistro(TenantAwareModel):
             elif self.cilindro_id:
                 self.tenant_id = self.cilindro.tenant_id
         super().save(*args, **kwargs)
+
+
+class UsuarioClienteB2B(TenantAwareModel):
+    """
+    Vínculo de autenticação do Portal B2B do Cliente (Autoatendimento).
+    Conecta um usuário do sistema ao Cliente empresarial (PJ/Hospital/Indústria),
+    assegurando isolamento multitenant estrito e fail-closed.
+
+    Sprint 12B: identidade separada do sistema interno (backend, URLConf e cookie de sessão
+    próprios em portal_b2b), papéis, MFA TOTP, bloqueio por tentativas, termo de uso e revogação.
+    O campo legado 'user' é mantido (alias de leitura: 'usuario') até a Sprint 13.
+    """
+    PAPEL_COMPRADOR = 'COMPRADOR'
+    PAPEL_FINANCEIRO = 'FINANCEIRO'
+    PAPEL_LEITOR = 'LEITOR'
+    PAPEL_CHOICES = [
+        (PAPEL_COMPRADOR, 'Comprador (consulta e solicita reposição)'),
+        (PAPEL_FINANCEIRO, 'Financeiro (boletos, notas e faturas — MFA obrigatória)'),
+        (PAPEL_LEITOR, 'Leitor (somente consulta)'),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='usuarioclienteb2b',
+        verbose_name="Usuário de Acesso"
+    )
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='usuarios_b2b',
+        verbose_name="Cliente Associado"
+    )
+    cargo = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Cargo / Função no Cliente"
+    )
+    telefone_contato = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name="Telefone Direto"
+    )
+    ativo = models.BooleanField(
+        default=True,
+        db_index=True,
+        verbose_name="Acesso Ativo"
+    )
+    # --- Sprint 12B: papéis e controle de acesso ---
+    papel = models.CharField(
+        max_length=12,
+        choices=PAPEL_CHOICES,
+        default=PAPEL_LEITOR,
+        verbose_name="Papel no Portal"
+    )
+    administrador_cliente = models.BooleanField(
+        default=False,
+        verbose_name="Administrador do Cliente (gerencia os demais usuários do próprio cliente)"
+    )
+    ultimo_acesso = models.DateTimeField(null=True, blank=True, verbose_name="Último Acesso")
+    tentativas_falhas = models.PositiveSmallIntegerField(default=0, verbose_name="Tentativas de Login Falhas Consecutivas")
+    bloqueado_ate = models.DateTimeField(null=True, blank=True, verbose_name="Bloqueado até")
+    senha_alterada_em = models.DateTimeField(null=True, blank=True, verbose_name="Senha Definida em")
+    termo_aceito_em = models.DateTimeField(null=True, blank=True, verbose_name="Termo de Uso Aceito em")
+    termo_versao = models.CharField(max_length=20, blank=True, default='', verbose_name="Versão do Termo Aceito")
+    acesso_revogado_em = models.DateTimeField(null=True, blank=True, verbose_name="Acesso Revogado em")
+    revogado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        verbose_name="Revogado por"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Usuário do Cliente B2B"
+        verbose_name_plural = "Usuários dos Clientes B2B"
+        ordering = ['cliente__nome', 'user__username']
+        constraints = [
+            models.UniqueConstraint(fields=['tenant', 'user'], name='unique_tenant_usuario_b2b_user')
+        ]
+
+    def __str__(self):
+        nome_cliente = self.cliente.nome if self.cliente else "Sem Cliente"
+        return f"B2B: {self.user.username} -> {nome_cliente}"
+
+    @property
+    def usuario(self):
+        """Alias de leitura do campo legado 'user' (nomenclatura da especificação da Sprint 12B)."""
+        return self.user
+
+    @property
+    def mfa_obrigatoria(self) -> bool:
+        return self.papel == self.PAPEL_FINANCEIRO
+
+    @property
+    def pode_solicitar_reposicao(self) -> bool:
+        return self.papel == self.PAPEL_COMPRADOR
+
+    @property
+    def esta_bloqueado(self) -> bool:
+        return bool(self.bloqueado_ate and self.bloqueado_ate > timezone.now())
+
+    def save(self, *args, **kwargs):
+        if not self.tenant_id and self.cliente_id:
+            self.tenant_id = self.cliente.tenant_id
+        super().save(*args, **kwargs)
+
 

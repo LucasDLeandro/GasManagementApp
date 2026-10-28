@@ -823,6 +823,18 @@ def fechar_fatura_estadia_competencia(cliente, competencia_ano_mes, usuario=None
     except Exception:
         pass
 
+    # Publica evento de domínio para o subsistema financeiro (Sprint 7B)
+    try:
+        from core.eventos import publicar
+        publicar('fatura_estadia_fechada', {
+            'tenant': cliente.tenant,
+            'fatura_id': str(fatura.id),
+            'cliente_id': str(cliente.id),
+            'valor_total': fatura.valor_liquido_total,
+        })
+    except Exception:
+        pass
+
     return fatura
 
 

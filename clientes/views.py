@@ -8,7 +8,7 @@ from django.db.models import Sum, F, Q
 from django.utils import timezone
 from vendas.models import Venda
 from core.mixins import TenantViewSetMixin
-from core.tenancy import get_current_tenant
+from core.permissions import IsTenantAdminOrGerente, RequiresModuleComercial
 from produtos.models import Cilindro
 
 from .models import Cliente, ContratoComodato
@@ -148,12 +148,12 @@ class ContratoComodatoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     """
     queryset = ContratoComodato.unscoped.all()
     serializer_class = ContratoComodatoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresModuleComercial]
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAuthenticated(), IsTenantAdminOrGerente()]
-        return [IsAuthenticated()]
+            return [IsAuthenticated(), RequiresModuleComercial(), IsTenantAdminOrGerente()]
+        return [IsAuthenticated(), RequiresModuleComercial()]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -342,7 +342,7 @@ class FechamentoFaturaEstadiaViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelV
     """
     queryset = FechamentoFaturaEstadia.unscoped.all()
     serializer_class = FechamentoFaturaEstadiaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresModuleComercial]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -354,7 +354,7 @@ class FechamentoFaturaEstadiaViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelV
             qs = qs.filter(competencia_ano_mes=competencia)
         return qs.order_by('-competencia_ano_mes')
 
-    @action(detail=False, methods=['post'], url_path='simular-drill-down', permission_classes=[IsAuthenticated, IsTenantAdminOrGerente])
+    @action(detail=False, methods=['post'], url_path='simular-drill-down', permission_classes=[IsAuthenticated, RequiresModuleComercial, IsTenantAdminOrGerente])
     def simular_drill_down(self, request):
         """
         Passo 1 & 2 do Stepper: Simula o fechamento (persistir=False) e retorna a árvore completa de drill-down.
@@ -393,7 +393,7 @@ class FechamentoFaturaEstadiaViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelV
         dados = _montar_drill_down(fatura, fatura.cliente, fatura.competencia_ano_mes, tenant_id)
         return Response(dados, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsTenantAdminOrGerente])
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, RequiresModuleComercial, IsTenantAdminOrGerente])
     def fechar(self, request):
         """
         Passo 3 do Stepper: Executa o fechamento formal, gravando o snapshot imutável e disparando o Outbox.
@@ -469,7 +469,7 @@ class ExtravioCilindroViewSet(TenantViewSetMixin, viewsets.ViewSet):
     """
     API para identificação de alertas de extravio, radar preventivo de carência e registro de indenização patrimonial (Fase 2).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresModuleComercial]
 
     @action(detail=False, methods=['get'], url_path='alertas')
     def alertas(self, request):
