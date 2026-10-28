@@ -1,0 +1,66 @@
+    <!-- ============================================================================== -->
+    <!-- ABA 1: ATIVOS 360° (CILINDROS DA FROTA)                                        -->
+    <!-- ============================================================================== -->
+    <div id="aba-conteudo-ativos">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0;">Frota de Cilindros & Ativos 360°</h2>
+                <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Gestão patrimonial com rastreabilidade imutável, ABNT NBR 12176 e controle regulatório INMETRO/ANVISA.</p>
+            </div>
+            
+            <div class="search-bar-container" style="margin: 0;">
+                <div class="search-input-wrapper">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="input-busca-cilindros" placeholder="Buscar por QR, Nº Série Ogiva ou Fabricante...">
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de Pílulas de Filtros Rápidos -->
+        <div class="filter-pills-bar">
+            <button class="pill-filter-btn active" data-filter="todos">Todos</button>
+            <button class="pill-filter-btn" data-filter="CHEIO_DISPONIVEL">Cheios no Pátio</button>
+            {% if tem_modulo_distribuicao %}
+            <button class="pill-filter-btn" data-filter="EM_POSSE_CLIENTE">Em Clientes</button>
+            {% endif %}
+            <button class="pill-filter-btn" data-filter="VAZIO_TRIAGEM">Vazios em Triagem</button>
+            <button class="pill-filter-btn" data-filter="bloqueio_sanitario">Bloqueio Sanitário</button>
+            <button class="pill-filter-btn" data-filter="reteste_vencido">Reteste Vencido</button>
+            <button class="pill-filter-btn" data-filter="proprio">Patrimônio Próprio</button>
+        </div>
+
+        <!-- Tabela Server-Side de Cilindros -->
+        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                <thead>
+                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
+                        <th style="padding: 12px 16px;">Código QR / Ogiva</th>
+                        <th style="padding: 12px 16px;">Gás (ABNT NBR 12176)</th>
+                        <th style="padding: 12px 16px;">Capacidade / Tara</th>
+                        <th style="padding: 12px 16px;">Status Operacional</th>
+                        <th style="padding: 12px 16px;">Reteste INMETRO</th>
+                        <th style="padding: 12px 16px;">Bloqueio ANVISA</th>
+                        <th style="padding: 12px 16px;">Localização Atual</th>
+                        <th style="padding: 12px 16px; text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="cilindros-tbody">
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: var(--color-text-muted); padding: 30px;">Carregando frota de cilindros...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginação -->
+        <div class="pagination-bar">
+            <span id="pagination-info" style="font-size: 13px; color: var(--color-text-muted);">Página 1</span>
+            <div style="display: flex; gap: 8px;">
+                <button id="btn-prev-page" class="btn-auth" style="padding: 6px 14px; font-size: 13px; background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" disabled>&larr; Anterior</button>
+                <button id="btn-next-page" class="btn-auth" style="padding: 6px 14px; font-size: 13px; background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" disabled>Próxima &rarr;</button>
+            </div>
+        </div>
+    </div>

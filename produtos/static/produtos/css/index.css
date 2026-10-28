@@ -382,3 +382,155 @@ th {
         border: 2px solid #000;
     }
 }
+
+/* Estilos que estavam inline em produtos/index.html (Fase 2.1) */
+    .module-tabs-nav {
+        display: flex;
+        gap: 8px;
+        border-bottom: 2px solid var(--color-border);
+        margin-bottom: 24px;
+        padding-bottom: 0;
+    }
+
+    .module-tab-btn {
+        padding: 10px 18px;
+        font-size: 14px;
+        font-weight: 600;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: color 0.15s, border-color 0.15s;
+    }
+
+    .module-tab-btn:hover {
+        color: var(--color-primary);
+    }
+
+    .module-tab-btn.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+    }
+
+    /* Pílulas de Filtro Rápido */
+    .filter-pills-bar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .pill-filter-btn {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-muted);
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .pill-filter-btn:hover {
+        background: var(--color-hover);
+        color: var(--color-text);
+        border-color: var(--color-text-muted);
+    }
+
+    .pill-filter-btn.active {
+        background: var(--color-primary);
+        color: #ffffff;
+        border-color: var(--color-primary);
+    }
+
+    .search-bar-container {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        flex: 1;
+        max-width: 480px;
+    }
+
+    .search-input-wrapper input {
+        width: 100%;
+        padding: 9px 14px 9px 36px;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        font-size: 14px;
+        background: var(--color-surface);
+        color: var(--color-text);
+        outline: none;
+    }
+
+    .search-input-wrapper svg {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-text-muted);
+    }
+
+    .pagination-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid var(--color-border);
+    }
+
+    /* Layout da Etiqueta Térmica 60x40mm */
+    .thermal-label-preview {
+        width: 320px;
+        height: 213px; /* Proporção 60x40mm */
+        border: 2px dashed #0f172a;
+        border-radius: 6px;
+        padding: 12px;
+        background: #ffffff;
+        color: #000000;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        margin: 16px auto;
+        font-family: var(--font-family-mono);
+    }
+
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #modal-etiqueta-termica, #modal-etiqueta-termica * {
+            visibility: visible;
+        }
+        #modal-etiqueta-termica {
+            position: absolute;
+            left: 0;
+            top: 0;
+            margin: 0;
+            padding: 0;
+            border: none;
+            width: 60mm;
+            height: 40mm;
+        }
+        .thermal-label-preview {
+            width: 58mm;
+            height: 38mm;
+            border: none;
+            margin: 0;
+            padding: 2mm;
+        }
+    }
