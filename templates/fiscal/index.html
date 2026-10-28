@@ -1,0 +1,331 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}Emissão Fiscal & NF-e | GasManagementApp{% endblock %}
+
+{% block dashboard_content %}
+<div class="fiscal-dashboard-container" style="padding: 24px; max-width: 1400px; margin: 0 auto;">
+    
+    <!-- Header & Ações Globais -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h1 style="font-size: 24px; font-weight: 700; color: var(--color-text, #1e293b); margin: 0 0 4px 0;">
+                📑 Gestão Fiscal & NF-e (Modelo 55)
+            </h1>
+            <p style="color: var(--color-text-muted, #64748b); font-size: 14px; margin: 0;">
+                Emissão eletrônica de NF-e, motor tributário homologado e governança com SEFAZ.
+            </p>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <button onclick="abrirModalDownloadContador()" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; background: var(--color-surface, #fff); border: 1px solid var(--color-border, #cbd5e1); font-weight: 600; cursor: pointer;">
+                📦 Exportar XMLs (Contador)
+            </button>
+            <button onclick="auditarLacunas()" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; background: #0284c7; color: white; border: none; font-weight: 600; cursor: pointer;">
+                🔍 Auditar Numeração
+            </button>
+        </div>
+    </div>
+
+    <!-- Alertas de Certificado Digital A1 -->
+    {% if alertas_certificados %}
+    <div style="margin-bottom: 24px;">
+        {% for alerta in alertas_certificados %}
+        <div style="background: {% if alerta.expirado %}#fef2f2{% else %}#fffbeb{% endif %}; border-left: 4px solid {% if alerta.expirado %}#ef4444{% else %}#f59e0b{% endif %}; padding: 16px; border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 20px;">{% if alerta.expirado %}🚨{% else %}⚠️{% endif %}</span>
+                <div>
+                    <strong style="color: {% if alerta.expirado %}#991b1b{% else %}#92400e{% endif %}; font-size: 14px;">
+                        {{ alerta.mensagem }}
+                    </strong>
+                    <div style="font-size: 13px; color: #6b7280;">Filial: {{ alerta.filial_nome }} | Vencimento: {{ alerta.valido_ate }}</div>
+                </div>
+            </div>
+            <a href="{% url 'fiscal:configuracao-fiscal-list' %}" style="font-size: 13px; font-weight: 600; color: #0284c7; text-decoration: underline;">
+                Renovar Certificado &rarr;
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Grid de Métricas Principais -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px;">
+        <div style="background: var(--color-surface, #fff); padding: 20px; border-radius: 12px; border: 1px solid var(--color-border, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size: 13px; color: var(--color-text-muted, #64748b); font-weight: 600; text-transform: uppercase;">Total de Notas</div>
+            <div style="font-size: 28px; font-weight: 700; color: var(--color-text, #0f172a); margin-top: 4px;">{{ total_docs }}</div>
+        </div>
+
+        <div style="background: var(--color-surface, #fff); padding: 20px; border-radius: 12px; border: 1px solid var(--color-border, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size: 13px; color: #16a34a; font-weight: 600; text-transform: uppercase;">Autorizadas SEFAZ</div>
+            <div style="font-size: 28px; font-weight: 700; color: #15803d; margin-top: 4px;">{{ total_autorizados }}</div>
+        </div>
+
+        <div style="background: var(--color-surface, #fff); padding: 20px; border-radius: 12px; border: 1px solid var(--color-border, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size: 13px; color: #dc2626; font-weight: 600; text-transform: uppercase;">Rejeições</div>
+            <div style="font-size: 28px; font-weight: 700; color: #b91c1c; margin-top: 4px;">{{ total_rejeitados }}</div>
+        </div>
+
+        <div style="background: var(--color-surface, #fff); padding: 20px; border-radius: 12px; border: 1px solid var(--color-border, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase;">Canceladas</div>
+            <div style="font-size: 28px; font-weight: 700; color: #475569; margin-top: 4px;">{{ total_cancelados }}</div>
+        </div>
+
+        <div style="background: var(--color-surface, #fff); padding: 20px; border-radius: 12px; border: 1px solid var(--color-border, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size: 13px; color: #0284c7; font-weight: 600; text-transform: uppercase;">Regras Aprovadas</div>
+            <div style="font-size: 28px; font-weight: 700; color: #0369a1; margin-top: 4px;">{{ regras_aprovadas }}/{{ total_regras }}</div>
+        </div>
+    </div>
+
+    <!-- Filtros de Consulta -->
+    <div style="background: var(--color-surface, #fff); padding: 16px; border-radius: 10px; border: 1px solid var(--color-border, #e2e8f0); margin-bottom: 20px;">
+        <form method="get" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+            <div>
+                <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted, #64748b);">Status Fiscal</label>
+                <select name="status" style="display: block; margin-top: 4px; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px;">
+                    <option value="">Todos os Status</option>
+                    <option value="AUTORIZADO" {% if status_filtro == 'AUTORIZADO' %}selected{% endif %}>Autorizado</option>
+                    <option value="REJEITADO" {% if status_filtro == 'REJEITADO' %}selected{% endif %}>Rejeitado</option>
+                    <option value="ENVIADO" {% if status_filtro == 'ENVIADO' %}selected{% endif %}>Enviado / Processando</option>
+                    <option value="CANCELADO" {% if status_filtro == 'CANCELADO' %}selected{% endif %}>Cancelado</option>
+                </select>
+            </div>
+
+            <div>
+                <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted, #64748b);">Modelo Fiscal</label>
+                <select name="modelo" style="display: block; margin-top: 4px; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px;">
+                    <option value="">Todos os Modelos</option>
+                    <option value="NFE_55" {% if modelo_filtro == 'NFE_55' %}selected{% endif %}>NF-e (55)</option>
+                    <option value="MDFE_58" {% if modelo_filtro == 'MDFE_58' %}selected{% endif %}>MDF-e (58)</option>
+                    <option value="CTE_57" {% if modelo_filtro == 'CTE_57' %}selected{% endif %}>CT-e (57)</option>
+                </select>
+            </div>
+
+            <button type="submit" style="padding: 8px 16px; border-radius: 6px; background: #334155; color: white; border: none; font-weight: 600; cursor: pointer;">
+                Filtrar
+            </button>
+            <a href="{% url 'fiscal:index' %}" style="padding: 8px 16px; font-size: 14px; color: #64748b; text-decoration: none;">Limpar</a>
+        </form>
+    </div>
+
+    <!-- Tabela de Documentos Fiscais -->
+    <div style="background: var(--color-surface, #fff); border-radius: 12px; border: 1px solid var(--color-border, #e2e8f0); overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 1px solid var(--color-border, #e2e8f0); color: #475569; font-weight: 600;">
+                    <th style="padding: 12px 16px;">Número/Série</th>
+                    <th style="padding: 12px 16px;">Modelo</th>
+                    <th style="padding: 12px 16px;">Filial</th>
+                    <th style="padding: 12px 16px;">Valor Total</th>
+                    <th style="padding: 12px 16px;">Status SEFAZ</th>
+                    <th style="padding: 12px 16px;">Chave de Acesso / Motivo</th>
+                    <th style="padding: 12px 16px;">Data</th>
+                    <th style="padding: 12px 16px; text-align: right;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documentos %}
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px 16px; font-weight: 700; color: #0f172a;">
+                        #{{ doc.numero }} <span style="font-size: 12px; color: #64748b; font-weight: 400;">(Série {{ doc.serie }})</span>
+                    </td>
+                    <td style="padding: 12px 16px;">
+                        <span style="font-size: 12px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 600;">
+                            {{ doc.get_modelo_display }}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px; color: #334155;">{{ doc.filial.nome }}</td>
+                    <td style="padding: 12px 16px; font-weight: 600; color: #0f172a;">R$ {{ doc.valor_total }}</td>
+                    <td style="padding: 12px 16px;">
+                        {% if doc.status == 'AUTORIZADO' %}
+                            <span style="background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600;">AUTORIZADO</span>
+                        {% elif doc.status == 'REJEITADO' %}
+                            <span style="background: #fee2e2; color: #b91c1c; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600;">REJEITADO</span>
+                        {% elif doc.status == 'CANCELADO' %}
+                            <span style="background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600;">CANCELADO</span>
+                        {% else %}
+                            <span style="background: #fef3c7; color: #b45309; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600;">{{ doc.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px 16px; font-size: 13px;">
+                        {% if doc.chave_acesso %}
+                            <code style="font-size: 11px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;" title="{{ doc.chave_acesso }}">
+                                {{ doc.chave_acesso|slice:":6" }}...{{ doc.chave_acesso|slice:"-6:" }}
+                            </code>
+                        {% elif doc.motivo_rejeicao %}
+                            <div style="color: #b91c1c; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ doc.motivo_rejeicao }}">
+                                ⚠️ {{ doc.motivo_rejeicao }}
+                            </div>
+                            {% if doc.acao_sugerida %}
+                            <div style="font-size: 11px; color: #64748b;">Ação: {{ doc.acao_sugerida }}</div>
+                            {% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px 16px; color: #64748b; font-size: 13px;">
+                        {{ doc.criado_em|date:"d/m/Y H:i" }}
+                    </td>
+                    <td style="padding: 12px 16px; text-align: right;">
+                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                            {% if doc.status == 'AUTORIZADO' %}
+                                <a href="{% url 'fiscal:documento-fiscal-download-xml' pk=doc.id %}" target="_blank" class="btn" style="padding: 4px 8px; font-size: 12px; background: #f1f5f9; border-radius: 4px; text-decoration: none; color: #0284c7; font-weight: 600;" title="Baixar XML">
+                                    XML
+                                </a>
+                                {% if doc.danfe_url %}
+                                <a href="{{ doc.danfe_url }}" target="_blank" class="btn" style="padding: 4px 8px; font-size: 12px; background: #f1f5f9; border-radius: 4px; text-decoration: none; color: #0284c7; font-weight: 600;" title="Imprimir DANFE">
+                                    DANFE
+                                </a>
+                                {% endif %}
+                                <button onclick="abrirModalCancelar('{{ doc.id }}', '{{ doc.numero }}')" style="padding: 4px 8px; font-size: 12px; background: #fee2e2; color: #b91c1c; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                    Cancelar
+                                </button>
+                            {% elif doc.status == 'REJEITADO' %}
+                                <button onclick="reenviarDocumento('{{ doc.id }}')" style="padding: 4px 8px; font-size: 12px; background: #e0f2fe; color: #0369a1; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                    Reenviar
+                                </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="padding: 48px; text-align: center; color: #94a3b8;">
+                        Nenhum documento fiscal encontrado com os filtros selecionados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal de Cancelamento -->
+<div id="modalCancelar" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+        <h3 style="margin-top: 0; color: #0f172a; font-size: 18px;">Cancelar NF-e #<span id="cancelarNumeroDoc"></span></h3>
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+            A SEFAZ exige uma justificativa formal com no mínimo 15 caracteres. O cancelamento é irreversível.
+        </p>
+        <textarea id="cancelarJustificativa" rows="4" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; font-size: 14px; box-sizing: border-box;" placeholder="Informe a justificativa do cancelamento (mínimo 15 caracteres)..."></textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+            <button onclick="fecharModalCancelar()" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer;">Voltar</button>
+            <button onclick="confirmarCancelamento()" style="padding: 8px 16px; border: none; border-radius: 6px; background: #dc2626; color: white; font-weight: 600; cursor: pointer;">Confirmar Cancelamento</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let docCancelandoId = null;
+
+function abrirModalCancelar(id, numero) {
+    docCancelandoId = id;
+    document.getElementById('cancelarNumeroDoc').innerText = numero;
+    document.getElementById('cancelarJustificativa').value = '';
+    document.getElementById('modalCancelar').style.display = 'flex';
+}
+
+function fecharModalCancelar() {
+    docCancelandoId = null;
+    document.getElementById('modalCancelar').style.display = 'none';
+}
+
+async function confirmarCancelamento() {
+    const just = document.getElementById('cancelarJustificativa').value.trim();
+    if (just.length < 15) {
+        alert("A justificativa deve conter no mínimo 15 caracteres conforme exigência da SEFAZ.");
+        return;
+    }
+
+    try {
+        const resp = await fetch(`/api/fiscal/documentos/${docCancelandoId}/cancelar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ justificativa: just })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert("Documento cancelado com sucesso!");
+            window.location.reload();
+        } else {
+            alert("Erro ao cancelar: " + (data.error || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert("Erro na requisição: " + e);
+    }
+}
+
+async function reenviarDocumento(id) {
+    if (!confirm("Deseja reenviar a NF-e para autorização na SEFAZ?")) return;
+    try {
+        const resp = await fetch(`/api/fiscal/documentos/${id}/reenviar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert("Documento reenviado! Status: " + data.status);
+            window.location.reload();
+        } else {
+            alert("Erro ao reenviar: " + (data.error || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert("Erro na requisição: " + e);
+    }
+}
+
+function abrirModalDownloadContador() {
+    const dtIni = prompt("Informe a data inicial (AAAA-MM-DD) ou deixe vazio para todo o histórico:");
+    const dtFim = prompt("Informe a data final (AAAA-MM-DD) ou deixe vazio para a data atual:");
+    let url = "/api/fiscal/documentos/download_lote_contador/?";
+    if (dtIni) url += "data_inicio=" + dtIni + "&";
+    if (dtFim) url += "data_fim=" + dtFim + "&";
+    window.location.href = url;
+}
+
+async function auditarLacunas() {
+    const filialId = prompt("Informe o ID da filial para auditoria de numeração:");
+    if (!filialId) return;
+
+    try {
+        const resp = await fetch(`/api/fiscal/inutilizacoes/detectar_lacunas/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ filial_id: parseInt(filialId) })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert(`Auditoria concluída! ${data.lacunas_detectadas} tarefas de inutilização registradas.`);
+            window.location.reload();
+        } else {
+            alert("Erro na auditoria: " + (data.error || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert("Erro na requisição: " + e);
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
