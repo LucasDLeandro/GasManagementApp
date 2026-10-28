@@ -41,6 +41,16 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 
 **Objetivo:** proteger o código, partir de uma suíte 100% verde e fechar os bugs que afetam dados ou segurança.
 
+> **Status (27/10/2026): concluída na branch `fase-0/estabilizacao`**, exceto o push (0.1.3), que aguarda sua autorização. Suíte: **636 aprovados, 0 falhas** (antes: 609 aprovados e 10 falhas).
+>
+> Bugs reais encontrados durante a correção dos testes, além dos já listados:
+> - **Rastreio público respondia 404 para todos**: busca com escopo de tenant numa rota sem tenant. A página também lia campos com nomes diferentes dos que o serviço devolvia.
+> - **GPS do App de Campo nunca era gravado**: o PWA envia `lat`/`lng` e o servidor só aceitava `latitude`/`longitude`.
+> - **Botão "Testar webhook" sempre mostrava falha**: com `ATOMIC_REQUESTS`, o envio só acontecia depois da resposta.
+> - **`core.js` parava inteiro em páginas sem o botão de logout.**
+>
+> Pendências anotadas para fases seguintes: a página pública de rastreio e o login do backoffice carregam fontes e o Leaflet de CDN, o que viola a decisão D5 (self-host). Isso vai para a Fase 8 (rastreio) e para a Fase 1 (backoffice).
+
 ### 0.1 Versionamento
 | ID | Tarefa | Arquivos | Pronto quando | Tam. |
 |---|---|---|---|:---:|
