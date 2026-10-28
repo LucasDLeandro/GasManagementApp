@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.db.models import Sum, Count, F, Q
 from django.db.models.functions import TruncDate, Coalesce
 from django.utils import timezone
@@ -148,8 +149,16 @@ class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         novo_status = request.data.get('status')
         if novo_status not in dict(Venda.STATUS_CHOICES):
             return Response({'error': 'Status inválido.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        venda.status = novo_status
+
+        from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from .services.status import STATUS_FATURAMENTO, transicionar_venda
+        try:
+            transicionar_venda(venda, novo_status, request.user)
+        except DjangoPermissionDenied as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except DjangoValidationError as e:
+            return Response({'error': e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
 
         # Se solicitar criação de entrega ou se estiver iniciando separação
         if request.data.get('gerar_entrega_logistica') and not venda.entrega:
@@ -158,28 +167,29 @@ class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
             nova_entrega = Entrega.objects.create(tenant=venda.tenant, status='Agendada')
             venda.entrega = nova_entrega
 
-        venda.save()
+        try:
+            with transaction.atomic():
+                venda.save()
 
-        # Publica evento de domínio quando faturada/finalizada (Sprint 8C / Sprint 11A - Tarefa 9)
-        if novo_status in ('Faturada', 'Finalizada'):
-            custo_total_cpv = Decimal('0.00')
-            try:
-                from produtos.services.estoque_produto import baixar_estoque_venda_faturada
-                custo_total_cpv = baixar_estoque_venda_faturada(venda)
-            except Exception:
-                pass
+                # Publica evento de domínio quando faturada/finalizada (Sprint 8C / Sprint 11A - Tarefa 9)
+                if novo_status in STATUS_FATURAMENTO:
+                    # Idempotente: Faturada → Finalizada não baixa o estoque duas vezes.
+                    from produtos.services.estoque_produto import baixar_estoque_venda_faturada
+                    custo_total_cpv = baixar_estoque_venda_faturada(venda)
 
-            # Sprint 11A - Tarefa 9: com modulo_fiscal_ativo, a venda só publica
-            # venda_faturada quando a NF-e estiver AUTORIZADA, com os tributos reais.
-            from core.modulos import is_modulo_ativo
-            if not is_modulo_ativo(venda.tenant, 'fiscal'):
-                publicar('venda_faturada', {
-                    'tenant': venda.tenant,
-                    'venda_id': str(venda.id),
-                    'cliente_id': str(venda.cliente_id) if venda.cliente else None,
-                    'valor_total': venda.valor_total,
-                    'custo_total': custo_total_cpv,
-                })
+                    # Sprint 11A - Tarefa 9: com modulo_fiscal_ativo, a venda só publica
+                    # venda_faturada quando a NF-e estiver AUTORIZADA, com os tributos reais.
+                    from core.modulos import is_modulo_ativo
+                    if not is_modulo_ativo(venda.tenant, 'fiscal'):
+                        publicar('venda_faturada', {
+                            'tenant': venda.tenant,
+                            'venda_id': str(venda.id),
+                            'cliente_id': str(venda.cliente_id) if venda.cliente else None,
+                            'valor_total': venda.valor_total,
+                            'custo_total': custo_total_cpv,
+                        })
+        except DjangoValidationError as e:
+            return Response({'error': e.messages[0]}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
             'status': 'sucesso',

@@ -126,6 +126,16 @@ def baixar_estoque_venda_faturada(venda):
     """
     cpv_total = Decimal('0.00')
 
+    # Idempotente: a venda pode passar por 'Faturada' e depois 'Finalizada';
+    # o estoque só é baixado uma vez por venda.
+    baixas_existentes = MovimentoEstoqueProduto.unscoped.filter(
+        tenant=venda.tenant, tipo='SAIDA_VENDA', origem_tipo='Venda', origem_id=str(venda.id)
+    )
+    if baixas_existentes.exists():
+        for mov in baixas_existentes:
+            cpv_total += mov.custo_total
+        return quantize(cpv_total, 2)
+
     for item in venda.itens.all():
         qtd_item = Decimal(str(item.quantidade))
         sku = item.sku

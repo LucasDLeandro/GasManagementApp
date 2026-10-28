@@ -8,7 +8,7 @@ from rest_framework import status
 from core.models import Tenant, Membership
 from core.tenancy import tenant_context
 from clientes.models import Cliente
-from produtos.models import Produto, GasQuimico, ModeloCilindro, SkuRecarga
+from produtos.models import MovimentoEstoqueProduto, Produto, GasQuimico, ModeloCilindro, SkuRecarga
 from vendas.models import Venda, ItemVenda
 from logistica.models import Entrega
 
@@ -268,3 +268,74 @@ class VendaModelAndApiTestCase(TestCase):
         with tenant_context(self.tenant_a):
             venda.refresh_from_db()
             self.assertEqual(venda.status, 'Finalizada')
+
+    # ---------------------------------------------------------
+    # Máquina de estados da venda (Plano de Correção 0.3.2 / 0.3.3)
+    # ---------------------------------------------------------
+    def _alterar(self, venda, novo_status):
+        return self.client.post(f'/vendas/api/{venda.id}/alterar_status/', data={'status': novo_status}, format='json')
+
+    def _venda_com_item(self, status_inicial='Pendente'):
+        with tenant_context(self.tenant_a):
+            venda = Venda.objects.create(cliente=self.cliente_a, status=status_inicial, valor_total=Decimal('300.00'))
+            ItemVenda.objects.create(venda=venda, produto=self.produto_o2, quantidade=2,
+                                     valor_unitario=Decimal('150.00'), valor_total=Decimal('300.00'))
+        return venda
+
+    def _baixas(self, venda):
+        return MovimentoEstoqueProduto.unscoped.filter(
+            tenant=self.tenant_a, tipo='SAIDA_VENDA', origem_tipo='Venda', origem_id=str(venda.id)
+        ).count()
+
+    def test_venda_bloqueada_por_credito_nao_pode_ser_faturada(self):
+        self.client.force_login(self.user_a)
+        venda = self._venda_com_item('BLOQUEADO_FINANCEIRO')
+
+        res = self._alterar(venda, 'Faturada')
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('bloqueada', res.json()['error'])
+        with tenant_context(self.tenant_a):
+            venda.refresh_from_db()
+        self.assertEqual(venda.status, 'BLOQUEADO_FINANCEIRO')
+
+    def test_venda_bloqueada_pode_ser_cancelada(self):
+        self.client.force_login(self.user_a)
+        venda = self._venda_com_item('BLOQUEADO_FINANCEIRO')
+
+        self.assertEqual(self._alterar(venda, 'Cancelada').status_code, status.HTTP_200_OK)
+
+    def test_transicao_invalida_e_status_final(self):
+        self.client.force_login(self.user_a)
+        venda = self._venda_com_item('Pendente')
+
+        self.assertEqual(self._alterar(venda, 'Entregue').status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self._alterar(venda, 'Cancelada').status_code, status.HTTP_200_OK)
+        self.assertEqual(self._alterar(venda, 'Pendente').status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_papel_sem_permissao_nao_altera_status(self):
+        motorista = User.objects.create_user(username='motorista.alfa', password='senha_mot_123')
+        Membership.objects.create(user=motorista, tenant=self.tenant_a, papel='MOTORISTA', ativo=True)
+        self.client.force_login(motorista)
+        venda = self._venda_com_item('Pendente')
+
+        self.assertEqual(self._alterar(venda, 'Faturada').status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_faturada_depois_finalizada_baixa_estoque_uma_vez(self):
+        self.client.force_login(self.user_a)
+        venda = self._venda_com_item('Pendente')
+
+        self.assertEqual(self._alterar(venda, 'Faturada').status_code, status.HTTP_200_OK)
+        self.assertEqual(self._baixas(venda), 1)
+        self.assertEqual(self._alterar(venda, 'Finalizada').status_code, status.HTTP_200_OK)
+        self.assertEqual(self._baixas(venda), 1)
+
+    def test_venda_faturada_nao_pode_ser_cancelada_sem_estorno(self):
+        self.client.force_login(self.user_a)
+        venda = self._venda_com_item('Pendente')
+        self._alterar(venda, 'Faturada')
+
+        res = self._alterar(venda, 'Cancelada')
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('estorno', res.json()['error'])
