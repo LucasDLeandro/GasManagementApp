@@ -1,0 +1,49 @@
+{% extends "portal_b2b/base.html" %}
+
+{% block title %}Acesso Seguro | Portal B2B Baros{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+    <div class="glass-card" style="width: 100%; max-width: 420px;">
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <div style="width: 52px; height: 52px; margin: 0 auto 1rem; border-radius: 14px; background: linear-gradient(135deg, #3B82F6, #06B6D4); display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                🔐
+            </div>
+            <h1 style="font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 0.25rem;">Acesso ao Portal B2B</h1>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Autoatendimento exclusivo para clientes corporativos e hospitalares</p>
+        </div>
+
+        {% if error %}
+        <div style="background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); color: #FB7185; padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-bottom: 1.25rem;" role="alert">
+            ⚠️ {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'portal_b2b:login' %}" style="display: flex; flex-direction: column; gap: 1rem;">
+            {% csrf_token %}
+
+            <div>
+                <label for="id_username" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Usuário ou E-mail Corporativo</label>
+                <input type="text" id="id_username" name="username" required autocomplete="username"
+                       style="width: 100%; padding: 0.75rem 1rem; border-radius: var(--radius-md); background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-card); color: white; font-size: 0.9rem;"
+                       placeholder="ex: comprador@hospital.com.br">
+            </div>
+
+            <div>
+                <label for="id_password" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Senha de Acesso</label>
+                <input type="password" id="id_password" name="password" required autocomplete="current-password"
+                       style="width: 100%; padding: 0.75rem 1rem; border-radius: var(--radius-md); background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-card); color: white; font-size: 0.9rem;"
+                       placeholder="••••••••••••">
+            </div>
+
+            <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: -0.25rem;">
+                🛡️ Política de segurança: 5 tentativas falhas bloqueiam o acesso temporariamente por 15 minutos.
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; margin-top: 0.5rem; font-size: 0.95rem;">
+                Entrar no Portal Seguro
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

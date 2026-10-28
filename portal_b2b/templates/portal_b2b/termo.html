@@ -1,0 +1,28 @@
+{% extends "portal_b2b/base.html" %}
+
+{% block title %}Termo de Uso e Privacidade | Portal B2B{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+    <div class="glass-card" style="width: 100%; max-width: 600px;">
+        <div style="text-align: center; margin-bottom: 1.25rem;">
+            <h1 style="font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 0.25rem;">Termo de Uso e Privacidade do Portal B2B</h1>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">Versão Vigente: {{ termo_versao }} • LGPD & Compliance ANVISA</p>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-card); padding: 1.25rem; border-radius: var(--radius-md); max-height: 280px; overflow-y: auto; font-size: 0.85rem; line-height: 1.6; color: var(--text-muted); margin-bottom: 1.5rem;">
+            <p style="margin-bottom: 0.75rem;"><strong style="color: white;">1. Finalidade do Acesso:</strong> O presente Portal B2B destina-se exclusivamente ao autoatendimento de clientes corporativos e hospitalares para gestão de pedidos, consulta de cilindros em posse física, rastreabilidade sanitária de lotes de gases medicinais e industriais, e acesso a documentos fiscais e boletos.</p>
+            <p style="margin-bottom: 0.75rem;"><strong style="color: white;">2. Responsabilidade pelas Credenciais:</strong> As credenciais de acesso são individuais, intransferíveis e confidenciais. Qualquer ação efetuada mediante suas credenciais será auditada de forma imutável nos registros eletrônicos do sistema.</p>
+            <p style="margin-bottom: 0.75rem;"><strong style="color: white;">3. Conformidade Sanitária e Rastreabilidade:</strong> Em cumprimento às Boas Práticas de Fabricação (RDC ANVISA 658/2022 e IN 129/2022), certificados e laudos analíticos emitidos pelo Responsável Técnico possuem valor comprobatório perante autoridades sanitárias e têm seus downloads estritamente auditados.</p>
+            <p><strong style="color: white;">4. Proteção de Dados (LGPD):</strong> Os dados de contato informados serão tratados estritamente para a finalidade de execução do contrato de fornecimento e cumprimento de obrigações regulatórias.</p>
+        </div>
+
+        <form method="post" action="{% url 'portal_b2b:termo' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 0.95rem;">
+                Li e Concordo com os Termos de Uso
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

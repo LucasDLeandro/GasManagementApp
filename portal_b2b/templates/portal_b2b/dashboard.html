@@ -1,0 +1,358 @@
+{% extends "portal_b2b/base.html" %}
+
+{% block title %}Painel do Cliente | Portal B2B Baros{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+    <!-- Header do Cliente -->
+    <div class="glass-card" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem;">
+                <h1 style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 700;">{{ cliente.nome }}</h1>
+                {% if cliente.is_medicinal %}
+                <span class="badge badge-success" title="Cliente Hospitalar / Gás Medicinal">🏥 Hospitalar / Saúde</span>
+                {% else %}
+                <span class="badge badge-info">🏭 Industrial / Comercial</span>
+                {% endif %}
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+                CNPJ: <strong>{{ cliente.cnpj }}</strong> • {{ cliente.cidade }}/{{ cliente.estado }} • Contato: {{ cliente.telefone }}
+            </p>
+        </div>
+
+        <div>
+            {% if vinculo.pode_solicitar_reposicao or vinculo.administrador_cliente %}
+            <button id="btn-abrir-reposicao" class="btn btn-primary" onclick="abrirModalReposicao()">
+                ⚡ Reposição em 1 Clique
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Indicadores Principais -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+        <!-- Card Cilindros -->
+        <div class="glass-card" style="padding: 1.25rem;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Cilindros em Posse</div>
+            <div style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 800; color: #60A5FA; margin: 0.25rem 0;">
+                {{ total_cilindros }}
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-dim);">Recipientes ativos sob guarda da empresa</div>
+        </div>
+
+        <!-- Card Alertas de Reteste -->
+        <div class="glass-card" style="padding: 1.25rem;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Alertas de Reteste</div>
+            <div style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 800; color: {% if reteste_alertas %}#FBBF24{% else %}#34D399{% endif %}; margin: 0.25rem 0;">
+                {{ reteste_alertas|length }}
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-dim);">
+                {% if reteste_alertas %}Cilindros com reteste vencendo em <= 30 dias{% else %}Todos os cilindros com reteste em dia{% endif %}
+            </div>
+        </div>
+
+        <!-- Card Entregas Ativas -->
+        <div class="glass-card" style="padding: 1.25rem;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Entregas em Andamento</div>
+            <div style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 800; color: #34D399; margin: 0.25rem 0;">
+                {{ entregas|length }}
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-dim);">Rastreamento em tempo real disponível</div>
+        </div>
+
+        <!-- Card Financeiro -->
+        {% if financeiro_disponivel %}
+        <div class="glass-card" style="padding: 1.25rem;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Faturas em Aberto</div>
+            <div style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 800; color: {% if parcelas_abertas %}#FB7185{% else %}#34D399{% endif %}; margin: 0.25rem 0;">
+                {{ parcelas_abertas|length }}
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-dim);">Parcelas financeiras a vencer / vencidas</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Alertas Proativos -->
+    {% if reteste_alertas %}
+    <div class="glass-card" style="border-left: 4px solid var(--accent-amber); background: rgba(245, 158, 11, 0.08);">
+        <h3 style="font-size: 1rem; color: #FBBF24; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            ⚠️ Atenção: Cilindros com Reteste Hidrostático Próximo do Vencimento
+        </h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Em conformidade com a NR-13 e normas ABNT, os cilindros listados abaixo exigem substituição preventiva nos próximos 30 dias.
+        </p>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            {% for c in reteste_alertas %}
+            <span class="badge badge-warning" style="font-size: 0.8rem; text-transform: none; padding: 0.35rem 0.75rem;">
+                Cilindro <strong>{{ c.numero_serie_ogiva }}</strong> ({{ c.gas }}) — Vence em {{ c.data_proximo_reteste }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Seção: Cilindros em Posse -->
+    <div class="glass-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="font-family: var(--font-display); font-size: 1.25rem;">Cilindros em Posse (Estadia e Laudos)</h2>
+            <span style="font-size: 0.8rem; color: var(--text-dim);">Exibindo os cilindros sob comodato atual</span>
+        </div>
+
+        {% if cilindros %}
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-card); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">
+                        <th style="padding: 0.75rem;">Cilindro (Série)</th>
+                        <th style="padding: 0.75rem;">Gás / Modelo</th>
+                        <th style="padding: 0.75rem;">Estadia</th>
+                        <th style="padding: 0.75rem;">Próximo Reteste</th>
+                        <th style="padding: 0.75rem;">Certificado / Laudo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cilindros %}
+                    <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.04);">
+                        <td style="padding: 0.75rem; font-weight: 600;">
+                            {{ c.numero_serie_ogiva }}
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">QR: {{ c.codigo_qr }}</div>
+                        </td>
+                        <td style="padding: 0.75rem;">
+                            <div>{{ c.gas }} ({{ c.gas_sigla }})</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">{{ c.modelo }} • {{ c.volume_litros }}L</div>
+                        </td>
+                        <td style="padding: 0.75rem;">
+                            <span class="badge badge-info">{{ c.dias_estadia }} dias</span>
+                        </td>
+                        <td style="padding: 0.75rem;">
+                            {% if c.status_reteste == 'RETESTE_VENCIDO' %}
+                                <span class="badge badge-danger">Vencido ({{ c.data_proximo_reteste }})</span>
+                            {% elif c.status_reteste == 'RETESTE_VENCENDO' %}
+                                <span class="badge badge-warning">Em {{ c.dias_para_reteste }} dias</span>
+                            {% else %}
+                                <span class="badge badge-success">{{ c.data_proximo_reteste }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.75rem;">
+                            {% if c.tem_laudo_disponivel %}
+                            <button class="btn btn-ghost" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="baixarLaudoCilindro({{ c.id }})">
+                                📄 Baixar Laudo PDF
+                            </button>
+                            {% else %}
+                            <span style="font-size: 0.75rem; color: var(--text-dim);">Sem laudo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="font-size: 0.85rem; color: var(--text-dim); text-align: center; padding: 2rem;">Nenhum cilindro registrado em posse atualmente.</p>
+        {% endif %}
+    </div>
+
+    <!-- Seção: Rastreamento de Entregas -->
+    {% if entregas %}
+    <div class="glass-card">
+        <h2 style="font-family: var(--font-display); font-size: 1.25rem; margin-bottom: 1rem;">Rastreamento de Entregas em Tempo Real</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+            {% for e in entregas %}
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 700; font-size: 0.9rem;">Parada #{{ e.ordem }} (Entrega #{{ e.entrega_id }})</span>
+                    <span class="badge badge-info">{{ e.status_display }}</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                    Veículo: <strong>{{ e.placa_veiculo|default:"Em trânsito" }}</strong>
+                    {% if e.eta_estimado %}<br>Previsão de Chegada: {{ e.eta_estimado }}{% endif %}
+                </div>
+                {% if e.link_rastreio %}
+                <a href="{{ e.link_rastreio }}" target="_blank" class="btn btn-primary" style="width: 100%; padding: 0.5rem; font-size: 0.8rem;">
+                    📍 Acompanhar no Mapa em Tempo Real
+                </a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Seção: Financeiro (se ativo) -->
+    {% if financeiro_disponivel and parcelas_abertas %}
+    <div class="glass-card">
+        <h2 style="font-family: var(--font-display); font-size: 1.25rem; margin-bottom: 1rem;">Boletos e Faturas em Aberto</h2>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-card); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">
+                        <th style="padding: 0.75rem;">Documento</th>
+                        <th style="padding: 0.75rem;">Parcela</th>
+                        <th style="padding: 0.75rem;">Vencimento</th>
+                        <th style="padding: 0.75rem;">Valor</th>
+                        <th style="padding: 0.75rem;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in parcelas_abertas %}
+                    <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.04);">
+                        <td style="padding: 0.75rem;">{{ p.numero_documento|default:"Fatura" }}</td>
+                        <td style="padding: 0.75rem;">{{ p.numero_parcela }}</td>
+                        <td style="padding: 0.75rem;">
+                            {{ p.data_vencimento }}
+                            {% if p.esta_vencida %}<span class="badge badge-danger">Vencida</span>{% endif %}
+                        </td>
+                        <td style="padding: 0.75rem; font-weight: 700;">R$ {{ p.saldo_em_aberto }}</td>
+                        <td style="padding: 0.75rem; display: flex; gap: 0.5rem;">
+                            {% if p.linha_digitavel %}
+                            <button class="btn btn-ghost" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="copiarLinha('{{ p.linha_digitavel }}')">
+                                Copiar Linha
+                            </button>
+                            {% endif %}
+                            {% if p.tem_pix %}
+                            <button class="btn btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="copiarPix('{{ p.payload_pix }}')">
+                                PIX Copia e Cola
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Modal Reposição em 1 Clique -->
+<div id="modal-reposicao" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; padding: 1rem;">
+    <div class="glass-card" style="width: 100%; max-width: 500px; background: #0F172A;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-family: var(--font-display); font-size: 1.3rem;">⚡ Reposição em 1 Clique</h3>
+            <button onclick="fecharModalReposicao()" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Selecione a quantidade de recargas desejadas. Seu pedido será gerado automaticamente com os preços acordados em contrato.
+        </p>
+
+        <form id="form-reposicao" onsubmit="enviarReposicao(event)">
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Quantidade de Cilindros / Recargas</label>
+                <input type="number" id="rep-qtd" min="1" max="50" value="5" required
+                       style="width: 100%; padding: 0.75rem; border-radius: var(--radius-md); background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border-card); color: white;">
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Observações da Solicitação</label>
+                <textarea id="rep-obs" rows="2" placeholder="Ex: Entregar na recepção hospitalar"
+                          style="width: 100%; padding: 0.75rem; border-radius: var(--radius-md); background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border-card); color: white;"></textarea>
+            </div>
+
+            <div id="rep-feedback" style="display: none; padding: 0.75rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-bottom: 1rem;"></div>
+
+            <button type="submit" id="btn-submit-reposicao" class="btn btn-primary" style="width: 100%; padding: 0.85rem;">
+                Confirmar Reposição
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function abrirModalReposicao() {
+    document.getElementById('modal-reposicao').style.display = 'flex';
+}
+function fecharModalReposicao() {
+    document.getElementById('modal-reposicao').style.display = 'none';
+}
+
+function copiarLinha(texto) {
+    navigator.clipboard.writeText(texto).then(() => alert('Linha digitável copiada com sucesso!'));
+}
+function copiarPix(payload) {
+    navigator.clipboard.writeText(payload).then(() => alert('Payload PIX copiado com sucesso!'));
+}
+
+async function baixarLaudoCilindro(cilindroId) {
+    try {
+        const resp = await fetch(`/portal-b2b/api/cilindros/${cilindroId}/laudo-quimico/`, {
+            headers: {'Accept': 'application/json'}
+        });
+        const data = await resp.json();
+        if (data.download_url) {
+            window.location.href = data.download_url;
+        } else {
+            alert('Não foi possível gerar o link de download.');
+        }
+    } catch (e) {
+        alert('Erro ao solicitar o laudo químico.');
+    }
+}
+
+async function enviarReposicao(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit-reposicao');
+    const feedback = document.getElementById('rep-feedback');
+    const qtd = parseInt(document.getElementById('rep-qtd').value, 10);
+    const obs = document.getElementById('rep-obs').value;
+    const chave = 'rep-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+    btn.disabled = true;
+    btn.innerText = 'Processando pedido...';
+    feedback.style.display = 'none';
+
+    try {
+        const resp = await fetch('/portal-b2b/api/reposicao/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken') || ''
+            },
+            body: JSON.stringify({
+                chave_idempotencia: chave,
+                itens: [{'quantidade': qtd}],
+                observacoes: obs
+            })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            feedback.style.display = 'block';
+            feedback.style.background = 'rgba(16, 185, 129, 0.15)';
+            feedback.style.color = '#34D399';
+            feedback.innerHTML = `✅ Pedido <strong>#${data.venda_id || data.id}</strong> registrado com sucesso na fila comercial!`;
+            setTimeout(() => { fecharModalReposicao(); window.location.reload(); }, 2000);
+        } else {
+            feedback.style.display = 'block';
+            feedback.style.background = 'rgba(244, 63, 94, 0.15)';
+            feedback.style.color = '#FB7185';
+            feedback.innerHTML = `⚠️ ${data.detail || 'Não foi possível processar a reposição.'}`;
+            btn.disabled = false;
+            btn.innerText = 'Confirmar Reposição';
+        }
+    } catch (err) {
+        feedback.style.display = 'block';
+        feedback.style.background = 'rgba(244, 63, 94, 0.15)';
+        feedback.style.color = '#FB7185';
+        feedback.innerText = 'Falha de comunicação com o servidor.';
+        btn.disabled = false;
+        btn.innerText = 'Confirmar Reposição';
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="description" content="Portal B2B Baros - Autoatendimento Hospitalar e Industrial para Gestão de Gases e Cilindros">
+    <meta name="theme-color" content="#0F172A">
+    <title>{% block title %}Portal do Cliente B2B | Baros Gases{% endblock %}</title>
+
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-base: #0B0F19;
+            --bg-surface: #111827;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --border-card: rgba(255, 255, 255, 0.08);
+            --primary: #3B82F6;
+            --primary-glow: rgba(59, 130, 246, 0.25);
+            --primary-hover: #2563EB;
+            --accent-cyan: #06B6D4;
+            --accent-emerald: #10B981;
+            --accent-amber: #F59E0B;
+            --accent-rose: #F43F5E;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --text-dim: #64748B;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-display: 'Outfit', sans-serif;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --radius-full: 9999px;
+            --shadow-glow: 0 10px 25px -5px var(--primary-glow);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: radial-gradient(circle at top right, #1E1B4B 0%, var(--bg-base) 45%, #050811 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Top Navbar */
+        .portal-nav {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-card);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: var(--text-main);
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .brand-title {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-subtitle {
+            font-size: 0.7rem;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-badge {
+            font-size: 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-card);
+            padding: 0.35rem 0.75rem;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.625rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: white;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 28px -4px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-card);
+        }
+
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+        }
+
+        /* Main Container */
+        .portal-main {
+            flex: 1;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-card);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* Footer */
+        .portal-footer {
+            border-top: 1px solid var(--border-card);
+            padding: 1.25rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            background: rgba(11, 15, 25, 0.6);
+        }
+
+        /* Alerts & Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-success { background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.3); }
+        .badge-warning { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(251, 191, 36, 0.3); }
+        .badge-danger { background: rgba(244, 63, 94, 0.15); color: #FB7185; border: 1px solid rgba(251, 113, 133, 0.3); }
+        .badge-info { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(96, 165, 250, 0.3); }
+
+        /* Responsive tweaks */
+        @media (max-width: 640px) {
+            .portal-nav { padding: 0.6rem 0.85rem; }
+            .brand-subtitle { display: none; }
+            .portal-main { padding: 1rem 0.75rem; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header class="portal-nav" role="banner">
+        <a href="{% url 'portal_b2b:dashboard' %}" class="brand-link" aria-label="Portal B2B Baros Início">
+            <div class="brand-icon">B</div>
+            <div>
+                <div class="brand-title">Portal B2B</div>
+                <div class="brand-subtitle">Autoatendimento Hospitalar & Industrial</div>
+            </div>
+        </a>
+
+        <div class="nav-actions">
+            {% if request.user.is_authenticated and request.user.vinculo_b2b %}
+                <div class="user-badge" title="Usuário e Papel">
+                    <span>👤 {{ request.user.first_name|default:request.user.username }}</span>
+                    <span class="badge badge-info">{{ request.user.vinculo_b2b.papel }}</span>
+                </div>
+                <a href="{% url 'portal_b2b:logout' %}" class="btn btn-ghost" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">Sair</a>
+            {% else %}
+                <a href="{% url 'portal_b2b:login' %}" class="btn btn-primary">Entrar</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="portal-main" id="conteudo-principal" role="main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="portal-footer" role="contentinfo">
+        <p>&copy; 2026 Baros SaaS • Ambiente Seguro com Isolamento Multitenant Estrito • Em conformidade ANVISA RDC 658/2022 & LGPD</p>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
