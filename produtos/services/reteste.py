@@ -15,7 +15,7 @@ from produtos.models import (
     HistoricoRetesteHidrostatico,
     MovimentacaoCilindro
 )
-from produtos.services import validar_transicao_status_cilindro
+from produtos.services.ciclo_cilindro import validar_transicao_status_cilindro
 from produtos.services.baixa import baixar_cilindro_patrimonial
 
 

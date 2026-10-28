@@ -416,7 +416,7 @@ Solicitar emissão (`/faturamento/nfe/solicitar-emissao/`) → task Celery `emit
 | `backtest_service` | Mede a precisão das previsões |
 
 ### Fluxo
-Job diário gera os alertas → o vendedor trabalha o funil em `/analytics/api/funil-alertas/` → conversão em venda. **A tela existe, mas não está no menu.**
+Job diário gera os alertas → o vendedor trabalha o funil em `/api/analytics/funil-alertas/` → conversão em venda. **A tela existe, mas não está no menu.**
 
 ---
 

@@ -72,7 +72,7 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 | 0.3.3 | **Baixa de estoque em dobro:** `Faturada` e depois `Finalizada` chamam `baixar_estoque_venda_faturada` duas vezes; o erro é engolido por `except Exception: pass` | Baixar só na transição para `Faturada`; idempotência por `origem_id`; remover o `except` silencioso (logar e falhar) | P |
 | 0.3.4 | App `frotas` morto, sem tenant e fora do `INSTALLED_APPS` | Excluir a pasta `frotas/` | P |
 | 0.3.5 | `produtos/services.py` + pasta `produtos/services/` unidos por gambiarra (`__path__`) | Transformar em pacote: `produtos/services/__init__.py` reexportando as funções de `services.py` (movido para `services/ciclo_cilindro.py`) | M |
-| 0.3.6 | Rotas duplicadas: `analytics` e `fiscal` incluídos duas vezes (`config/urls.py`) | Manter um prefixo por app (`/analytics/`, `/fiscal/`) com `api/` dentro; atualizar o JS | P |
+| 0.3.6 | Rotas duplicadas: `analytics` e `fiscal` incluídos duas vezes (`config/urls.py`) | ✅ Removido o `analytics/api/` (sem uso). O `fiscal` fica com os dois prefixos até a tarefa 6.4: o menu (`fiscal:index`) e o JS apontam para `/api/fiscal/`, então separar as rotas de página das de API faz parte da nova tela fiscal | P |
 
 ### 0.4 Fundação do redesign
 | ID | Tarefa | Pronto quando | Tam. |

@@ -9,7 +9,7 @@ from core.money import quantize
 from core.eventos import publicar
 from core.models import LogAuditoriaDados
 from produtos.models import Cilindro, BaixaPatrimonial, MovimentacaoCilindro
-from produtos.services import validar_transicao_status_cilindro
+from produtos.services.ciclo_cilindro import validar_transicao_status_cilindro
 from produtos.services.indenizacao import calcular_indenizacao
 
 

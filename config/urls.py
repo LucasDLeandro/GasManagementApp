@@ -84,7 +84,6 @@ urlpatterns = [
     path('financeiro/', include('financeiro.urls', namespace='financeiro')),
     path('portal-b2b/', include('portal_b2b.urls', namespace='portal_b2b')),
     path('api/analytics/', include('analytics.urls', namespace='analytics')),
-    path('analytics/api/', include('analytics.urls', namespace='analytics_direct')),
     path('api/fiscal/', include('fiscal.urls', namespace='fiscal')),
     path('fiscal/', include('fiscal.urls', namespace='fiscal_direct')),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

@@ -1,15 +1,10 @@
-import os
 import uuid
 from datetime import date, timedelta
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-# Habilita produtos.services a carregar submódulos em produtos/services/
-__path__ = [os.path.join(os.path.dirname(__file__), 'services')]
-
-
-from .models import (
+from produtos.models import (
     Cilindro,
     MovimentacaoCilindro,
     LoteEnvase,
@@ -2058,18 +2053,3 @@ def receber_cilindros_fornecedor_batelada(
 
     return recebimentos, movimentacoes
 
-
-# ==============================================================================
-# SERVIÇOS DE PATRIMÔNIO, RETESTE E BAIXA (SPRINTS 8A E 8B)
-# ==============================================================================
-from produtos.services.indenizacao import calcular_indenizacao
-from produtos.services.baixa import (
-    baixar_cilindro_patrimonial,
-    estornar_baixa,
-    registrar_extravio,
-)
-from produtos.services.reteste import (
-    enviar_cilindros_para_reteste,
-    registrar_retorno_reteste,
-    retificar_reteste,
-)
