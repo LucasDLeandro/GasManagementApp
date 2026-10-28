@@ -1,128 +1,53 @@
     <!-- ============================================================================== -->
-    <!-- ABA 2: ESTAÇÃO DE RAMPA EM BATELADA (IN 129/2022)                              -->
+    <!-- ABA 2: ESTAÇÃO DE RAMPA DE ENVASE EM BATELADA (IN 129/2022)                    -->
+    <!-- Tela de pátio: alvos grandes, leitor óptico, feedback sonoro e visual.         -->
     <!-- ============================================================================== -->
     {% if tem_modulo_envase %}
-    <div id="aba-conteudo-rampa" style="display: none;">
-        <div class="batch-manifold-header">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-                <div>
-                    <h2 style="font-size: 22px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="8" x2="12" y2="12"></line>
-                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                        </svg>
-                        Estação de Rampa de Envase em Batelada
-                        <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; border: 1px solid #0284c7;">IN nº 129/2022 - ANVISA</span>
-                    </h2>
-                    <p style="margin: 0; color: var(--color-text-muted); font-size: 13px;">
-                        Acoplamento contínuo com leitor óptico, validação em tempo real de reteste/bloqueio sanitário e checklist pré-envase.
-                    </p>
-                </div>
-                <div class="scanner-audio-pill">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                    </svg>
-                    Sintetizador de Áudio Ativo
-                </div>
-            </div>
-
-            <!-- Controles de Cabeçalho da Rampa -->
-            <div class="batch-controls-grid">
-                <div class="form-group">
-                    <label for="rampa-select-lote" style="font-weight: 600; font-size: 13px; color: var(--color-text);">Lote de Envase Químico / Medicinal *</label>
-                    <select id="rampa-select-lote" style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg); color: var(--color-text); font-size: 14px;" onchange="RampaEnvase.onLoteChange()">
-                        <option value="">Carregando lotes disponíveis...</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="rampa-pressao-final" style="font-weight: 600; font-size: 13px; color: var(--color-text);">Pressão Final da Rampa (bar) *</label>
-                    <input type="number" id="rampa-pressao-final" value="200" min="50" max="300" style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg); color: var(--color-text); font-size: 14px; font-weight: 600;">
-                </div>
-
-                <div style="display: flex; align-items: flex-end;">
-                    <div id="rampa-contador-cilindros" class="pill-filter-btn active" style="padding: 10px 16px; font-size: 14px; width: 100%; justify-content: center;">
-                        Batelada: 0 cilindro(s)
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pílula de Detalhes do Lote Selecionado -->
-            <div id="rampa-lote-info-pill" style="display: none; margin-top: 14px; padding: 10px 16px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; font-size: 12px; gap: 16px; flex-wrap: wrap;">
-            </div>
-        </div>
-
-        <!-- Grade de Bipagem Contínua (Keyboard Wedge & Scanner) -->
-        <div class="scanner-wedge-container" id="wedge-scanner-card">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2">
-                <rect x="3" y="4" width="18" height="16" rx="2"></rect>
-                <line x1="7" y1="8" x2="7" y2="16"></line>
-                <line x1="11" y1="8" x2="11" y2="16"></line>
-                <line x1="15" y1="8" x2="15" y2="16"></line>
-                <line x1="17" y1="8" x2="17" y2="16"></line>
-            </svg>
-
-            <div class="scanner-wedge-input-wrap">
-                <input type="text" id="input-scanner-wedge" class="scanner-wedge-input" placeholder="Bipe ou digite o Código QR / Nº Série do cilindro para acoplar na rampa..." autofocus>
-            </div>
-
-            <button type="button" class="btn-auth" style="padding: 10px 18px; font-size: 13px; background: var(--color-primary); color: #fff; border: none; cursor: pointer; border-radius: 8px;" onclick="const val = document.getElementById('input-scanner-wedge').value.trim(); if (val) { RampaEnvase.biparCilindro(val); document.getElementById('input-scanner-wedge').value = ''; }">
-                Acoplar Cilindro
-            </button>
-        </div>
-
-        <!-- Alerta de Feedback de Bipagem -->
-        <div id="rampa-scan-feedback" style="display: none;"></div>
-
-        <!-- Barra de Ações Rápidas da Rampa -->
-        <div class="batch-quick-actions-bar">
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <button type="button" class="action-queue-btn" style="background: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1px solid #22c55e; padding: 8px 16px; font-size: 13px; font-weight: 700;" onclick="RampaEnvase.marcarConformeTodos()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    Marcar Inspeção Física Conforme em Todos (IN 129)
-                </button>
-
-                <button type="button" class="btn-auth" style="padding: 8px 14px; font-size: 13px; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-muted); cursor: pointer;" onclick="RampaEnvase.limparRampa()">
-                    Limpar Rampa
-                </button>
-            </div>
-
+    <div id="aba-conteudo-rampa" class="ds-hidden estacao">
+        <header class="ds-page-header">
             <div>
-                <button type="button" id="btn-concluir-batelada" class="action-queue-btn" style="background: var(--color-primary); color: #fff; padding: 10px 22px; font-size: 14px; font-weight: 700;" onclick="RampaEnvase.concluirBatelada()" disabled>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    Concluir Batelada de Envase (Atômico)
-                </button>
+                <h1 class="ds-page-title">Estação de rampa</h1>
+                <p class="ds-page-subtitle">Envase em batelada com inspeção pré-envase (IN 129/2022). O leitor óptico funciona como teclado: bipe e o cilindro entra na rampa.</p>
             </div>
-        </div>
+        </header>
 
-        <!-- Grade de Cilindros na Rampa -->
-        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-                <thead>
-                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
-                        <th style="padding: 12px 16px;">Nº Ogiva / QR Code</th>
-                        <th style="padding: 12px 16px;">Modelo / Capacidade</th>
-                        <th style="padding: 12px 16px;">Gás Normativo</th>
-                        <th style="padding: 12px 16px;">Próx. Reteste</th>
-                        <th style="padding: 12px 16px; min-width: 240px;">Checklist Pré-Envase (IN 129/2022)</th>
-                        <th style="padding: 12px 16px;">Conformidade</th>
-                        <th style="padding: 12px 16px; text-align: right;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="rampa-grid-tbody">
-                    <tr>
-                        <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 35px;">
-                            Nenhum cilindro acoplado na rampa. Bipe com o leitor de código de barras ou digite o QR Code acima.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <!-- 1. Configuração da batelada -->
+        <section class="estacao-config ds-card">
+            <div class="form-group">
+                <label for="rampa-select-lote">Lote de envase *</label>
+                <select id="rampa-select-lote" class="estacao-campo"></select>
+            </div>
+            <div class="form-group">
+                <label for="rampa-pressao-final">Pressão final (bar) *</label>
+                <input type="number" id="rampa-pressao-final" class="estacao-campo font-mono" value="200" min="50" max="300" inputmode="numeric">
+            </div>
+            <div class="estacao-lote-info" id="rampa-lote-info-pill" aria-live="polite"></div>
+        </section>
+
+        <!-- 2. Leitor -->
+        <section class="estacao-leitor ds-card" id="wedge-scanner-card">
+            <label for="input-scanner-wedge" class="estacao-leitor-rotulo">Bipe o QR code ou digite a série e tecle Enter</label>
+            <div class="estacao-leitor-linha">
+                <input type="text" id="input-scanner-wedge" class="estacao-leitor-input font-mono" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                <button type="button" class="btn-primary estacao-btn" id="btn-rampa-acoplar">Acoplar</button>
+            </div>
+            <div id="rampa-scan-feedback" class="estacao-feedback" role="status" aria-live="assertive"></div>
+        </section>
+
+        <!-- 3. Cilindros na rampa -->
+        <section aria-labelledby="titulo-rampa-cilindros">
+            <h2 class="ds-section-title" id="titulo-rampa-cilindros">Cilindros na rampa <span class="ds-muted" id="rampa-resumo-inspecao"></span></h2>
+            <div class="estacao-grade" id="rampa-grid"></div>
+        </section>
+
+        <!-- 4. Barra de ações fixa -->
+        <div class="estacao-barra">
+            <strong id="rampa-contador-cilindros" class="estacao-contador">0 cilindros</strong>
+            <div class="estacao-barra-acoes">
+                <button type="button" class="btn-outline estacao-btn" id="btn-rampa-limpar">Limpar</button>
+                <button type="button" class="btn-secondary estacao-btn" id="btn-rampa-conferir-todos">Conferi todos: conformes</button>
+                <button type="button" class="btn-primary estacao-btn estacao-btn-principal" id="btn-concluir-batelada" disabled>Concluir envase</button>
+            </div>
         </div>
     </div>
     {% endif %}

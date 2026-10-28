@@ -78,121 +78,110 @@ const RampaEnvase = {
     lotes: [],
     loteSelecionado: null,
     cilindrosBatelada: [],
+    ITENS_CHECKLIST: [
+        ['valvula_integra', 'Válvula íntegra'],
+        ['pressao_residual_positiva', 'Pressão residual positiva'],
+        ['pintura_cor_padrao_ok', 'Pintura / cor ABNT'],
+        ['rotulo_identificacao_ok', 'Rótulo regulamentar'],
+    ],
 
     async inicializar() {
-        await this.carregarLotes();
+        if (!document.getElementById('aba-conteudo-rampa')) return;
+        document.getElementById('rampa-select-lote').addEventListener('change', () => this.onLoteChange());
+        document.getElementById('btn-rampa-acoplar').addEventListener('click', () => this.lerCampo());
+        document.getElementById('btn-rampa-limpar').addEventListener('click', () => this.limparRampa());
+        document.getElementById('btn-rampa-conferir-todos').addEventListener('click', () => this.marcarConformeTodos());
+        document.getElementById('btn-concluir-batelada').addEventListener('click', () => this.concluirBatelada());
         this.configurarLeitorWedge();
+        this.renderizarGrid();
+        await this.carregarLotes();
     },
 
     async carregarLotes() {
+        const sel = document.getElementById('rampa-select-lote');
+        sel.innerHTML = '';
+        sel.appendChild(new Option('Carregando lotes...', ''));
         try {
-            const res = await fetch('/produtos/api/lotes/', { headers: getAuthHeaders() });
-            if (!res.ok) return;
-            const data = await res.json();
+            const data = await Baros.api('/produtos/api/lotes/');
             this.lotes = Array.isArray(data) ? data : (data.results || []);
-            
-            const sel = document.getElementById('rampa-select-lote');
-            if (!sel) return;
-            sel.innerHTML = '<option value="">-- Selecione o Lote de Envase --</option>';
-
+            sel.innerHTML = '';
+            sel.appendChild(new Option(this.lotes.length ? 'Selecione o lote' : 'Nenhum lote disponível', ''));
             this.lotes.forEach(l => {
-                const opt = document.createElement('option');
-                opt.value = l.id;
-                const statusBadge = l.status_qualidade === 'APROVADO' ? '✓ CQ OK' : `[${l.status_qualidade}]`;
-                opt.textContent = `${l.codigo_lote} | ${l.gas_sigla} (${l.gas_nome}) - Val: ${l.data_validade} ${statusBadge}`;
-                sel.appendChild(opt);
+                const cq = l.status_qualidade === 'APROVADO' ? 'CQ aprovado' : (l.status_qualidade_display || l.status_qualidade);
+                sel.appendChild(new Option(`${l.codigo_lote} · ${l.gas_sigla} · validade ${Baros.data(l.data_validade)} · ${cq}`, l.id));
             });
         } catch (e) {
-            console.error("Erro ao carregar lotes da rampa:", e);
+            sel.innerHTML = '';
+            sel.appendChild(new Option('Erro ao carregar os lotes', ''));
         }
     },
 
     onLoteChange() {
-        const sel = document.getElementById('rampa-select-lote');
-        const loteId = parseInt(sel.value, 10);
-        this.loteSelecionado = this.lotes.find(l => l.id === loteId) || null;
-
-        const infoPill = document.getElementById('rampa-lote-info-pill');
-        if (!this.loteSelecionado) {
-            if (infoPill) infoPill.style.display = 'none';
-            return;
+        const id = parseInt(document.getElementById('rampa-select-lote').value, 10);
+        const novo = this.lotes.find(l => l.id === id) || null;
+        if (this.cilindrosBatelada.length && novo && this.loteSelecionado && novo.id !== this.loteSelecionado.id) {
+            this.mostrarFeedback('Lote trocado: os cilindros já acoplados serão revalidados ao concluir.', 'aviso');
         }
-
-        if (infoPill) {
-            infoPill.style.display = 'flex';
-            const l = this.loteSelecionado;
-            let statusColor = '#16a34a';
-            if (l.status_qualidade === 'REPROVADO') statusColor = '#dc2626';
-            else if (l.status_qualidade === 'QUARENTENA') statusColor = '#d97706';
-
-            infoPill.innerHTML = `
-                <span><strong>Gás:</strong> ${l.gas_sigla} (${l.gas_nome})</span>
-                <span><strong>Pureza:</strong> ${l.pureza_percentual}%</span>
-                <span><strong>Validade:</strong> ${l.data_validade}</span>
-                <span><strong>RT:</strong> ${l.rt_nome_snapshot || l.responsavel_tecnico || 'N/A'}</span>
-                <span style="color: ${statusColor}; font-weight: 700;">[${l.status_qualidade_display || l.status_qualidade}]</span>
-            `;
-        }
+        this.loteSelecionado = novo;
+        const info = document.getElementById('rampa-lote-info-pill');
+        info.innerHTML = '';
+        if (!novo) return;
+        const tons = { APROVADO: 'approved', QUARENTENA: 'warning', REPROVADO: 'danger' };
+        const itens = [
+            ['Gás', `${novo.gas_sigla} · ${novo.gas_nome}`],
+            ['Pureza', `${novo.pureza_percentual}%`],
+            ['Validade', Baros.data(novo.data_validade)],
+            ['RT', novo.rt_nome_snapshot || novo.responsavel_tecnico || '—'],
+        ];
+        itens.forEach(([r, v]) => {
+            const span = document.createElement('span');
+            const b = document.createElement('strong');
+            b.textContent = r + ': ';
+            span.append(b, v);
+            info.appendChild(span);
+        });
+        const badge = document.createElement('span');
+        badge.className = 'badge-status-' + (tons[novo.status_qualidade] || 'transit');
+        badge.textContent = novo.status_qualidade_display || novo.status_qualidade;
+        info.appendChild(badge);
+        document.getElementById('input-scanner-wedge').focus();
     },
 
     configurarLeitorWedge() {
         const input = document.getElementById('input-scanner-wedge');
-        if (!input) return;
-
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const codigo = input.value.trim();
-                if (codigo) {
-                    this.biparCilindro(codigo);
-                    input.value = '';
-                }
-            }
+            if (e.key === 'Enter') { e.preventDefault(); this.lerCampo(); }
         });
+    },
+
+    lerCampo() {
+        const input = document.getElementById('input-scanner-wedge');
+        const codigo = input.value.trim();
+        input.value = '';
+        input.focus();
+        if (codigo) this.biparCilindro(codigo);
     },
 
     async biparCilindro(codigo) {
         if (!this.loteSelecionado) {
-            this.mostrarFeedback('Selecione primeiro o Lote de Envase no topo da rampa antes de bipar cilindros.', false);
+            this.mostrarFeedback('Selecione o lote de envase antes de bipar.', 'erro');
             AudioFeedback.error();
             return;
         }
-
-        // Verifica se já está na rampa atual
         const termo = codigo.toUpperCase();
-        const jaAcoplado = this.cilindrosBatelada.some(c => 
-            c.codigo_qr.toUpperCase() === termo || c.numero_serie_ogiva.toUpperCase() === termo
-        );
-        if (jaAcoplado) {
-            this.mostrarFeedback(`Cilindro '${codigo}' já está acoplado na grade da rampa!`, false);
+        if (this.cilindrosBatelada.some(c => c.codigo_qr.toUpperCase() === termo || c.numero_serie_ogiva.toUpperCase() === termo)) {
+            this.mostrarFeedback(`${termo} já está na rampa.`, 'erro');
             AudioFeedback.error();
             return;
         }
-
-        // Validação em tempo real no backend
         try {
-            const res = await fetch('/produtos/api/envases/validar-cilindro/', {
+            const data = await Baros.api('/produtos/api/envases/validar-cilindro/', {
                 method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    termo: codigo,
-                    lote_id: this.loteSelecionado.id
-                })
+                body: { termo: codigo, lote_id: this.loteSelecionado.id },
             });
-
-            const data = await res.json();
-
-            if (!res.ok || !data.valido) {
-                const motivo = data.motivo || data.error || 'Cilindro rejeitado na validação de rampa.';
-                this.mostrarFeedback(motivo, false);
-                AudioFeedback.error();
-                this.pulseContainer('error');
-                return;
-            }
-
-            // Aprovado na rampa
+            if (!data.valido) throw new Baros.ApiError(400, { error: data.motivo || 'Cilindro recusado na validação da rampa.' });
             const cil = data.cilindro;
-            this.cilindrosBatelada.push({
+            const item = {
                 id: cil.id,
                 codigo_qr: cil.codigo_qr,
                 numero_serie_ogiva: cil.numero_serie_ogiva,
@@ -200,78 +189,49 @@ const RampaEnvase = {
                 volume_litros: cil.volume_litros,
                 gas_sigla: cil.gas_sigla,
                 gas_nome: cil.gas_nome,
-                gas_cor_padrao_abnt: cil.gas_cor_padrao_abnt,
                 data_proximo_reteste: cil.data_proximo_reteste,
-                status_display: cil.status_display,
-                // Checklist Inicial conforme IN 129/2022 (padrão conforme ao acoplar)
-                valvula_integra: true,
-                pressao_residual_positiva: true,
-                pintura_cor_padrao_ok: true,
-                rotulo_identificacao_ok: true,
-                observacoes_inspecao: ''
-            });
-
+                observacoes_inspecao: '',
+            };
+            // IN 129: a inspeção física é um ato do operador; nada começa marcado.
+            this.ITENS_CHECKLIST.forEach(([campo]) => { item[campo] = false; });
+            this.cilindrosBatelada.push(item);
             AudioFeedback.success();
-            this.pulseContainer('success');
-            this.mostrarFeedback(`Cilindro ${cil.numero_serie_ogiva} (${cil.codigo_qr}) validado e acoplado na rampa.`, true);
+            this.mostrarFeedback(`${cil.codigo_qr} acoplado. Faça a inspeção.`, 'ok');
             this.renderizarGrid();
         } catch (e) {
-            console.error("Erro na validação do cilindro:", e);
-            this.mostrarFeedback("Falha na comunicação com o servidor ao validar cilindro.", false);
             AudioFeedback.error();
+            this.mostrarFeedback(e.mensagem || 'Cilindro recusado.', 'erro');
         }
     },
 
-    pulseContainer(tipo) {
-        const wrap = document.getElementById('wedge-scanner-card');
-        if (!wrap) return;
-        wrap.classList.remove('scan-pulse');
-        void wrap.offsetWidth; // trigger reflow
-        wrap.classList.add('scan-pulse');
-    },
-
-    mostrarFeedback(msg, sucesso) {
+    mostrarFeedback(msg, tipo) {
         const banner = document.getElementById('rampa-scan-feedback');
-        if (!banner) return;
-        banner.style.display = 'flex';
-        banner.className = `alert-scan-feedback ${sucesso ? 'alert-scan-success' : 'alert-scan-error'}`;
-        banner.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                ${sucesso ? '<polyline points="20 6 9 17 4 12"></polyline>' : '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>'}
-            </svg>
-            <span>${msg}</span>
-        `;
+        banner.className = 'estacao-feedback estacao-feedback--' + tipo;
+        banner.textContent = msg;
+        const card = document.getElementById('wedge-scanner-card');
+        card.classList.remove('estacao-pulso-ok', 'estacao-pulso-erro');
+        void card.offsetWidth;
+        if (tipo === 'ok') card.classList.add('estacao-pulso-ok');
+        if (tipo === 'erro') card.classList.add('estacao-pulso-erro');
     },
 
-    marcarConformeTodos() {
-        if (this.cilindrosBatelada.length === 0) return;
-        this.cilindrosBatelada.forEach(c => {
-            c.valvula_integra = true;
-            c.pressao_residual_positiva = true;
-            c.pintura_cor_padrao_ok = true;
-            c.rotulo_identificacao_ok = true;
+    situacao(c) {
+        const marcados = this.ITENS_CHECKLIST.filter(([campo]) => c[campo]).length;
+        if (marcados === this.ITENS_CHECKLIST.length) return 'conforme';
+        return marcados === 0 ? 'pendente' : 'incompleta';
+    },
+
+    async marcarConformeTodos() {
+        const pendentes = this.cilindrosBatelada.filter(c => this.situacao(c) !== 'conforme');
+        if (!pendentes.length) return;
+        const ok = await Baros.confirmar({
+            titulo: 'Confirmar a inspeção de todos?',
+            texto: `Você declara que inspecionou fisicamente ${pendentes.length} cilindro(s) e que todos estão conformes nos 4 itens da IN 129. Isso fica registrado no envase.`,
+            botao: 'Sim, inspecionei',
         });
+        if (!ok) return;
+        pendentes.forEach(c => this.ITENS_CHECKLIST.forEach(([campo]) => { c[campo] = true; }));
         this.renderizarGrid();
-        this.mostrarFeedback('Checklist IN 129/2022 marcado como CONFORME em todos os cilindros da rampa.', true);
-    },
-
-    atualizarChecklist(cilId, campo, valor) {
-        const item = this.cilindrosBatelada.find(c => c.id === cilId);
-        if (item) {
-            item[campo] = valor;
-            this.atualizarLinhaStatus(cilId);
-        }
-    },
-
-    atualizarLinhaStatus(cilId) {
-        const item = this.cilindrosBatelada.find(c => c.id === cilId);
-        if (!item) return;
-        const conforme = item.valvula_integra && item.pressao_residual_positiva && item.pintura_cor_padrao_ok && item.rotulo_identificacao_ok;
-        const statusEl = document.getElementById(`status-badge-${cilId}`);
-        if (statusEl) {
-            statusEl.className = conforme ? 'badge-conforme' : 'badge-nao-conforme';
-            statusEl.textContent = conforme ? 'CONFORME (IN 129)' : 'NÃO CONFORME';
-        }
     },
 
     removerCilindro(cilId) {
@@ -281,120 +241,91 @@ const RampaEnvase = {
 
     async limparRampa() {
         if (this.cilindrosBatelada.length === 0) return;
-        const ok = await Baros.confirmar({ titulo: 'Limpar a rampa?', texto: 'Todos os cilindros bipados nesta batelada saem da lista.', botao: 'Limpar', perigo: true });
+        const ok = await Baros.confirmar({ titulo: 'Limpar a rampa?', texto: 'Todos os cilindros desta batelada saem da lista.', botao: 'Limpar', perigo: true });
         if (!ok) return;
         this.cilindrosBatelada = [];
         this.renderizarGrid();
-        this.mostrarFeedback('Rampa limpa.', true);
+        this.mostrarFeedback('Rampa limpa.', 'ok');
     },
 
     renderizarGrid() {
-        const tbody = document.getElementById('rampa-grid-tbody');
-        const contador = document.getElementById('rampa-contador-cilindros');
-        const btnConcluir = document.getElementById('btn-concluir-batelada');
+        const grade = document.getElementById('rampa-grid');
+        const total = this.cilindrosBatelada.length;
+        const conformes = this.cilindrosBatelada.filter(c => this.situacao(c) === 'conforme').length;
+        document.getElementById('rampa-contador-cilindros').textContent = `${total} cilindro${total === 1 ? '' : 's'}`;
+        document.getElementById('rampa-resumo-inspecao').textContent = total ? `· ${conformes} de ${total} inspecionados` : '';
+        document.getElementById('btn-concluir-batelada').disabled = total === 0;
+        document.getElementById('btn-rampa-conferir-todos').disabled = conformes === total;
 
-        if (contador) contador.textContent = `Batelada: ${this.cilindrosBatelada.length} cilindro(s)`;
-
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        if (this.cilindrosBatelada.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 35px;">
-                        Nenhum cilindro acoplado na rampa. Bipe com o leitor de código de barras ou digite o QR Code acima.
-                    </td>
-                </tr>
-            `;
-            if (btnConcluir) btnConcluir.disabled = true;
+        grade.innerHTML = '';
+        if (!total) {
+            const vazio = document.createElement('div');
+            vazio.className = 'ds-empty';
+            vazio.innerHTML = '<p class="ds-empty-title"></p><p class="ds-empty-text"></p>';
+            vazio.children[0].textContent = 'Nenhum cilindro na rampa';
+            vazio.children[1].textContent = 'Escolha o lote e bipe os cilindros.';
+            grade.appendChild(vazio);
             return;
         }
 
-        if (btnConcluir) btnConcluir.disabled = false;
-
+        const rotulos = { conforme: ['Conforme', 'approved'], pendente: ['Inspeção pendente', 'warning'], incompleta: ['Inspeção incompleta', 'danger'] };
         this.cilindrosBatelada.forEach(c => {
-            const tr = document.createElement('tr');
-            const conforme = c.valvula_integra && c.pressao_residual_positiva && c.pintura_cor_padrao_ok && c.rotulo_identificacao_ok;
+            const sit = this.situacao(c);
+            const card = document.createElement('article');
+            card.className = 'estacao-cilindro estacao-cilindro--' + sit;
 
-            tr.innerHTML = `
-                <td>
-                    <div class="font-mono" style="font-weight: 700; color: var(--color-text);">${c.numero_serie_ogiva}</div>
-                    <div class="font-mono text-muted" style="font-size: 11px;">${c.codigo_qr}</div>
-                </td>
-                <td>
-                    <div>${c.modelo_descricao || 'N/A'}</div>
-                    <div style="font-size: 11px; color: var(--color-text-muted);">${c.volume_litros || '-'} Litros</div>
-                </td>
-                <td>
-                    <span class="gas-icon-abnt" style="background-color: ${c.gas_cor_padrao_abnt || '#0284c7'}; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">
-                        ${c.gas_sigla}
-                    </span>
-                    <span style="font-size: 11px; margin-left: 4px; color: var(--color-text);">${c.gas_nome}</span>
-                </td>
-                <td>
-                    <span class="font-mono" style="font-size: 12px;">${c.data_proximo_reteste || 'N/A'}</span>
-                </td>
-                <td>
-                    <div class="checklist-cell-group">
-                        <label class="checklist-label">
-                            <input type="checkbox" ${c.valvula_integra ? 'checked' : ''} onchange="RampaEnvase.atualizarChecklist(${c.id}, 'valvula_integra', this.checked)">
-                            Válvula Íntegra
-                        </label>
-                        <label class="checklist-label">
-                            <input type="checkbox" ${c.pressao_residual_positiva ? 'checked' : ''} onchange="RampaEnvase.atualizarChecklist(${c.id}, 'pressao_residual_positiva', this.checked)">
-                            Pressão Residual Positiva
-                        </label>
-                        <label class="checklist-label">
-                            <input type="checkbox" ${c.pintura_cor_padrao_ok ? 'checked' : ''} onchange="RampaEnvase.atualizarChecklist(${c.id}, 'pintura_cor_padrao_ok', this.checked)">
-                            Pintura / Cor ABNT
-                        </label>
-                        <label class="checklist-label">
-                            <input type="checkbox" ${c.rotulo_identificacao_ok ? 'checked' : ''} onchange="RampaEnvase.atualizarChecklist(${c.id}, 'rotulo_identificacao_ok', this.checked)">
-                            Rótulo Regulamentar
-                        </label>
-                    </div>
-                </td>
-                <td>
-                    <span id="status-badge-${c.id}" class="${conforme ? 'badge-conforme' : 'badge-nao-conforme'}">
-                        ${conforme ? 'CONFORME (IN 129)' : 'NÃO CONFORME'}
-                    </span>
-                </td>
-                <td style="text-align: right;">
-                    <button type="button" class="btn-auth" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.1); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3); cursor: pointer;" onclick="RampaEnvase.removerCilindro(${c.id})">
-                        Remover
-                    </button>
-                </td>
-            `;
+            const topo = document.createElement('div');
+            topo.className = 'estacao-cilindro-topo';
+            const ident = document.createElement('div');
+            const qr = document.createElement('strong');
+            qr.className = 'font-mono';
+            qr.textContent = c.codigo_qr;
+            const sub = document.createElement('span');
+            sub.className = 'ds-cell-sub';
+            sub.textContent = `Série ${c.numero_serie_ogiva} · ${c.gas_sigla} · ${c.modelo_descricao || ''} · reteste ${Baros.data(c.data_proximo_reteste)}`;
+            ident.append(qr, sub);
+            const badge = document.createElement('span');
+            badge.className = 'badge-status-' + rotulos[sit][1];
+            badge.textContent = rotulos[sit][0];
+            topo.append(ident, badge);
 
-            tbody.appendChild(tr);
+            const checks = document.createElement('div');
+            checks.className = 'estacao-checks';
+            this.ITENS_CHECKLIST.forEach(([campo, rotulo]) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'estacao-check' + (c[campo] ? ' marcado' : '');
+                b.setAttribute('aria-pressed', c[campo] ? 'true' : 'false');
+                b.textContent = (c[campo] ? '✓ ' : '') + rotulo;
+                b.addEventListener('click', () => { c[campo] = !c[campo]; this.renderizarGrid(); });
+                checks.appendChild(b);
+            });
+
+            const remover = document.createElement('button');
+            remover.type = 'button';
+            remover.className = 'btn-outline btn-sm estacao-remover';
+            remover.textContent = 'Remover';
+            remover.setAttribute('aria-label', `Remover ${c.codigo_qr} da rampa`);
+            remover.addEventListener('click', () => this.removerCilindro(c.id));
+
+            card.append(topo, checks, remover);
+            grade.appendChild(card);
         });
     },
 
     async concluirBatelada() {
-        if (!this.loteSelecionado) {
-            Baros.aviso('Selecione o lote de envase no topo da rampa.');
-            return;
-        }
+        if (!this.loteSelecionado) { Baros.aviso('Selecione o lote de envase.'); return; }
+        const pressao = parseInt(document.getElementById('rampa-pressao-final').value, 10);
+        if (!pressao || pressao <= 0) { Baros.aviso('Informe uma pressão final válida (ex.: 200 bar).'); return; }
+        if (!this.cilindrosBatelada.length) { Baros.aviso('A rampa está vazia.'); return; }
 
-        const pressaoInput = document.getElementById('rampa-pressao-final');
-        const pressao = parseInt(pressaoInput ? pressaoInput.value : '200', 10);
-        if (!pressao || pressao <= 0) {
-            Baros.aviso('Informe uma pressão final válida (ex.: 200 bar).');
-            return;
-        }
-
-        if (this.cilindrosBatelada.length === 0) {
-            Baros.aviso('A rampa está vazia. Bipe ao menos um cilindro.');
-            return;
-        }
-
-        // Validação se há itens não conformes
-        const naoConformes = this.cilindrosBatelada.filter(c => 
-            !(c.valvula_integra && c.pressao_residual_positiva && c.pintura_cor_padrao_ok && c.rotulo_identificacao_ok)
-        );
-
-        if (naoConformes.length > 0) {
-            Swal.fire({ icon: 'warning', title: 'Há cilindros não conformes', text: `${naoConformes.length} cilindro(s) reprovaram no checklist da IN 129. Remova-os da rampa ou corrija a inspeção antes de concluir.` });
+        const semInspecao = this.cilindrosBatelada.filter(c => this.situacao(c) !== 'conforme');
+        if (semInspecao.length) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Inspeção incompleta',
+                text: `${semInspecao.length} cilindro(s) sem os 4 itens da IN 129 conferidos: ${semInspecao.map(c => c.codigo_qr).join(', ')}. Confira ou remova da rampa.`,
+            });
             return;
         }
 
@@ -403,63 +334,39 @@ const RampaEnvase = {
             texto: `${this.cilindrosBatelada.length} cilindro(s) a ${pressao} bar no lote ${this.loteSelecionado.codigo_lote}.`,
             botao: 'Concluir envase',
         });
-        if (!confirmado) {
-            return;
-        }
+        if (!confirmado) return;
 
         const btn = document.getElementById('btn-concluir-batelada');
-        btn.disabled = true;
-        btn.textContent = 'Gravando Batelada...';
-
-        const payload = {
-            lote_id: this.loteSelecionado.id,
-            pressao_final_bar: pressao,
-            itens: this.cilindrosBatelada.map(c => ({
-                cilindro_id: c.id,
-                valvula_integra: c.valvula_integra,
-                pressao_residual_positiva: c.pressao_residual_positiva,
-                pintura_cor_padrao_ok: c.pintura_cor_padrao_ok,
-                rotulo_identificacao_ok: c.rotulo_identificacao_ok,
-                observacoes_inspecao: c.observacoes_inspecao || ''
-            }))
-        };
-
+        const restaurar = Baros.carregando(btn, 'Gravando...');
         try {
-            const res = await fetch('/produtos/api/envases/batelada/', {
+            const data = await Baros.api('/produtos/api/envases/batelada/', {
                 method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(payload)
+                body: {
+                    lote_id: this.loteSelecionado.id,
+                    pressao_final_bar: pressao,
+                    itens: this.cilindrosBatelada.map(c => ({
+                        cilindro_id: c.id,
+                        valvula_integra: c.valvula_integra,
+                        pressao_residual_positiva: c.pressao_residual_positiva,
+                        pintura_cor_padrao_ok: c.pintura_cor_padrao_ok,
+                        rotulo_identificacao_ok: c.rotulo_identificacao_ok,
+                        observacoes_inspecao: c.observacoes_inspecao || '',
+                    })),
+                },
             });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                Baros.erro(data.error || 'Não foi possível concluir a batelada.');
-                return;
-            }
-
             AudioFeedback.success();
-            Baros.sucesso(`Batelada concluída: ${data.total_envasados} cilindro(s) envasado(s) no lote ${data.lote_codigo}.`);
-            
-            // Abre Modal de Etiquetas de Colarinho do Lote
+            Baros.sucesso(`Envase concluído: ${data.total_envasados} cilindro(s) no lote ${data.lote_codigo}.`);
             const envaseIds = (data.envases || []).map(e => e.id).join(',');
             this.cilindrosBatelada = [];
             this.renderizarGrid();
-            
-            if (envaseIds) {
-                abrirModalEtiquetasColarinho(envaseIds);
-            }
+            this.mostrarFeedback('Batelada gravada. Pronto para a próxima.', 'ok');
+            if (envaseIds) abrirModalEtiquetasColarinho(envaseIds);
         } catch (e) {
-            console.error("Erro ao concluir batelada:", e);
-            Baros.erro('Sem comunicação com o servidor. A batelada não foi registrada.');
+            AudioFeedback.error();
+            Baros.erro(e.mensagem || 'Não foi possível concluir a batelada.');
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = `
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                Concluir Batelada de Envase (Atômico)
-            `;
+            restaurar();
+            btn.disabled = this.cilindrosBatelada.length === 0;
         }
     }
 };

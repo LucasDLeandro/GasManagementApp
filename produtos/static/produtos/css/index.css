@@ -534,3 +534,106 @@ th {
             padding: 2mm;
         }
     }
+
+/* ==========================================================================
+   Estação de rampa (2.2.8) — alvos grandes para uso no pátio, com luva e sol
+   ========================================================================== */
+.estacao { padding-bottom: 96px; }
+.estacao-config {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.estacao-campo { font-size: 1.05rem; min-height: 48px; }
+.estacao-lote-info { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; font-size: 0.9rem; color: var(--color-text); }
+.estacao-lote-info:empty { display: none; }
+
+.estacao-leitor { margin-bottom: 20px; transition: box-shadow 0.2s; }
+.estacao-leitor-rotulo { display: block; font-weight: 600; margin-bottom: 8px; color: var(--color-text); }
+.estacao-leitor-linha { display: flex; gap: 12px; }
+.estacao-leitor-input {
+    flex: 1;
+    min-height: 60px;
+    font-size: 1.4rem;
+    padding: 10px 16px;
+    border: 2px solid var(--color-primary);
+    border-radius: 10px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    letter-spacing: 0.04em;
+}
+.estacao-leitor-input:focus { outline: none; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25); }
+.estacao-btn { min-height: 52px; padding: 12px 22px; font-size: 1rem; }
+.estacao-feedback { margin-top: 12px; padding: 12px 14px; border-radius: 8px; font-weight: 600; font-size: 1rem; }
+.estacao-feedback:empty { display: none; }
+.estacao-feedback--ok { background: var(--status-approved-bg); border: 1px solid var(--status-approved-border); color: var(--status-approved-text); }
+.estacao-feedback--erro { background: var(--status-danger-bg); border: 1px solid var(--status-danger-border); color: var(--status-danger-text); }
+.estacao-feedback--aviso { background: var(--status-warning-bg); border: 1px solid var(--status-warning-border); color: var(--status-warning-text); }
+.estacao-pulso-ok { box-shadow: 0 0 0 4px var(--status-approved-border); }
+.estacao-pulso-erro { box-shadow: 0 0 0 4px var(--status-danger-border); }
+
+.estacao-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.estacao-grade > .ds-empty { grid-column: 1 / -1; }
+.estacao-cilindro {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 5px solid var(--status-warning);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.estacao-cilindro--conforme { border-left-color: var(--status-approved); }
+.estacao-cilindro--incompleta { border-left-color: var(--status-danger); }
+.estacao-cilindro-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.estacao-cilindro-topo strong { font-size: 1.1rem; color: var(--color-text); }
+.estacao-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.estacao-check {
+    min-height: 48px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 2px solid var(--color-border);
+    background: var(--color-hover);
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    text-align: left;
+}
+.estacao-check.marcado { border-color: var(--status-approved); background: var(--status-approved-bg); color: var(--status-approved-text); }
+.estacao-check:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+.estacao-remover { align-self: flex-end; }
+
+.estacao-barra {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+    padding: 14px 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.08);
+}
+.estacao-contador { font-size: 1.1rem; color: var(--color-text); }
+.estacao-barra-acoes { display: flex; gap: 10px; flex-wrap: wrap; }
+.estacao-btn-principal { min-width: 200px; }
+
+[data-theme="high-contrast-sun"] .estacao-check,
+[data-theme="high-contrast-sun"] .estacao-cilindro { border-color: #000 !important; background: #fff !important; color: #000 !important; }
+[data-theme="high-contrast-sun"] .estacao-check.marcado { background: #000 !important; color: #fff !important; }
+
+@media (max-width: 640px) {
+    .estacao-config { grid-template-columns: 1fr; }
+    .estacao-leitor-linha { flex-direction: column; }
+    .estacao-grade { grid-template-columns: 1fr; }
+    .estacao-barra-acoes, .estacao-barra-acoes > * { width: 100%; }
+}

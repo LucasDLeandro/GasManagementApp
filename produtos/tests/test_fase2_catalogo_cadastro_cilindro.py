@@ -211,3 +211,18 @@ class CatalogoECadastroCilindroTests(TestCase):
             codigo = (base / nome).read_text(encoding='utf-8')
             for proibido in ('alert(', 'confirm(', 'prompt('):
                 self.assertNotIn(proibido, codigo.replace('Baros.confirmar(', ''), f'{proibido} em {nome}')
+
+    def test_estacao_de_rampa_aparece_com_envase_e_inspecao_nasce_pendente(self):
+        self.tenant.modulo_envase_ativo = True
+        self.tenant.save(update_fields=['modulo_envase_ativo'])
+        self.client.force_login(self.gerente)
+
+        html = self.client.get('/produtos/').content.decode()
+
+        self.assertIn('id="aba-conteudo-rampa" class="ds-hidden estacao"', html)
+        self.assertIn('id="btn-rampa-conferir-todos"', html)
+        from pathlib import Path
+        js = (Path(__file__).resolve().parents[1] / 'static' / 'produtos' / 'js' / 'fase3_rampa_recebimento_lotes.js').read_text(encoding='utf-8')
+        # IN 129: nada começa marcado como conforme ao acoplar o cilindro
+        self.assertIn("this.ITENS_CHECKLIST.forEach(([campo]) => { item[campo] = false; });", js)
+        self.assertNotIn('valvula_integra: true,', js)
