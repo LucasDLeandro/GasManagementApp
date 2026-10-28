@@ -275,21 +275,23 @@ table.dataTable tbody td {
     color: var(--color-text-muted, #4b5563);
 }
 
-.form-group input, .form-group select {
+.form-group input, .form-group select, .form-group textarea {
     padding: 10px 14px;
     border: 1px solid var(--color-border, #d1d5db);
     border-radius: 8px;
     font-size: 0.95rem;
     font-family: inherit;
     transition: all 0.2s ease;
-    background: #f9fafb;
+    /* Tokens (não cores fixas) para funcionar nos temas escuro e alto contraste */
+    background: var(--color-hover, #f9fafb);
+    color: var(--color-text, #111827);
 }
 
-.form-group input:focus, .form-group select:focus {
-    background: #ffffff;
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    background: var(--color-surface, #ffffff);
     border-color: var(--color-primary, #4f46e5);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 .form-actions {
@@ -320,4 +322,252 @@ table.dataTable tbody td {
 .badge-industrial {
     background-color: #fee2e2;
     color: #b91c1c;
+}
+
+/* ==========================================================================
+   DESIGN SYSTEM v1 (docs/DESIGN_SYSTEM.md)
+   Componentes do redesign, extraídos da tela de Clientes. Use tokens, nunca
+   cores fixas. Classes novas usam o prefixo ds-.
+   ========================================================================== */
+
+/* Cabeçalho de página */
+.ds-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+.ds-page-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+    letter-spacing: -0.01em;
+}
+.ds-page-subtitle {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+}
+.ds-page-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Cartões de métrica */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+}
+.metric-card {
+    background: var(--color-surface);
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+    position: relative;
+    overflow: hidden;
+}
+.metric-card h4 {
+    margin: 0 0 8px;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.metric-card p {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--color-text);
+    letter-spacing: -0.02em;
+}
+.metric-card-help {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+.metric-card--approved { border-left: 4px solid var(--status-approved); }
+.metric-card--transit { border-left: 4px solid var(--status-transit); }
+.metric-card--warning { border-left: 4px solid var(--status-warning); }
+.metric-card--danger { border-left: 4px solid var(--status-danger); }
+.metric-card--quarantine { border-left: 4px solid var(--status-quarantine); }
+
+/* Badges de status */
+.badge-status-approved, .badge-status-transit, .badge-status-warning,
+.badge-status-danger, .badge-status-quarantine {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.badge-status-approved { background: var(--status-approved-bg); border-color: var(--status-approved-border); color: var(--status-approved-text); }
+.badge-status-transit { background: var(--status-transit-bg); border-color: var(--status-transit-border); color: var(--status-transit-text); }
+.badge-status-warning { background: var(--status-warning-bg); border-color: var(--status-warning-border); color: var(--status-warning-text); }
+.badge-status-danger { background: var(--status-danger-bg); border-color: var(--status-danger-border); color: var(--status-danger-text); }
+.badge-status-quarantine { background: var(--status-quarantine-bg); border-color: var(--status-quarantine-border); color: var(--status-quarantine-text); }
+
+/* Stepper (formulários em etapas) */
+.stepper-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px 24px;
+    margin-bottom: 24px;
+}
+.step-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.step-circle {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--color-hover);
+    color: var(--color-text-muted);
+    border: 2px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: all 0.25s ease;
+}
+.step-item.active .step-circle {
+    background: var(--color-primary);
+    color: #ffffff;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+.step-item.completed .step-circle {
+    background: var(--status-approved);
+    color: #ffffff;
+    border-color: var(--status-approved);
+}
+.step-label { display: flex; flex-direction: column; }
+.step-title { font-weight: 700; font-size: 0.9rem; color: var(--color-text); }
+.step-subtitle { font-size: 0.75rem; color: var(--color-text-muted); }
+.step-divider {
+    flex: 1;
+    height: 2px;
+    background: var(--color-border);
+    margin: 0 16px;
+}
+.ds-step-pane { display: none; }
+.ds-step-pane.active { display: block; }
+.ds-stepper-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-border);
+}
+.ds-stepper-footer .ds-stepper-nav { display: flex; gap: 12px; }
+
+/* Seções dentro de modais / etapas */
+.modal-section-card {
+    background: var(--color-hover);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+.modal-section-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-primary);
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Validação de campos */
+.form-group .ds-field-error {
+    font-size: 0.78rem;
+    color: var(--color-danger);
+}
+.form-group.ds-invalid input,
+.form-group.ds-invalid select,
+.form-group.ds-invalid textarea {
+    border-color: var(--color-danger);
+}
+.form-group .ds-field-help {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+/* Estados: vazio, erro e carregando */
+.ds-empty {
+    text-align: center;
+    padding: 40px 24px;
+    border: 1px dashed var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+}
+.ds-empty-title { margin: 0; font-weight: 700; color: var(--color-text); }
+.ds-empty-text { margin: 6px 0 0; font-size: 0.875rem; color: var(--color-text-muted); }
+.ds-empty--danger { border-color: var(--status-danger-border); background: var(--status-danger-bg); }
+.ds-empty--danger .ds-empty-title { color: var(--status-danger-text); }
+
+.ds-skeleton {
+    display: block;
+    height: 14px;
+    margin: 10px 0;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--color-hover) 25%, var(--color-border) 50%, var(--color-hover) 75%);
+    background-size: 200% 100%;
+    animation: ds-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes ds-skeleton-shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+}
+
+/* Utilitários */
+.font-mono { font-family: var(--font-family-mono, 'JetBrains Mono', monospace); }
+.ds-num { text-align: right; font-family: var(--font-family-mono, 'JetBrains Mono', monospace); }
+
+/* Alto contraste solar */
+[data-theme="high-contrast-sun"] .metric-card,
+[data-theme="high-contrast-sun"] .stepper-header,
+[data-theme="high-contrast-sun"] .modal-section-card,
+[data-theme="high-contrast-sun"] .ds-empty {
+    border: 2px solid #000000 !important;
+    background: #ffffff !important;
+}
+
+/* Responsivo */
+@media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .stepper-header { padding: 12px; overflow-x: auto; }
+    .step-label { display: none; }
+    .step-item.active .step-label { display: flex; }
+    .step-divider { margin: 0 8px; min-width: 12px; }
+    .modal-content { max-width: 100%; max-height: 100vh; border-radius: 0; padding: 20px; }
+    .ds-page-actions { width: 100%; }
+    .ds-page-actions > * { flex: 1; }
 }

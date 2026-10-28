@@ -15,7 +15,7 @@
     </script>
     <!-- Estilo específico do Dashboard/Home compartilhado -->
     <link rel="stylesheet" href="{% static 'core/css/home.css' %}">
-    <link rel="stylesheet" href="{% static 'core/css/components.css' %}">
+    <link rel="stylesheet" href="{% static 'core/css/components.css' %}?v=20261027_ds1">
     <link rel="stylesheet" href="{% static 'core/css/command_bar.css' %}">
     {% block extra_css %}{% endblock %}
 {% endblock %}
@@ -352,7 +352,7 @@
     {% block core_js %}
         <!-- Biblioteca PDF (Self-Hosted) -->
         <script src="{% static 'vendor/html2pdf/html2pdf.bundle.min.js' %}"></script>
-        <script src="{% static 'core/js/core.js' %}?v=20261016_v2"></script>
+        <script src="{% static 'core/js/core.js' %}?v=20261027_ds1"></script>
         <script src="{% static 'core/js/command_bar.js' %}"></script>
         {% block extra_js %}{% endblock %}
     {% endblock %}

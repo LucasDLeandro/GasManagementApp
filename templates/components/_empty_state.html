@@ -1,0 +1,9 @@
+{% comment %}
+Estado vazio / erro (docs/DESIGN_SYSTEM.md, seção 4.4).
+Uso: {% include "components/_empty_state.html" with titulo="Nenhum cilindro encontrado" texto="Ajuste os filtros." %}
+tom="danger" para estado de erro.
+{% endcomment %}
+<div class="ds-empty{% if tom %} ds-empty--{{ tom }}{% endif %}" role="status">
+    <p class="ds-empty-title">{{ titulo }}</p>
+    {% if texto %}<p class="ds-empty-text">{{ texto }}</p>{% endif %}
+</div>

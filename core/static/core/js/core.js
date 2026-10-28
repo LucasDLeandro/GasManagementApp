@@ -71,7 +71,8 @@ window.renovarTokenSeNecessario = async function() {
 
 const btnLogout = document.getElementById('btn-logout');
 
-btnLogout.addEventListener('click', async(event) => {
+// Sem o botão (página sem a topbar), um erro aqui interromperia o resto do core.js.
+if (btnLogout) btnLogout.addEventListener('click', async(event) => {
     event.preventDefault();
 
     const sair = await Swal.fire({
@@ -340,4 +341,231 @@ window.showToast = function({ icon = 'success', title = 'Sucesso', text = '' }) 
             closeSidebar();
         }
     });
-})();
+})();
+
+// ==========================================================================
+// Design System v1 — utilitários compartilhados (docs/DESIGN_SYSTEM.md, seção 6)
+// ==========================================================================
+(function (global) {
+    'use strict';
+
+    function lerCookie(nome) {
+        const item = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith(nome + '='));
+        return item ? decodeURIComponent(item.split('=').slice(1).join('=')) : '';
+    }
+
+    function cabecalhos(extra) {
+        const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': lerCookie('csrftoken') };
+        let token = localStorage.getItem('access_token') || localStorage.getItem('access');
+        if (token && global.isJwtExpired && global.isJwtExpired(token)) token = null;
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const meta = document.querySelector('meta[name="current-tenant-id"]');
+        if (meta && meta.content) headers['X-Tenant-ID'] = meta.content;
+        return Object.assign(headers, extra || {});
+    }
+
+    const CHAVES_MENSAGEM = ['error', 'erro', 'detail', 'mensagem', 'non_field_errors'];
+
+    class ApiError extends Error {
+        constructor(status, corpo) {
+            const campos = {};
+            let mensagem = '';
+            if (corpo && typeof corpo === 'object') {
+                mensagem = corpo.error || corpo.erro || corpo.detail || corpo.mensagem
+                    || (Array.isArray(corpo.non_field_errors) ? corpo.non_field_errors[0] : '') || '';
+                Object.keys(corpo).forEach((chave) => {
+                    if (CHAVES_MENSAGEM.includes(chave)) return;
+                    const valor = corpo[chave];
+                    campos[chave] = Array.isArray(valor) ? valor.join(' ') : String(valor);
+                });
+                if (!mensagem && Object.keys(campos).length) mensagem = 'Confira os campos destacados.';
+            } else if (typeof corpo === 'string' && corpo) {
+                mensagem = corpo.slice(0, 300);
+            }
+            if (status === 403 && !mensagem) mensagem = 'Você não tem permissão para esta ação.';
+            if (status >= 500) mensagem = 'Erro interno no servidor. Tente de novo em instantes.';
+            super(mensagem || 'Não foi possível concluir a operação.');
+            this.name = 'ApiError';
+            this.status = status;
+            this.mensagem = this.message;
+            this.campos = campos;
+            this.corpo = corpo;
+        }
+    }
+
+    async function api(url, opcoes) {
+        const opts = opcoes || {};
+        if (global.renovarTokenSeNecessario) {
+            try { await global.renovarTokenSeNecessario(); } catch (e) { /* segue com a sessão */ }
+        }
+        const init = {
+            method: (opts.method || 'GET').toUpperCase(),
+            headers: cabecalhos(opts.headers),
+            credentials: 'same-origin',
+        };
+        if (opts.body !== undefined) {
+            if (opts.body instanceof FormData) {
+                delete init.headers['Content-Type'];
+                init.body = opts.body;
+            } else {
+                init.body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
+            }
+        }
+        let resposta;
+        try {
+            resposta = await fetch(url, init);
+        } catch (e) {
+            throw new ApiError(0, 'Sem conexão com o servidor. Verifique sua internet.');
+        }
+        const tipo = resposta.headers.get('content-type') || '';
+        let corpo = null;
+        if (resposta.status !== 204) {
+            corpo = tipo.includes('application/json')
+                ? await resposta.json().catch(() => null)
+                : await resposta.text();
+        }
+        if (!resposta.ok) throw new ApiError(resposta.status, corpo);
+        return corpo;
+    }
+
+    function toast(icon, texto) {
+        if (global.showToast) global.showToast({ icon, title: texto });
+    }
+
+    async function confirmar(opcoes) {
+        const o = Object.assign({ titulo: 'Confirmar?', texto: '', botao: 'Confirmar', perigo: false, motivo: false }, opcoes || {});
+        const minimo = o.motivo === true ? 10 : (Number(o.motivo) || 0);
+        const config = {
+            title: o.titulo,
+            text: o.texto,
+            icon: o.perigo ? 'warning' : 'question',
+            showCancelButton: true,
+            confirmButtonText: o.botao,
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+            focusCancel: !!o.perigo,
+        };
+        if (o.perigo) config.confirmButtonColor = '#dc2626';
+        if (minimo) {
+            config.input = 'textarea';
+            config.inputLabel = 'Motivo (mínimo ' + minimo + ' caracteres)';
+            config.inputValidator = (v) => ((!v || v.trim().length < minimo)
+                ? 'Informe um motivo com pelo menos ' + minimo + ' caracteres.'
+                : undefined);
+        }
+        const r = await Swal.fire(config);
+        if (!r.isConfirmed) return null;
+        return minimo ? r.value.trim() : true;
+    }
+
+    function carregando(botao, texto) {
+        if (!botao) return () => {};
+        const original = botao.innerHTML;
+        botao.disabled = true;
+        botao.setAttribute('aria-busy', 'true');
+        if (texto) botao.textContent = texto;
+        return () => {
+            botao.disabled = false;
+            botao.removeAttribute('aria-busy');
+            botao.innerHTML = original;
+        };
+    }
+
+    function limparErros(raiz) {
+        raiz.querySelectorAll('.ds-field-error').forEach(el => el.remove());
+        raiz.querySelectorAll('.form-group.ds-invalid').forEach(el => el.classList.remove('ds-invalid'));
+    }
+
+    function marcarErro(campo, mensagem) {
+        const grupo = campo.closest('.form-group') || campo.parentElement;
+        grupo.classList.add('ds-invalid');
+        const aviso = document.createElement('span');
+        aviso.className = 'ds-field-error';
+        aviso.textContent = mensagem;
+        grupo.appendChild(aviso);
+    }
+
+    function validarCampos(seletor) {
+        const raiz = typeof seletor === 'string' ? document.querySelector(seletor) : seletor;
+        if (!raiz) return true;
+        limparErros(raiz);
+        let primeiro = null;
+        raiz.querySelectorAll('input, select, textarea').forEach((campo) => {
+            if (campo.disabled || campo.type === 'hidden' || campo.checkValidity()) return;
+            marcarErro(campo, campo.validationMessage);
+            primeiro = primeiro || campo;
+        });
+        if (primeiro) primeiro.focus();
+        return !primeiro;
+    }
+
+    function mostrarErrosApi(form, erro) {
+        const raiz = typeof form === 'string' ? document.querySelector(form) : form;
+        if (raiz) limparErros(raiz);
+        const naoMapeados = [];
+        Object.entries((erro && erro.campos) || {}).forEach(([nome, mensagem]) => {
+            const campo = raiz ? raiz.querySelector('[name="' + nome + '"]') : null;
+            if (campo) marcarErro(campo, mensagem); else naoMapeados.push(mensagem);
+        });
+        const texto = [erro && erro.mensagem].concat(naoMapeados).filter(Boolean).join(' ');
+        toast('error', texto || 'Não foi possível salvar.');
+    }
+
+    function dadosDoForm(form) {
+        const dados = {};
+        new FormData(form).forEach((valor, chave) => { dados[chave] = valor; });
+        return dados;
+    }
+
+    function Stepper(seletor, opcoes) {
+        const raiz = typeof seletor === 'string' ? document.querySelector(seletor) : seletor;
+        const o = opcoes || {};
+        const itens = Array.from(raiz.querySelectorAll('[data-stepper-nav] .step-item'));
+        const paineis = Array.from(raiz.querySelectorAll('.ds-step-pane'));
+        const total = paineis.length;
+        let atual = 1;
+
+        function render() {
+            itens.forEach((item) => {
+                const n = Number(item.dataset.step);
+                item.classList.toggle('active', n === atual);
+                item.classList.toggle('completed', n < atual);
+                if (n === atual) item.setAttribute('aria-current', 'step');
+                else item.removeAttribute('aria-current');
+            });
+            paineis.forEach(p => p.classList.toggle('active', Number(p.dataset.step) === atual));
+            if (o.aoMudar) o.aoMudar(atual, total);
+        }
+
+        const controle = {
+            get atual() { return atual; },
+            get total() { return total; },
+            ir(n) { atual = Math.min(Math.max(1, n), total); render(); },
+            proxima() {
+                if (o.validar && o.validar(atual) === false) return false;
+                if (atual < total) { atual += 1; render(); }
+                return true;
+            },
+            anterior() { if (atual > 1) { atual -= 1; render(); } },
+            reiniciar() { atual = 1; render(); },
+        };
+        render();
+        return controle;
+    }
+
+    global.Baros = Object.assign(global.Baros || {}, {
+        api,
+        ApiError,
+        confirmar,
+        sucesso: (texto) => toast('success', texto),
+        erro: (texto) => toast('error', texto),
+        aviso: (texto) => toast('warning', texto),
+        carregando,
+        validarCampos,
+        mostrarErrosApi,
+        dadosDoForm,
+        Stepper,
+        moeda: (v) => (global.formatCurrencyBR ? global.formatCurrencyBR(v) : v),
+        data: (v) => (global.formatDateBR ? global.formatDateBR(v) : v),
+    });
+})(window);

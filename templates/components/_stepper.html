@@ -1,0 +1,16 @@
+{% load baros_ui %}
+{% comment %}
+Cabeçalho do stepper (docs/DESIGN_SYSTEM.md, seção 5.2).
+Uso: {% include "components/_stepper.html" with id="novo-cliente" etapas="Identificação|Contato|Endereço|Revisão" %}
+Os painéis ficam logo abaixo, dentro do mesmo container: <div class="ds-step-pane" data-step="1">...</div>
+JS: Baros.Stepper('#novo-cliente', { validar: ... })
+{% endcomment %}
+<nav class="stepper-header" data-stepper-nav aria-label="Etapas">
+    {% for etapa in etapas|dividir %}
+        {% if not forloop.first %}<div class="step-divider" aria-hidden="true"></div>{% endif %}
+        <div class="step-item{% if forloop.first %} active{% endif %}" data-step="{{ forloop.counter }}">
+            <div class="step-circle">{{ forloop.counter }}</div>
+            <div class="step-label"><span class="step-title">{{ etapa }}</span></div>
+        </div>
+    {% endfor %}
+</nav>

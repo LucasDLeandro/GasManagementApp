@@ -1,0 +1,10 @@
+{% comment %}
+Cartão de métrica (docs/DESIGN_SYSTEM.md, seção 4.1).
+Uso: {% include "components/_metric_card.html" with rotulo="Em comodato" valor=total tom="transit" id="metrica-comodato" ajuda="Cilindros com clientes" %}
+tom: approved | transit | warning | danger | quarantine (opcional)
+{% endcomment %}
+<div class="metric-card{% if tom %} metric-card--{{ tom }}{% endif %}"{% if id %} id="{{ id }}"{% endif %}>
+    <h4>{{ rotulo }}</h4>
+    <p class="font-mono" data-metric-value>{{ valor|default:"—" }}</p>
+    {% if ajuda %}<span class="metric-card-help">{{ ajuda }}</span>{% endif %}
+</div>
