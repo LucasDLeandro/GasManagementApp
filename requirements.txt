@@ -14,6 +14,7 @@ djangorestframework>=3.16.1
 djangorestframework_simplejwt>=5.5.1
 PyJWT>=2.13.0
 cryptography>=49.0.0
+django-otp>=1.5.0
 
 # --- Geração de Documentos, Laudos e Etiquetas QR ---
 reportlab>=4.5.1
@@ -40,3 +41,15 @@ django-widget-tweaks>=1.5.1
 holidays>=0.80
 numpy>=2.2.5
 pandas>=2.2.3
+# --- Tarefas Assíncronas & Filas (Celery / Redis) ---
+celery>=5.4.0
+redis>=5.0.0
+
+# --- Testes, Qualidade de Código & CI (Sprint 7A) ---
+pytest>=9.0.0
+pytest-django>=4.10.0
+pytest-cov>=7.0.0
+hypothesis>=6.120.0
+factory-boy>=3.3.0
+ruff>=0.17.0
+

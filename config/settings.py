@@ -61,6 +61,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_otp',
+    'django_otp.plugins.otp_totp',
     'rest_framework',
     'core',
     'accounts',
@@ -68,16 +70,24 @@ INSTALLED_APPS = [
     'produtos',
     'vendas',
     'logistica',
+    'faturamento',
+    'portal_b2b',
+    'analytics',
+    'financeiro',
+    'fiscal',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
 
 MIDDLEWARE = [
+    'core.middleware.RequestIdMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'portal_b2b.middleware.B2BSessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
     'core.middleware.TenantMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -96,6 +106,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.tenant_membership_context',
+                'core.context_processors.modulos_ativos',
             ],
         },
     },
@@ -193,4 +204,55 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/inicio/'
+
+# Celery & Broker Settings (Non-blocking async integration)
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+# Gateway de Pagamento & Webhook Secrets
+GATEWAY_WEBHOOK_SECRET = config('GATEWAY_WEBHOOK_SECRET', default='baros_gateway_secret_key_default')
+NFE_WEBHOOK_SECRET = config('NFE_WEBHOOK_SECRET', default='baros_nfe_secret_key_default')
+
+# Chave simétrica para criptografia de campos sensíveis (ex: senhas de certificado A1)
+FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default='mvI3kOqWn0Rm4IAEw7MWZ8eWJZUJb7RU2moN0PGYqjo=')
+
+# Cache com suporte a Redis para Analytics & Rate Limiting (Sprint 10)
+USE_REDIS_CACHE = config('USE_REDIS_CACHE', default=False, cast=bool)
+if USE_REDIS_CACHE:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': config('REDIS_CACHE_URL', default='redis://127.0.0.1:6379/1'),
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'baros-analytics-locmem',
+        }
+    }
+
+
+AUTHENTICATION_BACKENDS = [
+    'core.authentication.InternalModelBackend',
+    'portal_b2b.auth.PortalB2BBackend',
+]
+
+B2B_SESSION_COOKIE_NAME = 'b2b_sessionid'
+
+# Aceleração de testes automatizados (hash rápido em ambiente de teste)
+import sys
+if 'test' in sys.argv or any('pytest' in arg for arg in sys.argv):
+    PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
+    ]
+
+
 

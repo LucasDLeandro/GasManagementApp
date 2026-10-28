@@ -37,13 +37,16 @@ from produtos.views import (
     PassaporteSanitarioPublicoView,
     PassaporteLaudoPublicoView,
 )
-from logistica.views import AppCampoView
+from logistica.views import AppCampoView, TrackingPublicoView
 
 api_router = DefaultRouter()
 api_router.register(r'webhooks', WebhookEndpointViewSet, basename='webhook-endpoint')
 api_router.register(r'webhook-logs', WebhookDeliveryLogViewSet, basename='webhook-log')
 
 urlpatterns = [
+    # Rastreio Público da Entrega em Tempo Real (Sprint 8)
+    path('rastreio/<uuid:token>/', TrackingPublicoView.as_view(), name='rastreio_publico'),
+
     # Passaporte Sanitário Público do Cilindro (Consulta via QR Code sem login)
     path('v/cilindro/<str:identificador>/', PassaporteSanitarioPublicoView.as_view(), name='passaporte_sanitario_publico'),
     path('v/cilindro/<str:identificador>/laudo/', PassaporteLaudoPublicoView.as_view(), name='passaporte_laudo_publico'),
@@ -62,6 +65,9 @@ urlpatterns = [
     path('api/busca-global/', BuscaGlobalAPIView.as_view(), name='api_busca_global'),
     path('api/', include(api_router.urls)),
 
+    # Backoffice SaaS v2.0 (Governança, Planos, Cotas e Break-Glass)
+    path('baros-admin/', include('core.urls_baros_admin')),
+
     path('admin/', admin.site.urls),
     path('', RedirectView.as_view(url='/inicio/', permanent=False), name='root'),
     path('integracoes/', IntegracoesView.as_view(), name='integracoes_root'),
@@ -74,6 +80,13 @@ urlpatterns = [
     path('produtos/', include('produtos.urls', namespace='produtos')),
     path('vendas/', include('vendas.urls', namespace='vendas')),
     path('logistica/', include('logistica.urls', namespace='logistica')),
+    path('faturamento/', include('faturamento.urls', namespace='faturamento')),
+    path('financeiro/', include('financeiro.urls', namespace='financeiro')),
+    path('portal-b2b/', include('portal_b2b.urls', namespace='portal_b2b')),
+    path('api/analytics/', include('analytics.urls', namespace='analytics')),
+    path('analytics/api/', include('analytics.urls', namespace='analytics_direct')),
+    path('api/fiscal/', include('fiscal.urls', namespace='fiscal')),
+    path('fiscal/', include('fiscal.urls', namespace='fiscal_direct')),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
 
