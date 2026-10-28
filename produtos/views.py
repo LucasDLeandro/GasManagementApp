@@ -1332,24 +1332,20 @@ class ItemRecallClienteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         """
         Registra formalmente a confirmação de recolhimento ou declaração de consumo pelo cliente.
         """
+        from .services.ciclo_cilindro import registrar_andamento_item_recall
         item = self.get_object()
-        novo_status = request.data.get('status_notificacao', 'RECOLHIDO')
-        observacoes = request.data.get('observacoes', '')
-
-        if novo_status not in [c[0] for c in ItemRecallCliente.STATUS_NOTIFICACAO_CHOICES]:
-            return Response({'error': f'Status inválido: {novo_status}'}, status=status.HTTP_400_BAD_REQUEST)
-
-        item.status_notificacao = novo_status
-        if novo_status == 'RECOLHIDO':
-            item.recolhido_em = timezone.now()
-        elif novo_status == 'NOTIFICADO' and not item.notificado_em:
-            item.notificado_em = timezone.now()
-
-        if observacoes:
-            item.observacoes = (item.observacoes + "\n" + observacoes).strip()
-
-        item.save(update_fields=['status_notificacao', 'recolhido_em', 'notificado_em', 'observacoes'])
-        return Response(ItemRecallClienteSerializer(item).data, status=status.HTTP_200_OK)
+        try:
+            item, campanha = registrar_andamento_item_recall(
+                item_id=item.id,
+                novo_status=request.data.get('status_notificacao', 'RECOLHIDO'),
+                observacoes=request.data.get('observacoes', ''),
+            )
+        except ValidationError as e:
+            return Response({'error': ' '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        dados = ItemRecallClienteSerializer(item).data
+        dados['campanha_status'] = campanha.status
+        dados['campanha_status_display'] = campanha.get_status_display()
+        return Response(dados, status=status.HTTP_200_OK)
 
 
 class LoteRecallAPIView(TenantViewSetMixin, APIView):

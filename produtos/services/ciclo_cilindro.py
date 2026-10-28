@@ -1323,6 +1323,10 @@ def homologar_campanha_recall(
 
     campanha = RecallCampanha.objects.select_for_update().get(id=campanha_id)
     _verificar_permissao_rt(usuario, tenant_id=campanha.tenant_id)
+    if campanha.status != 'ABERTO':
+        raise ValidationError(
+            f"Só campanhas abertas podem ser homologadas (situação atual: {campanha.get_status_display()})."
+        )
 
     rt = _obter_responsavel_tecnico(usuario, tenant_id=campanha.tenant_id, responsavel_tecnico=responsavel_tecnico)
     rt_nome = rt.nome_completo if rt else (usuario.get_full_name() or usuario.username)
@@ -1336,6 +1340,50 @@ def homologar_campanha_recall(
     campanha.save(update_fields=['status', 'homologado_em', 'homologado_por_rt', 'rt_nome_snapshot', 'rt_registro_snapshot'])
 
     return campanha
+
+
+STATUS_ITEM_RECALL_ENCERRADO = ('RECOLHIDO', 'CONSUMIDO_DECLARADO')
+
+
+@transaction.atomic
+def registrar_andamento_item_recall(*, item_id, novo_status, observacoes=''):
+    """
+    Registra notificação/recolhimento de um item de recall e avança a campanha
+    (ABERTO -> HOMOLOGADO_RT -> EM_NOTIFICACAO -> CONCLUIDO):
+    - o cliente só é notificado depois da homologação do RT;
+    - a primeira notificação ou recolha coloca a campanha EM_NOTIFICACAO;
+    - quando todos os itens estão recolhidos ou com consumo declarado, a campanha é CONCLUIDA.
+    """
+    item = ItemRecallCliente.objects.select_for_update().select_related('campanha').get(id=item_id)
+    campanha = RecallCampanha.objects.select_for_update().get(id=item.campanha_id)
+
+    if campanha.status == 'ABERTO':
+        raise ValidationError('Homologue a campanha com o Responsável Técnico antes de notificar ou recolher.')
+    if campanha.status in ('CONCLUIDO', 'CANCELADO'):
+        raise ValidationError(f'A campanha está {campanha.get_status_display().lower()}: não aceita mais alterações.')
+    if novo_status not in dict(ItemRecallCliente.STATUS_NOTIFICACAO_CHOICES):
+        raise ValidationError(f'Status inválido: {novo_status}')
+
+    agora = timezone.now()
+    item.status_notificacao = novo_status
+    if novo_status != 'PENDENTE' and not item.notificado_em:
+        item.notificado_em = agora
+    if novo_status == 'RECOLHIDO' and not item.recolhido_em:
+        item.recolhido_em = agora
+    if observacoes:
+        item.observacoes = ((item.observacoes or '') + "\n" + observacoes).strip()
+    item.save(update_fields=['status_notificacao', 'recolhido_em', 'notificado_em', 'observacoes'])
+
+    if campanha.status == 'HOMOLOGADO_RT' and novo_status != 'PENDENTE':
+        campanha.status = 'EM_NOTIFICACAO'
+    pendentes = ItemRecallCliente.objects.filter(campanha=campanha).exclude(
+        status_notificacao__in=STATUS_ITEM_RECALL_ENCERRADO
+    ).exists()
+    if campanha.status == 'EM_NOTIFICACAO' and not pendentes:
+        campanha.status = 'CONCLUIDO'
+        campanha.concluido_em = agora
+    campanha.save(update_fields=['status', 'concluido_em'])
+    return item, campanha
 
 
 def obter_dossie_recall_lote(lote_codigo_ou_id, tenant_id=None):

@@ -1,0 +1,95 @@
+/* Recall e rastreabilidade sanitária (2.2.9) — Design System v1 */
+.recall-busca-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.recall-busca-form .form-group { flex: 1; min-width: 240px; }
+.recall-lotes-rapidos { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; font-size: 0.85rem; }
+.recall-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.recall-pill {
+    border: 1px solid var(--color-border);
+    background: var(--color-hover);
+    color: var(--color-text);
+    border-radius: 14px;
+    padding: 4px 10px;
+    font: inherit;
+    font-family: var(--font-family-mono, monospace);
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+.recall-pill:hover, .recall-pill.ativo { border-color: var(--color-primary); color: var(--color-primary); }
+
+.recall-alerta {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--status-danger-bg);
+    border: 1px solid var(--status-danger-border);
+    color: var(--status-danger-text);
+}
+.recall-titulo-lote { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.recall-contador {
+    display: inline-block;
+    min-width: 22px;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: var(--color-hover);
+    font-size: 0.75rem;
+    text-align: center;
+}
+.metric-card p.recall-metrica-texto { font-size: 1.15rem; }
+
+/* Campanhas */
+.recall-campanhas { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+.recall-campanha {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+}
+.recall-campanha.selecionada { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+.recall-campanha-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.recall-campanha-topo strong { font-size: 1rem; color: var(--color-text); }
+.recall-campanha-motivo { margin: 6px 0 12px; color: var(--color-text-muted); font-size: 0.875rem; }
+.recall-campanha-acoes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Linha do tempo da campanha: ABERTO -> HOMOLOGADO_RT -> EM_NOTIFICACAO -> CONCLUIDO */
+.recall-linha-tempo { display: flex; align-items: center; gap: 0; margin: 4px 0 12px; }
+.recall-etapa { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--color-text-muted); white-space: nowrap; }
+.recall-etapa-ponto {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 2px solid var(--color-border); background: var(--color-hover);
+    font-size: 0.7rem; font-weight: 700;
+}
+.recall-etapa.feita { color: var(--color-text); }
+.recall-etapa.feita .recall-etapa-ponto { background: var(--status-approved); border-color: var(--status-approved); color: #fff; }
+.recall-etapa.atual { color: var(--color-text); font-weight: 700; }
+.recall-etapa.atual .recall-etapa-ponto { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.recall-etapa-traco { flex: 1; min-width: 16px; height: 2px; background: var(--color-border); margin: 0 10px; }
+.recall-etapa.cancelada .recall-etapa-ponto { background: var(--status-danger); border-color: var(--status-danger); color: #fff; }
+
+.recall-status-select {
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+    .recall-linha-tempo { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .recall-etapa-traco { display: none; }
+}
+
+/* Dossiê impresso */
+@media print {
+    header.top-navbar, aside.sidebar, .recall-busca, .recall-acoes, .ds-filtros, .tabs-nav,
+    .recall-campanha-acoes, #theme-toggle, .btn-primary, .btn-outline, .btn-danger { display: none !important; }
+    .dashboard-layout { display: block !important; }
+    .main-content { margin: 0 !important; padding: 0 !important; }
+    body { background: #fff !important; color: #000 !important; }
+    [data-recall-painel] { display: block !important; page-break-inside: avoid; margin-bottom: 18px; }
+    .metric-card, .recall-campanha, .table-container, .recall-alerta { box-shadow: none !important; border: 1px solid #000 !important; background: #fff !important; color: #000 !important; }
+    .ds-page-title::after { content: " — Dossiê de rastreabilidade e recall"; font-size: 0.9rem; }
+}

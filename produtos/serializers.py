@@ -324,18 +324,21 @@ class ItemRecallClienteSerializer(serializers.ModelSerializer):
 class RecallCampanhaSerializer(serializers.ModelSerializer):
     lote_codigo = serializers.CharField(source='lote.codigo_lote', read_only=True)
     criado_por_nome = serializers.CharField(source='criado_por.get_full_name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
     itens_cliente = ItemRecallClienteSerializer(many=True, read_only=True)
 
     class Meta:
         model = RecallCampanha
         fields = [
             'id', 'tenant', 'lote', 'lote_codigo', 'codigo_campanha',
-            'status', 'motivo', 'texto_notificacao', 'criado_por',
+            'status', 'status_display', 'motivo', 'texto_notificacao', 'criado_por',
             'criado_por_nome', 'homologado_por_rt', 'rt_nome_snapshot',
             'rt_registro_snapshot', 'aberto_em', 'homologado_em',
             'concluido_em', 'itens_cliente'
         ]
-        read_only_fields = ['tenant', 'aberto_em']
+        # A situação só muda pelos serviços (homologar / registrar andamento), nunca por PATCH.
+        read_only_fields = ['tenant', 'aberto_em', 'status', 'criado_por', 'homologado_por_rt',
+                            'rt_nome_snapshot', 'rt_registro_snapshot', 'homologado_em', 'concluido_em']
 
 
 # ==============================================================================
