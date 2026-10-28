@@ -1,0 +1,514 @@
+{% extends "base.html" %}
+{% load static l10n %}
+
+{% block title %}Conciliação Bancária - Baros{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1400px; margin: 24px auto; padding: 0 20px; font-family: var(--font-sans, system-ui);">
+    
+    <!-- HEADER E SELEÇÃO DE CONTA -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; background: #FFFFFF; padding: 20px 24px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+        <div>
+            <h1 style="font-size: 24px; font-weight: 800; color: #0F172A; margin: 0 0 4px 0; display: flex; align-items: center; gap: 10px;">
+                <span>🏦</span> Conciliação Bancária e Cobrança
+            </h1>
+            <p style="font-size: 14px; color: #64748B; margin: 0;">
+                Batimento financeiro inteligente entre extrato bancário (OFX / CNAB) e títulos em aberto do Razão contábil.
+            </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <form method="get" id="form-selecao-conta" style="margin: 0;">
+                <label for="select-conta" style="font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">CONTA BANCÁRIA:</label>
+                <select id="select-conta" name="conta_id" onchange="this.form.submit()" style="padding: 8px 14px; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 14px; font-weight: 600; color: #1E293B; background: #F8FAFC;">
+                    {% for c in contas %}
+                        <option value="{{ c.id }}" {% if conta_selecionada and conta_selecionada.id == c.id %}selected{% endif %}>
+                            {{ c.nome }} ({{ c.banco_codigo|default:"Bancária" }})
+                        </option>
+                    {% empty %}
+                        <option value="">Nenhuma conta corrente cadastrada</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <button onclick="document.getElementById('modal-upload-extrato').style.display='flex'" style="padding: 10px 18px; border-radius: 8px; background: #2563EB; color: #FFFFFF; font-weight: 700; font-size: 14px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">
+                <span>📥</span> Importar Extrato (OFX/CNAB)
+            </button>
+        </div>
+    </div>
+
+    <!-- CARDS DE BATIMENTO DE SALDO (EXTRATO x RAZÃO) -->
+    {% if painel %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase;">Saldo do Extrato (Arquivo)</div>
+            <div id="card-saldo-extrato" style="font-size: 26px; font-weight: 800; color: #0F172A; margin-top: 6px;">
+                {% if painel.saldo_extrato is not None %}
+                    R$ {{ painel.saldo_extrato|unlocalize }}
+                {% else %}
+                    <span style="color: #94A3B8; font-size: 16px;">Nenhum extrato importado</span>
+                {% endif %}
+            </div>
+            <div style="font-size: 12px; color: #64748B; margin-top: 4px;">Informado no fechamento do arquivo</div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase;">Saldo no Razão Contábil</div>
+            <div id="card-saldo-razao" style="font-size: 26px; font-weight: 800; color: #0F172A; margin-top: 6px;">
+                R$ {{ painel.saldo_razao|unlocalize }}
+            </div>
+            <div style="font-size: 12px; color: #64748B; margin-top: 4px;">Derivado de MovimentoConta e Lançamentos</div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase;">Diferença de Saldo Apurada</div>
+            <div id="card-diferenca-saldo" style="font-size: 26px; font-weight: 800; margin-top: 6px; 
+                {% if painel.diferenca == 0 %}color: #16A34A;
+                {% elif painel.diferenca is None %}color: #94A3B8;
+                {% else %}color: #DC2626;{% endif %}">
+                {% if painel.diferenca is not None %}
+                    R$ {{ painel.diferenca|unlocalize }}
+                    {% if painel.diferenca == 0 %}
+                        <span style="font-size: 14px; background: #DCFCE7; color: #15803D; padding: 2px 8px; border-radius: 9999px; margin-left: 8px;">Fechado</span>
+                    {% else %}
+                        <span style="font-size: 14px; background: #FEE2E2; color: #B91C1C; padding: 2px 8px; border-radius: 9999px; margin-left: 8px;">Divergente</span>
+                    {% endif %}
+                {% else %}
+                    <span style="color: #94A3B8; font-size: 16px;">—</span>
+                {% endif %}
+            </div>
+            <div style="font-size: 12px; color: #64748B; margin-top: 4px;">Extrato menos Saldo do Razão</div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase;">Período Fechado Até</div>
+            <div id="card-fechado-ate" style="font-size: 22px; font-weight: 800; color: #334155; margin-top: 6px;">
+                {% if painel.conciliacao_fechada_ate %}
+                    {{ painel.conciliacao_fechada_ate|date:"d/m/Y" }}
+                    <span style="font-size: 12px; background: #F1F5F9; color: #475569; padding: 2px 8px; border-radius: 9999px; margin-left: 6px;">Bloqueado</span>
+                {% else %}
+                    <span style="color: #94A3B8; font-size: 16px;">Nenhum bloqueio</span>
+                {% endif %}
+            </div>
+            <div style="font-size: 12px; color: #64748B; margin-top: 4px;">Desfazimento impedido em datas anteriores</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- TELA LADO A LADO: EXTRATO (ESQUERDA) x SISTEMA (DIREITA) -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px;">
+        
+        <!-- COLUNA DA ESQUERDA: EXTRATO BANCÁRIO -->
+        <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                <div>
+                    <h2 style="font-size: 16px; font-weight: 700; color: #1E293B; margin: 0;">
+                        📋 Extrato Bancário (Não Conciliados / Sugeridos)
+                    </h2>
+                    <span style="font-size: 12px; color: #64748B;">{{ painel.itens_extrato|length }} lançamentos pendentes de confirmação</span>
+                </div>
+            </div>
+
+            <div style="padding: 16px; overflow-y: auto; max-height: 600px; display: flex; flex-direction: column; gap: 12px;">
+                {% for item in painel.itens_extrato %}
+                    <div id="extrato-item-card-{{ item.id }}" class="card-extrato-item" style="border: 1px solid {% if item.status == 'SUGERIDO' %}#93C5FD{% else %}#E2E8F0{% endif %}; border-radius: 10px; padding: 14px; background: {% if item.status == 'SUGERIDO' %}#EFF6FF{% else %}#FFFFFF{% endif %}; transition: all 0.2s;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                            <div>
+                                <span style="font-size: 12px; font-weight: 700; color: #64748B;">{{ item.data|date:"d/m/Y" }}</span>
+                                <span style="font-size: 11px; margin-left: 8px; color: #94A3B8;">Doc: {{ item.documento|default:item.fitid|default:"-" }}</span>
+                            </div>
+                            <div style="font-size: 16px; font-weight: 800; {% if item.valor < 0 %}color: #DC2626;{% else %}color: #16A34A;{% endif %}">
+                                {% if item.valor < 0 %}-{% else %}+{% endif %} R$ {{ item.valor|unlocalize|slice:"1:"|default:item.valor|unlocalize }}
+                            </div>
+                        </div>
+
+                        <div style="font-size: 14px; font-weight: 600; color: #1E293B; margin-bottom: 8px;">
+                            {{ item.descricao }}
+                        </div>
+
+                        <!-- BADGE DE STATUS E SCORE -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div>
+                                {% if item.status == 'SUGERIDO' %}
+                                    <span style="background: #DBEAFE; color: #1D4ED8; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 9999px;">
+                                        💡 Sugerido (Score {{ item.score }}%)
+                                    </span>
+                                {% else %}
+                                    <span style="background: #F1F5F9; color: #475569; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 9999px;">
+                                        ⏳ Não Conciliado
+                                    </span>
+                                {% endif %}
+                                {% if item.regra_aplicada %}
+                                    <span style="font-size: 10px; color: #64748B; margin-left: 6px;">{{ item.regra_aplicada }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if item.motivo_sugestao %}
+                            <div style="font-size: 12px; color: #1E40AF; background: #DBEAFE; padding: 6px 10px; border-radius: 6px; margin-bottom: 10px;">
+                                {{ item.motivo_sugestao }}
+                            </div>
+                        {% endif %}
+
+                        <!-- BOTÕES DE AÇÃO DO ITEM -->
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 10px;">
+                            {% if item.parcelas_sugeridas_ids %}
+                                <button onclick="conciliarSugerido({{ item.id }}, {{ item.parcelas_sugeridas_ids }})" style="padding: 6px 12px; border-radius: 6px; background: #16A34A; color: #FFFFFF; font-size: 12px; font-weight: 700; border: none; cursor: pointer;">
+                                    ✓ Confirmar Sugestão
+                                </button>
+                            {% endif %}
+                            <button onclick="abrirModalLancamentoDireto({{ item.id }}, '{{ item.valor|unlocalize }}', '{{ item.descricao|escapejs }}')" style="padding: 6px 12px; border-radius: 6px; background: #475569; color: #FFFFFF; font-size: 12px; font-weight: 600; border: none; cursor: pointer;">
+                                + Lançamento Direto
+                            </button>
+                            <button onclick="abrirModalDividir({{ item.id }}, '{{ item.valor|unlocalize }}')" style="padding: 6px 12px; border-radius: 6px; background: #F1F5F9; color: #334155; font-size: 12px; font-weight: 600; border: 1px solid #CBD5E1; cursor: pointer;">
+                                ✂ Dividir
+                            </button>
+                            <button onclick="ignorarItemExtrato({{ item.id }})" style="padding: 6px 12px; border-radius: 6px; background: #F1F5F9; color: #64748B; font-size: 12px; font-weight: 600; border: 1px solid #CBD5E1; cursor: pointer;">
+                                ✕ Ignorar
+                            </button>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div style="text-align: center; padding: 40px 20px; color: #94A3B8;">
+                        <span style="font-size: 32px; display: block; margin-bottom: 8px;">🎉</span>
+                        Nenhum item pendente de conciliação neste extrato. Todos os lançamentos foram conciliados ou ignorados!
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- COLUNA DA DIREITA: TÍTULOS E PARCELAS EM ABERTO NO SISTEMA -->
+        <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                <div>
+                    <h2 style="font-size: 16px; font-weight: 700; color: #1E293B; margin: 0;">
+                        💳 Sistema: Títulos a Receber em Aberto
+                    </h2>
+                    <span style="font-size: 12px; color: #64748B;">{{ painel.parcelas_sistema|length }} parcelas aguardando recebimento</span>
+                </div>
+            </div>
+
+            <div style="padding: 16px; overflow-y: auto; max-height: 600px; display: flex; flex-direction: column; gap: 12px;">
+                {% for p in painel.parcelas_sistema %}
+                    <div id="parcela-card-{{ p.id }}" style="border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; background: #FFFFFF;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                            <div>
+                                <span style="font-size: 12px; font-weight: 700; color: #0284C7;">Venc: {{ p.data_vencimento|date:"d/m/Y" }}</span>
+                                <span style="font-size: 11px; margin-left: 8px; color: #64748B;">Parcela {{ p.numero_parcela }}/{{ p.total_parcelas }} (Título #{{ p.titulo_id }})</span>
+                            </div>
+                            <div style="font-size: 16px; font-weight: 800; color: #0F172A;">
+                                R$ {{ p.saldo_em_aberto|unlocalize }}
+                            </div>
+                        </div>
+
+                        <div style="font-size: 14px; font-weight: 700; color: #1E293B; margin-bottom: 4px;">
+                            {{ p.titulo.cliente.nome|default:"Cliente não informado" }}
+                        </div>
+                        <div style="font-size: 12px; color: #64748B; margin-bottom: 8px;">
+                            Doc: {{ p.titulo.cliente.documento|default:"Sem CPF/CNPJ" }} 
+                            {% if p.nosso_numero %}| Nosso Nº: <strong>{{ p.nosso_numero }}</strong>{% endif %}
+                            {% if p.txid_pix %}| TXID PIX: <strong>{{ p.txid_pix|truncatechars:14 }}</strong>{% endif %}
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #F1F5F9; padding-top: 8px;">
+                            <div>
+                                {% if p.status == 'EM_PROTESTO' %}
+                                    <span style="background: #FEE2E2; color: #991B1B; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;">EM PROTESTO</span>
+                                {% else %}
+                                    <span style="background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;">{{ p.get_status_display }}</span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                {% if p.status != 'EM_PROTESTO' %}
+                                    <button onclick="protestarParcelaManual({{ p.id }})" style="padding: 4px 10px; border-radius: 6px; background: #FFF1F2; color: #BE123C; border: 1px solid #FECDD3; font-size: 11px; font-weight: 600; cursor: pointer;">
+                                        ⚠️ Protestar
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div style="text-align: center; padding: 40px 20px; color: #94A3B8;">
+                        Nenhuma parcela a receber em aberto encontrada para conciliação.
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- TABELA DE CONCILIADOS RECENTES (COM AÇÃO DE DESFAZER AUDITADA) -->
+    <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+        <h2 style="font-size: 16px; font-weight: 700; color: #1E293B; margin-top: 0; margin-bottom: 14px;">
+            📜 Histórico Recente de Conciliação e Ações
+        </h2>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #F8FAFC; text-align: left; border-bottom: 2px solid #E2E8F0; color: #475569;">
+                        <th style="padding: 10px 14px;">Data</th>
+                        <th style="padding: 10px 14px;">Descrição</th>
+                        <th style="padding: 10px 14px;">Documento</th>
+                        <th style="padding: 10px 14px; text-align: right;">Valor</th>
+                        <th style="padding: 10px 14px;">Status</th>
+                        <th style="padding: 10px 14px;">Regra / Detalhes</th>
+                        <th style="padding: 10px 14px; text-align: center;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in painel.itens_conciliados_recentes %}
+                        <tr style="border-bottom: 1px solid #F1F5F9;">
+                            <td style="padding: 10px 14px; font-weight: 600;">{{ item.data|date:"d/m/Y" }}</td>
+                            <td style="padding: 10px 14px;">{{ item.descricao }}</td>
+                            <td style="padding: 10px 14px; color: #64748B;">{{ item.documento|default:item.fitid|default:"-" }}</td>
+                            <td style="padding: 10px 14px; text-align: right; font-weight: 700; {% if item.valor < 0 %}color: #DC2626;{% else %}color: #16A34A;{% endif %}">
+                                R$ {{ item.valor|unlocalize }}
+                            </td>
+                            <td style="padding: 10px 14px;">
+                                {% if item.status == 'CONCILIADO' %}
+                                    <span style="background: #DCFCE7; color: #15803D; padding: 2px 8px; border-radius: 9999px; font-weight: 700; font-size: 11px;">CONCILIADO</span>
+                                {% else %}
+                                    <span style="background: #F1F5F9; color: #64748B; padding: 2px 8px; border-radius: 9999px; font-weight: 700; font-size: 11px;">IGNORADO</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 10px 14px; color: #64748B; font-size: 12px;">{{ item.motivo_sugestao|default:item.regra_aplicada|default:"-" }}</td>
+                            <td style="padding: 10px 14px; text-align: center;">
+                                {% if item.status == 'CONCILIADO' %}
+                                    <button onclick="desfazerConciliacao({{ item.id }})" style="padding: 4px 10px; border-radius: 6px; background: #FEE2E2; color: #DC2626; font-size: 11px; font-weight: 700; border: none; cursor: pointer;">
+                                        ↩ Desfazer
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" style="padding: 20px; text-align: center; color: #94A3B8;">Nenhum item conciliado registrado ainda.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: UPLOAD DE EXTRATO (OFX / CNAB) -->
+<div id="modal-upload-extrato" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+    <div style="background: #FFFFFF; border-radius: 12px; max-width: 480px; width: 100%; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+        <h3 style="margin-top: 0; font-size: 18px; font-weight: 800; color: #0F172A;">📥 Importar Extrato Bancário</h3>
+        <p style="font-size: 13px; color: #64748B;">Selecione o arquivo OFX exportado pelo Internet Banking ou retorno CNAB 400.</p>
+        
+        <form id="form-upload-arquivo" enctype="multipart/form-data" onsubmit="enviarExtrato(event)">
+            {% csrf_token %}
+            <input type="hidden" name="conta" value="{{ conta_selecionada.id }}">
+            <div style="margin-bottom: 14px;">
+                <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Tipo de Arquivo:</label>
+                <select name="tipo" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #CBD5E1;">
+                    <option value="OFX">Extrato OFX (Internet Banking / Open Financial Exchange)</option>
+                    <option value="CNAB_RETORNO">Arquivo de Retorno CNAB 400 (Banco Itaú)</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Arquivo (.ofx ou .ret):</label>
+                <input type="file" name="arquivo" required style="width: 100%; padding: 8px; border: 1px solid #CBD5E1; border-radius: 6px;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="document.getElementById('modal-upload-extrato').style.display='none'" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #CBD5E1; background: #F8FAFC; color: #475569; font-weight: 600; cursor: pointer;">Cancelar</button>
+                <button type="submit" style="padding: 8px 16px; border-radius: 6px; background: #2563EB; color: #FFFFFF; font-weight: 700; border: none; cursor: pointer;">Importar e Processar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: LANÇAMENTO DIRETO -->
+<div id="modal-lancamento-direto" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+    <div style="background: #FFFFFF; border-radius: 12px; max-width: 500px; width: 100%; padding: 24px;">
+        <h3 style="margin-top: 0; font-size: 18px; font-weight: 800; color: #0F172A;">➕ Criar Lançamento Direto no Razão</h3>
+        <p style="font-size: 13px; color: #64748B;">Cria movimento de conta e partida dobrada balanceada para contrapartida contábil.</p>
+        
+        <input type="hidden" id="ld-item-id">
+        <div style="margin-bottom: 12px;">
+            <label style="font-size: 12px; font-weight: 700; color: #334155;">Valor do Extrato:</label>
+            <input type="text" id="ld-valor" readonly style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #E2E8F0; background: #F8FAFC; font-weight: 700;">
+        </div>
+        <div style="margin-bottom: 12px;">
+            <label style="font-size: 12px; font-weight: 700; color: #334155;">Conta Contábil de Contrapartida:</label>
+            <select id="ld-conta-contabil" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #CBD5E1;">
+                {% for cc in contas_contabeis %}
+                    <option value="{{ cc.id }}">{{ cc.codigo_estrutural }} - {{ cc.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <label style="font-size: 12px; font-weight: 700; color: #334155;">Centro de Custo (Opcional):</label>
+            <select id="ld-centro-custo" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #CBD5E1;">
+                <option value="">Sem centro de custo</option>
+                {% for c in centros_custo %}
+                    <option value="{{ c.id }}">{{ c.codigo }} - {{ c.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <label style="font-size: 12px; font-weight: 700; color: #334155;">Histórico da Operação:</label>
+            <input type="text" id="ld-historico" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #CBD5E1;">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="document.getElementById('modal-lancamento-direto').style.display='none'" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #CBD5E1; background: #F8FAFC;">Cancelar</button>
+            <button onclick="executarLancamentoDireto()" style="padding: 8px 16px; border-radius: 6px; background: #2563EB; color: #FFFFFF; font-weight: 700; border: none;">Gravar Lançamento</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+async function conciliarSugerido(itemId, parcelasIds) {
+    if (!confirm('Confirmar conciliação do item com as parcelas sugeridas?')) return;
+    try {
+        const resp = await fetch(`/financeiro/api/extrato-itens/${itemId}/conciliar-manualmente/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+            body: JSON.stringify({ parcelas_ids: parcelasIds })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert('Conciliação realizada com sucesso!');
+            window.location.reload();
+        } else {
+            alert('Erro: ' + (data.detail || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert('Falha na requisição: ' + e);
+    }
+}
+
+function abrirModalLancamentoDireto(itemId, valor, descricao) {
+    document.getElementById('ld-item-id').value = itemId;
+    document.getElementById('ld-valor').value = 'R$ ' + valor;
+    document.getElementById('ld-historico').value = descricao;
+    document.getElementById('modal-lancamento-direto').style.display = 'flex';
+}
+
+async function executarLancamentoDireto() {
+    const itemId = document.getElementById('ld-item-id').value;
+    const contaContabilId = document.getElementById('ld-conta-contabil').value;
+    const centroCustoId = document.getElementById('ld-centro-custo').value || null;
+    const historico = document.getElementById('ld-historico').value;
+
+    try {
+        const resp = await fetch(`/financeiro/api/extrato-itens/${itemId}/criar-lancamento-direto/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+            body: JSON.stringify({
+                conta_contabil_id: parseInt(contaContabilId),
+                centro_custo_id: centroCustoId ? parseInt(centroCustoId) : null,
+                historico: historico
+            })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert('Lançamento direto gravado com sucesso no Razão!');
+            window.location.reload();
+        } else {
+            alert('Erro: ' + (data.detail || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert('Falha na requisição: ' + e);
+    }
+}
+
+async function ignorarItemExtrato(itemId) {
+    const motivo = prompt('Informe o motivo para ignorar este lançamento bancário:');
+    if (!motivo) return;
+    try {
+        const resp = await fetch(`/financeiro/api/extrato-itens/${itemId}/ignorar/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+            body: JSON.stringify({ motivo: motivo })
+        });
+        if (resp.ok) {
+            alert('Item marcado como ignorado.');
+            window.location.reload();
+        } else {
+            const data = await resp.json();
+            alert('Erro: ' + (data.detail || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert('Falha na requisição: ' + e);
+    }
+}
+
+async function desfazerConciliacao(itemId) {
+    const motivo = prompt('Informe o motivo formal do desfazimento da conciliação (auditado):');
+    if (!motivo) return;
+    try {
+        const resp = await fetch(`/financeiro/api/extrato-itens/${itemId}/desfazer/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+            body: JSON.stringify({ motivo: motivo })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert('Conciliação desfeita com sucesso e lançamentos estornados!');
+            window.location.reload();
+        } else {
+            alert('Erro ao desfazer: ' + (data.detail || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert('Falha ao desfazer: ' + e);
+    }
+}
+
+async function protestarParcelaManual(parcelaId) {
+    if (!confirm('Deseja marcar manualmente esta parcela como EM PROTESTO?')) return;
+    try {
+        const resp = await fetch(`/financeiro/api/parcelas/${parcelaId}/protestar/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken}
+        });
+        if (resp.ok) {
+            alert('Parcela marcada como EM PROTESTO.');
+            window.location.reload();
+        } else {
+            const data = await resp.json();
+            alert('Erro: ' + (data.detail || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert('Falha na requisição: ' + e);
+    }
+}
+
+async function enviarExtrato(event) {
+    event.preventDefault();
+    const form = document.getElementById('form-upload-arquivo');
+    const formData = new FormData(form);
+    try {
+        const resp = await fetch('/financeiro/api/importacoes-extrato/', {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrftoken},
+            body: formData
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert('Extrato importado e analisado pelo motor de conciliação!');
+            window.location.reload();
+        } else {
+            alert('Erro na importação: ' + (data.detail || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert('Falha na requisição: ' + e);
+    }
+}
+</script>
+{% endblock %}

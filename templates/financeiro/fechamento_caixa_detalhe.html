@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load static l10n %}
+
+{% block title %}Fechamento de Caixa da Rota #{{ fechamento.id }} - Baros{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 900px; margin: 30px auto; padding: 0 15px; font-family: var(--font-sans, system-ui);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid #E2E8F0; padding-bottom: 16px;">
+        <div>
+            <h1 style="font-size: 24px; font-weight: 800; color: #0F172A; margin: 0 0 6px 0;">Fechamento de Caixa de Rota #{{ fechamento.id }}</h1>
+            <div style="font-size: 14px; color: #64748B;">
+                Motorista: <strong>{{ fechamento.motorista.get_full_name|default:fechamento.motorista.username }}</strong> | Data: <strong>{{ fechamento.data|date:"d/m/Y" }}</strong> | Conta: <strong>{{ fechamento.conta_caixa.nome }}</strong>
+            </div>
+        </div>
+        <div>
+            <span class="badge" style="padding: 6px 14px; border-radius: 9999px; font-weight: 700; font-size: 13px; 
+                {% if fechamento.status == 'FECHADO' %}background: #DCFCE7; color: #15803D;
+                {% elif fechamento.status == 'DIVERGENTE' %}background: #FEE2E2; color: #B91C1C;
+                {% elif fechamento.status == 'CONFERIDO' %}background: #E0E7FF; color: #3730A3;
+                {% else %}background: #FEF3C7; color: #92400E;{% endif %}">
+                {{ fechamento.get_status_display }}
+            </span>
+        </div>
+    </div>
+
+    <!-- PAINEL DE CONTAGEM CEGA E APURAÇÃO -->
+    <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px; margin-bottom: 24px;">
+        <h2 style="font-size: 18px; font-weight: 700; color: #1E293B; margin-top: 0; margin-bottom: 16px; border-bottom: 1px solid #F1F5F9; padding-bottom: 8px;">
+            💵 Apuração Financeira da Rota
+        </h2>
+
+        {% if exibir_saldo_esperado and fechamento.valor_contado_cego is not None %}
+            <!-- Exibição apenas APÓS o registro da contagem cega -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">Saldo Esperado em Caixa</div>
+                    <div id="saldo-esperado-valor" style="font-size: 22px; font-weight: 800; color: #0F172A; margin-top: 4px;">
+                        R$ {{ fechamento.saldo_esperado|unlocalize }}
+                    </div>
+                </div>
+
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">Valor Contado às Cegas</div>
+                    <div id="valor-contado-valor" style="font-size: 22px; font-weight: 800; color: #0284C7; margin-top: 4px;">
+                        R$ {{ fechamento.valor_contado_cego|unlocalize }}
+                    </div>
+                </div>
+
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">Diferença Apurada</div>
+                    <div id="diferenca-valor" style="font-size: 22px; font-weight: 800; margin-top: 4px;
+                        {% if fechamento.diferenca < 0 %}color: #DC2626;{% elif fechamento.diferenca > 0 %}color: #16A34A;{% else %}color: #475569;{% endif %}">
+                        R$ {{ fechamento.diferenca|unlocalize }}
+                    </div>
+                </div>
+
+                {% if fechamento.valor_entregue_tesouraria is not None %}
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">Entregue na Tesouraria</div>
+                    <div style="font-size: 22px; font-weight: 800; color: #15803D; margin-top: 4px;">
+                        R$ {{ fechamento.valor_entregue_tesouraria }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <!-- Sigilo rigoroso: saldo_esperado oculto antes da contagem -->
+            <div id="painel-sigilo-contagem" style="background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                <div style="font-weight: 700; color: #92400E; font-size: 14px; margin-bottom: 4px;">
+                    🔒 Contagem Cega Obrigatória (Antifraude)
+                </div>
+                <p style="color: #B45309; font-size: 13px; margin: 0; line-height: 1.5;">
+                    Por diretriz de controle interno e prevenção a fraudes, o saldo esperado do caixa de rota permanece <strong>estritamente oculto</strong> até que a contagem física do dinheiro seja declarada pelo motorista.
+                </p>
+            </div>
+
+            {% if fechamento.status == 'ABERTO' %}
+            <form id="form-contagem-cega" method="POST" action="/financeiro/api/fechamentos-caixa/{{ fechamento.id }}/contagem-cega/" style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px;">
+                {% csrf_token %}
+                <label for="input-contagem-cega" style="display: block; font-size: 14px; font-weight: 700; color: #1E293B; margin-bottom: 6px;">
+                    Informe o valor total contado em dinheiro (R$):
+                </label>
+                <div style="display: flex; gap: 12px; max-width: 400px;">
+                    <input type="number" step="0.01" min="0" id="input-contagem-cega" name="valor_contado_cego" class="form-control" required placeholder="0,00" style="padding: 10px 14px; font-size: 16px; border: 1px solid #CBD5E1; border-radius: 6px; width: 100%;">
+                    <button type="submit" class="btn btn-primary" style="background: #0284C7; color: white; font-weight: 700; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                        Gravar Contagem
+                    </button>
+                </div>
+            </form>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- QUEBRAS DE CAIXA REGISTRADAS -->
+    {% if fechamento.quebras.all %}
+    <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; padding: 24px; margin-bottom: 24px;">
+        <h2 style="font-size: 18px; font-weight: 700; color: #DC2626; margin-top: 0; margin-bottom: 16px;">
+            ⚠️ Quebras de Caixa Apuradas
+        </h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <thead>
+                <tr style="border-bottom: 2px solid #E2E8F0; text-align: left; color: #64748B;">
+                    <th style="padding: 8px;">Tipo</th>
+                    <th style="padding: 8px;">Valor</th>
+                    <th style="padding: 8px;">Tratamento</th>
+                    <th style="padding: 8px;">Justificativa</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in fechamento.quebras.all %}
+                <tr style="border-bottom: 1px solid #F1F5F9;">
+                    <td style="padding: 8px; font-weight: 700;">{{ q.get_tipo_display }}</td>
+                    <td style="padding: 8px; font-weight: 700; color: #DC2626;">R$ {{ q.valor }}</td>
+                    <td style="padding: 8px;">{{ q.get_tratamento_display }}</td>
+                    <td style="padding: 8px; color: #64748B;">{{ q.justificativa|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- CHEQUES RECEBIDOS NA ROTA -->
+    {% if fechamento.cheques.all %}
+    <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; padding: 24px; margin-bottom: 24px;">
+        <h2 style="font-size: 18px; font-weight: 700; color: #1E293B; margin-top: 0; margin-bottom: 16px;">
+            🧾 Cheques Recebidos em Rota
+        </h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <thead>
+                <tr style="border-bottom: 2px solid #E2E8F0; text-align: left; color: #64748B;">
+                    <th style="padding: 8px;">Número</th>
+                    <th style="padding: 8px;">Banco</th>
+                    <th style="padding: 8px;">Bom Para</th>
+                    <th style="padding: 8px;">Valor</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ch in fechamento.cheques.all %}
+                <tr style="border-bottom: 1px solid #F1F5F9;">
+                    <td style="padding: 8px; font-weight: 700;">{{ ch.numero }}</td>
+                    <td style="padding: 8px;">{{ ch.banco }}</td>
+                    <td style="padding: 8px;">{{ ch.bom_para|date:"d/m/Y"|default:"À vista" }}</td>
+                    <td style="padding: 8px; font-weight: 700; color: #16A34A;">R$ {{ ch.valor }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div style="text-align: right;">
+        <a href="/financeiro/" style="color: #64748B; text-decoration: none; font-size: 14px; font-weight: 600;">← Voltar ao Financeiro</a>
+    </div>
+</div>
+{% endblock %}

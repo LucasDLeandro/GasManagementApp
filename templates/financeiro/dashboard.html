@@ -1,0 +1,1574 @@
+{% extends 'base_dashboard.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .fin-container {
+        padding: 24px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    .fin-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .fin-header h1 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--color-text);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .kpi-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--color-primary);
+    }
+    .kpi-card.success::before { background: #10b981; }
+    .kpi-card.warning::before { background: #f59e0b; }
+    .kpi-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+        margin-bottom: 8px;
+    }
+    .kpi-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: var(--color-text);
+    }
+    .kpi-sub {
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+        margin-top: 6px;
+    }
+
+    /* Tabs */
+    .fin-tabs {
+        display: flex;
+        gap: 8px;
+        border-bottom: 2px solid var(--color-border);
+        margin-bottom: 20px;
+        overflow-x: auto;
+    }
+    .fin-tab-btn {
+        background: none;
+        border: none;
+        padding: 10px 16px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+    .fin-tab-btn:hover {
+        color: var(--color-text);
+    }
+    .fin-tab-btn.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+    }
+
+    .fin-tab-pane {
+        display: none;
+    }
+    .fin-tab-pane.active {
+        display: block;
+    }
+
+    .fin-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .fin-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .fin-card-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--color-text);
+    }
+
+    /* Table styling */
+    .fin-table-wrapper {
+        overflow-x: auto;
+    }
+    .fin-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        text-align: left;
+    }
+    .fin-table th {
+        background: var(--color-background-alt, rgba(0,0,0,0.02));
+        padding: 12px 14px;
+        font-weight: 600;
+        color: var(--color-text-muted);
+        border-bottom: 2px solid var(--color-border);
+    }
+    .fin-table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--color-border);
+        color: var(--color-text);
+    }
+    .fin-table tr:hover td {
+        background: var(--color-background-hover, rgba(0,0,0,0.015));
+    }
+    .fin-table .num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-family: monospace;
+        font-size: 0.9rem;
+    }
+    .fin-table tr.total-row td {
+        font-weight: 800;
+        background: var(--color-background-alt, rgba(0,0,0,0.04));
+        border-top: 2px solid var(--color-border);
+        border-bottom: 2px solid var(--color-border);
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .badge-sintetica { background: #e0e7ff; color: #4338ca; }
+    .badge-analitica { background: #d1fae5; color: #065f46; }
+    .badge-aberto { background: #dcfce7; color: #166534; }
+    .badge-fechado { background: #fee2e2; color: #991b1b; }
+    .badge-debito { background: #fef3c7; color: #92400e; }
+    .badge-credito { background: #e0f2fe; color: #075985; }
+
+    /* Action Buttons */
+    .btn-fin {
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+    .btn-fin-primary {
+        background: var(--color-primary);
+        color: #fff;
+    }
+    .btn-fin-primary:hover {
+        opacity: 0.9;
+    }
+    .btn-fin-outline {
+        background: transparent;
+        border: 1px solid var(--color-border);
+        color: var(--color-text);
+    }
+    .btn-fin-outline:hover {
+        background: var(--color-background-hover, rgba(0,0,0,0.05));
+    }
+
+    /* Modal */
+    .fin-modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+    .fin-modal.active {
+        display: flex;
+    }
+    .fin-modal-content {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        width: 100%;
+        max-width: 520px;
+        padding: 24px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    .fin-form-group {
+        margin-bottom: 14px;
+    }
+    .fin-form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-text);
+        margin-bottom: 4px;
+    }
+    .fin-form-input, .fin-form-select {
+        width: 100%;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--color-border);
+        background: var(--color-background);
+        color: var(--color-text);
+        font-size: 0.9rem;
+        box-sizing: border-box;
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="fin-container">
+    <!-- Top Header -->
+    <div class="fin-header">
+        <div>
+            <h1>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+                Núcleo Contábil & Financeiro Base (Sprint 9A)
+            </h1>
+            <p style="color: var(--color-text-muted); font-size: 0.9rem; margin-top: 4px;">
+                Razão imutável com encadeamento SHA-256, Plano de Contas, Balancete e Gestão de Contas.
+            </p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-fin btn-fin-outline" onclick="verificarIntegridadeHash()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                Verificar Integridade Razão
+            </button>
+            <button class="btn-fin btn-fin-primary" onclick="abrirModalTransferencia()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="7" y1="17" x2="17" y2="7"></line>
+                    <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+                Transferência entre Contas
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+        <div class="kpi-card success">
+            <div class="kpi-title">Balancete de Verificação</div>
+            <div class="kpi-value" id="kpi-balancete-status">
+                {% if balancete.fechamento_correto %}
+                    ZERADO (OK)
+                {% else %}
+                    DIVERGENTE
+                {% endif %}
+            </div>
+            <div class="kpi-sub">
+                Diferença: R$ {{ balancete.diferenca }} | Débitos = Créditos
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-title">Contas Financeiras Ativas</div>
+            <div class="kpi-value">{{ contas_financeiras|length }}</div>
+            <div class="kpi-sub">Saldos 100% derivados de MovimentoConta</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-title">Plano de Contas</div>
+            <div class="kpi-value">{{ plano_contas|length }}</div>
+            <div class="kpi-sub">Contas Estruturadas (Níveis 1 a 9)</div>
+        </div>
+
+        <div class="kpi-card warning">
+            <div class="kpi-title">Competência Atual</div>
+            <div class="kpi-value">{{ mes_atual|stringformat:"02d" }}/{{ ano_atual }}</div>
+            <div class="kpi-sub">Trava estrita contra competências fechadas</div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="fin-tabs">
+        <button class="fin-tab-btn active" onclick="switchFinTab('contas')">Contas & Saldos</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('receber')">Contas a Receber</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('pagar')">Contas a Pagar</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('aprovacao')">Fila de Aprovação ({{ titulos_em_aprovacao|length }})</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('campo')">Despesas de Campo ({{ despesas_campo_pendentes|length }})</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('faturas')">Faturas de Posto ({{ faturas_posto_recentes|length }})</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('caixas')">Caixas de Rota ({{ fechamentos_caixa_recentes|length }})</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('plano')">Plano de Contas</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('balancete')">Balancete</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('razao')">Razão Contábil</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('abertura')">Saldo de Abertura</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('pendencias')">Pendências ({{ pendencias|length }})</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('periodos')">Períodos</button>
+        <button class="fin-tab-btn" onclick="switchFinTab('apoio')">Apoio (CC / Fornec)</button>
+    </div>
+
+
+    <!-- TAB 1: CONTAS FINANCEIRAS -->
+    <div id="tab-contas" class="fin-tab-pane active">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <span class="fin-card-title">Contas Correntes, Investimentos e Caixas Operacionais</span>
+                <button class="btn-fin btn-fin-primary" onclick="abrirModalTransferencia()">Nova Transferência</button>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Nome da Conta</th>
+                            <th>Tipo</th>
+                            <th>Banco / Agência / Conta</th>
+                            <th>Conta Contábil</th>
+                            <th class="num">Saldo Inicial</th>
+                            <th class="num">Saldo Atual Derivado</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in contas_financeiras %}
+                        <tr>
+                            <td><strong>{{ item.conta.nome }}</strong></td>
+                            <td>{{ item.conta.get_tipo_display }}</td>
+                            <td>
+                                {% if item.conta.banco_codigo %}
+                                    Banco {{ item.conta.banco_codigo }} | Ag: {{ item.conta.agencia }} | Cc: {{ item.conta.conta }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td><code>{{ item.conta.conta_contabil.codigo_estrutural }}</code> {{ item.conta.conta_contabil.nome }}</td>
+                            <td class="num">R$ {{ item.conta.saldo_inicial }}</td>
+                            <td class="num" style="font-weight: 800; color: {% if item.saldo_atual >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+                                R$ {{ item.saldo_atual }}
+                            </td>
+                            <td>
+                                {% if item.conta.ativo %}
+                                    <span class="badge badge-analitica">Ativa</span>
+                                {% else %}
+                                    <span class="badge badge-fechado">Inativa</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 24px;">
+                                Nenhuma conta financeira cadastrada. Crie uma conta vinculada ao plano de contas para iniciar movimentações.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: CONTAS A RECEBER -->
+    <div id="tab-receber" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <span class="fin-card-title">Contas a Receber (Vendas Faturadas, Estadias, Extravios)</span>
+                <span class="badge badge-aberto">{{ titulos_receber|length }} Título(s)</span>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th># ID</th>
+                            <th>Cliente</th>
+                            <th>Origem</th>
+                            <th>Emissão</th>
+                            <th class="num">Valor Bruto</th>
+                            <th class="num">Retenções</th>
+                            <th class="num">Valor Líquido</th>
+                            <th>Status</th>
+                            <th>Parcelas</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in titulos_receber %}
+                        <tr>
+                            <td><strong>#{{ t.id }}</strong></td>
+                            <td>{{ t.cliente.nome|default:"-" }}</td>
+                            <td><code>{{ t.get_origem_tipo_display }}</code></td>
+                            <td>{{ t.data_emissao|date:"d/m/Y" }}</td>
+                            <td class="num">R$ {{ t.valor_bruto }}</td>
+                            <td class="num" style="color: #ef4444;">- R$ {{ t.valor_retencoes }}</td>
+                            <td class="num" style="font-weight: 700;">R$ {{ t.valor_liquido_esperado }}</td>
+                            <td>
+                                {% if t.status == 'LIQUIDADO' %}
+                                    <span class="badge badge-analitica">Liquidado</span>
+                                {% elif t.status == 'PARCIAL' %}
+                                    <span class="badge badge-credora">Parcial</span>
+                                {% elif t.status == 'CANCELADO' %}
+                                    <span class="badge badge-fechado">Cancelado</span>
+                                {% else %}
+                                    <span class="badge badge-aberto">{{ t.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% for p in t.parcelas.all %}
+                                    <div style="font-size: 0.8rem; margin-bottom: 2px;">
+                                        P{{ p.numero_parcela }}: R$ {{ p.saldo_em_aberto }}
+                                        {% if p.status == 'PAGA' %}
+                                            <span style="color: #10b981;">(Paga)</span>
+                                        {% elif p.esta_vencida %}
+                                            <span style="color: #ef4444; font-weight: 700;">(Vencida)</span>
+                                        {% else %}
+                                            <span style="color: #f59e0b;">(Venc: {{ p.data_vencimento|date:"d/m" }})</span>
+                                        {% endif %}
+                                    </div>
+                                {% empty %}
+                                    <span style="color: var(--color-text-muted);">-</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% if t.status != 'LIQUIDADO' and t.status != 'CANCELADO' %}
+                                    {% with prim_parc=t.parcelas.first %}
+                                        {% if prim_parc and prim_parc.status != 'PAGA' %}
+                                            <button class="btn-fin btn-fin-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="abrirModalBaixa({{ prim_parc.id }}, '{{ t.cliente.nome }}', '{{ prim_parc.saldo_em_aberto }}')">
+                                                Baixar
+                                            </button>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <span style="color: var(--color-text-muted); font-size: 0.8rem;">Concluído</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="10" style="text-align: center; padding: 24px;">Nenhum título a receber cadastrado.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: CONTAS A PAGAR -->
+    <div id="tab-pagar" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <span class="fin-card-title">Contas a Pagar (Fornecedores, Despesas, Frota, Retenções)</span>
+                <span class="badge badge-devedora">{{ titulos_pagar|length }} Título(s)</span>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th># ID</th>
+                            <th>Fornecedor / Beneficiário</th>
+                            <th>Origem</th>
+                            <th>Emissão</th>
+                            <th class="num">Valor Bruto</th>
+                            <th class="num">Retenções</th>
+                            <th class="num">Valor Líquido</th>
+                            <th>Status</th>
+                            <th>Parcelas</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in titulos_pagar %}
+                        <tr>
+                            <td><strong>#{{ t.id }}</strong></td>
+                            <td>{{ t.fornecedor.razao_social|default:t.beneficiario_texto }}</td>
+                            <td><code>{{ t.get_origem_tipo_display }}</code></td>
+                            <td>{{ t.data_emissao|date:"d/m/Y" }}</td>
+                            <td class="num">R$ {{ t.valor_bruto }}</td>
+                            <td class="num" style="color: #ef4444;">- R$ {{ t.valor_retencoes }}</td>
+                            <td class="num" style="font-weight: 700;">R$ {{ t.valor_liquido_esperado }}</td>
+                            <td>
+                                {% if t.status == 'EM_APROVACAO' %}
+                                    <span class="badge badge-credora">Em Aprovação</span>
+                                {% elif t.status == 'LIQUIDADO' %}
+                                    <span class="badge badge-analitica">Liquidado</span>
+                                {% elif t.status == 'PARCIAL' %}
+                                    <span class="badge badge-credora">Parcial</span>
+                                {% elif t.status == 'CANCELADO' %}
+                                    <span class="badge badge-fechado">Cancelado</span>
+                                {% else %}
+                                    <span class="badge badge-aberto">{{ t.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% for p in t.parcelas.all %}
+                                    <div style="font-size: 0.8rem; margin-bottom: 2px;">
+                                        P{{ p.numero_parcela }}: R$ {{ p.saldo_em_aberto }}
+                                        {% if p.status == 'PAGA' %}
+                                            <span style="color: #10b981;">(Paga)</span>
+                                        {% elif p.esta_vencida %}
+                                            <span style="color: #ef4444; font-weight: 700;">(Vencida)</span>
+                                        {% else %}
+                                            <span style="color: #f59e0b;">(Venc: {{ p.data_vencimento|date:"d/m" }})</span>
+                                        {% endif %}
+                                    </div>
+                                {% empty %}
+                                    <span style="color: var(--color-text-muted);">-</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% if t.status == 'EM_APROVACAO' %}
+                                    <span style="color: #f59e0b; font-size: 0.8rem; font-weight: 600;">Aguardando Aprovação</span>
+                                {% elif t.status == 'ABERTO' or t.status == 'PARCIAL' %}
+                                    {% with prim_parc=t.parcelas.first %}
+                                        {% if prim_parc and prim_parc.status != 'PAGA' %}
+                                            <button class="btn-fin btn-fin-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="abrirModalBaixa({{ prim_parc.id }}, '{{ t.fornecedor.razao_social|default:t.beneficiario_texto }}', '{{ prim_parc.saldo_em_aberto }}')">
+                                                Pagar
+                                            </button>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <span style="color: var(--color-text-muted); font-size: 0.8rem;">Concluído</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="10" style="text-align: center; padding: 24px;">Nenhum título a pagar cadastrado.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: FILA DE APROVAÇÃO -->
+    <div id="tab-aprovacao" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <div>
+                    <span class="fin-card-title">Fila de Aprovação de Contas a Pagar (Correção F-03)</span>
+                    <p style="font-size: 0.825rem; color: var(--color-text-muted); margin-top: 4px;">
+                        Segregação de funções estrita: o usuário criador do título está impedido de aprová-lo ou baixá-lo.
+                    </p>
+                </div>
+                <span class="badge badge-fechado">{{ titulos_em_aprovacao|length }} Pendente(s)</span>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th># Título</th>
+                            <th>Favorecido / Fornecedor</th>
+                            <th>Emissão</th>
+                            <th class="num">Valor Bruto</th>
+                            <th class="num">Valor Líquido</th>
+                            <th>Criado Por</th>
+                            <th>Ações de Alçada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in titulos_em_aprovacao %}
+                        <tr>
+                            <td><strong>#{{ t.id }}</strong></td>
+                            <td>{{ t.fornecedor.razao_social|default:t.beneficiario_texto }}</td>
+                            <td>{{ t.data_emissao|date:"d/m/Y" }}</td>
+                            <td class="num">R$ {{ t.valor_bruto }}</td>
+                            <td class="num" style="font-weight: 700;">R$ {{ t.valor_liquido_esperado }}</td>
+                            <td><code>{{ t.criado_por.username|default:"Sistema" }}</code></td>
+                            <td>
+                                {% if t.criado_por_id == request.user.id %}
+                                    <span style="color: #ef4444; font-size: 0.8rem; font-weight: 600;">(Você criou este título)</span>
+                                {% else %}
+                                    <button class="btn-fin btn-fin-primary" style="padding: 4px 8px; font-size: 0.8rem; background: #10b981;" onclick="decidirAprovacao({{ t.id }}, 'APROVADO')">
+                                        Aprovar
+                                    </button>
+                                    <button class="btn-fin btn-fin-outline" style="padding: 4px 8px; font-size: 0.8rem; color: #ef4444;" onclick="decidirAprovacao({{ t.id }}, 'REJEITADO')">
+                                        Rejeitar
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7" style="text-align: center; padding: 24px; color: #10b981; font-weight: 600;">Nenhum título aguardando aprovação no momento.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: PLANO DE CONTAS -->
+    <div id="tab-plano" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <span class="fin-card-title">Estrutura Hierárquica do Plano de Contas Padrão (F-04)</span>
+                <button class="btn-fin btn-fin-outline" onclick="aplicarSeedPlano()">Reaplicar Plano Padrão</button>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Código Estrutural</th>
+                            <th>Nome da Conta</th>
+                            <th>Nível</th>
+                            <th>Natureza</th>
+                            <th>Tipo</th>
+                            <th>Aceita Lançamento</th>
+                            <th>Linha DRE (12 Linhas)</th>
+                            <th>Grupo de Fluxo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in plano_contas %}
+                        <tr style="{% if c.tipo == 'SINTETICA' %}font-weight: 600; background: var(--color-background-alt, rgba(0,0,0,0.01));{% endif %}">
+                            <td><code>{{ c.codigo_estrutural }}</code></td>
+                            <td style="padding-left: {{ c.nivel|add:'-1' }}2px;">{{ c.nome }}</td>
+                            <td>{{ c.nivel }}</td>
+                            <td>{{ c.get_natureza_saldo_display }}</td>
+                            <td>
+                                {% if c.tipo == 'SINTETICA' %}
+                                    <span class="badge badge-sintetica">Sintética</span>
+                                {% else %}
+                                    <span class="badge badge-analitica">Analítica</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.aceita_lancamento %}
+                                    <span style="color: #10b981; font-weight: 700;">Sim</span>
+                                {% else %}
+                                    <span style="color: var(--color-text-muted);">Não</span>
+                                {% endif %}
+                            </td>
+                            <td><small>{{ c.get_tipo_dre_display }}</small></td>
+                            <td><small>{{ c.get_grupo_fluxo_display }}</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 24px;">
+                                Nenhum plano de contas cadastrado. Clique em "Reaplicar Plano Padrão" para popular as contas padrão.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: BALANCETE DE VERIFICAÇÃO -->
+    <div id="tab-balancete" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <div>
+                    <span class="fin-card-title">Balancete de Verificação Contábil</span>
+                    <p style="color: var(--color-text-muted); font-size: 0.85rem; margin-top: 4px;">
+                        Período: {{ balancete.data_inicio }} a {{ balancete.data_fim }} | Total de Contas: {{ balancete.total_contas }}
+                    </p>
+                </div>
+                <div>
+                    {% if balancete.fechamento_correto %}
+                        <span class="badge badge-aberto" style="font-size: 0.9rem; padding: 6px 12px;">✓ Balancete Fechado (Diferença: 0.00)</span>
+                    {% else %}
+                        <span class="badge badge-fechado" style="font-size: 0.9rem; padding: 6px 12px;">⚠ Divergência: R$ {{ balancete.diferenca }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Conta</th>
+                            <th>Tipo</th>
+                            <th class="num">Saldo Anterior</th>
+                            <th class="num">Total Débitos</th>
+                            <th class="num">Total Créditos</th>
+                            <th class="num">Saldo Atual</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in balancete.linhas %}
+                        <tr style="{% if l.tipo == 'SINTETICA' %}font-weight: 600;{% endif %}">
+                            <td><code>{{ l.codigo }}</code></td>
+                            <td>{{ l.nome }}</td>
+                            <td>
+                                <span class="badge {% if l.tipo == 'SINTETICA' %}badge-sintetica{% else %}badge-analitica{% endif %}">{{ l.tipo }}</span>
+                            </td>
+                            <td class="num">R$ {{ l.saldo_anterior }}</td>
+                            <td class="num" style="color: #b45309;">R$ {{ l.debitos_periodo }}</td>
+                            <td class="num" style="color: #0369a1;">R$ {{ l.creditos_periodo }}</td>
+                            <td class="num"><strong>R$ {{ l.saldo_atual }}</strong></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 24px;">Sem movimentações contábeis no período consultado.</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="total-row">
+                            <td colspan="4" style="text-align: right;">TOTAIS DAS CONTAS ANALÍTICAS:</td>
+                            <td class="num" style="color: #b45309;">R$ {{ balancete.totais.total_debitos_analiticos }}</td>
+                            <td class="num" style="color: #0369a1;">R$ {{ balancete.totais.total_creditos_analiticos }}</td>
+                            <td class="num">Diferença: R$ {{ balancete.diferenca }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: RAZÃO CONTÁBIL -->
+    <div id="tab-razao" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <div>
+                    <span class="fin-card-title">Últimos Lançamentos Contábeis (Cadeia SHA-256 Imutável)</span>
+                    <p style="color: var(--color-text-muted); font-size: 0.85rem;">Todas as alterações e exclusões são bloqueadas por triggers no banco de dados.</p>
+                </div>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Nº</th>
+                            <th>Data Competência</th>
+                            <th>Histórico</th>
+                            <th>Origem</th>
+                            <th>Partidas (Débito / Crédito)</th>
+                            <th>Hash Integridade</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lanc in ultimos_lancamentos %}
+                        <tr>
+                            <td><strong>#{{ lanc.numero }}</strong></td>
+                            <td>{{ lanc.data_competencia|date:"d/m/Y" }}</td>
+                            <td>{{ lanc.historico }}</td>
+                            <td><small>{{ lanc.origem_tipo|default:"MANUAL" }}</small></td>
+                            <td>
+                                {% for p in lanc.partidas.all %}
+                                    <div style="font-size: 0.8rem; margin-bottom: 2px;">
+                                        <span class="badge {% if p.tipo_partida == 'DEBITO' %}badge-debito{% else %}badge-credito{% endif %}">{{ p.tipo_partida }}</span>
+                                        <code>{{ p.conta_contabil.codigo_estrutural }}</code> - R$ {{ p.valor }}
+                                    </div>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                <code style="font-size: 0.72rem;" title="{{ lanc.hash_integridade }}">{{ lanc.hash_integridade|slice:":12" }}...</code>
+                            </td>
+                            <td>
+                                {% if not lanc.lancamento_estornado %}
+                                    <button class="btn-fin btn-fin-outline" style="padding: 4px 8px; font-size: 0.75rem;" onclick="abrirModalEstorno({{ lanc.id }}, {{ lanc.numero }})">Estornar</button>
+                                {% else %}
+                                    <span style="color: var(--color-text-muted); font-size: 0.75rem;">Estornado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 24px;">Nenhum lançamento contábil registrado até o momento.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 5: PERÍODOS CONTÁBEIS -->
+    <div id="tab-periodos" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <div>
+                    <span class="fin-card-title">Trava e Gestão de Períodos Contábeis (F-17)</span>
+                    <p style="color: var(--color-text-muted); font-size: 0.85rem;">Períodos fechados impedem lançamentos com data_competencia ou movimentos com data_liquidacao.</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-fin btn-fin-primary" onclick="abrirModalFecharPeriodo()">Fechar Período</button>
+                    <button class="btn-fin btn-fin-outline" onclick="abrirModalReabrirPeriodo()">Reabrir Período Anterior</button>
+                </div>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Competência</th>
+                            <th>Status</th>
+                            <th>Fechado Por</th>
+                            <th>Fechado Em</th>
+                            <th>Reaberto Por</th>
+                            <th>Motivo Reabertura</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in periodos_contabeis %}
+                        <tr>
+                            <td><strong>{{ p.mes|stringformat:"02d" }}/{{ p.ano }}</strong></td>
+                            <td>
+                                {% if p.status == 'ABERTO' %}
+                                    <span class="badge badge-aberto">Aberto</span>
+                                {% else %}
+                                    <span class="badge badge-fechado">Fechado</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ p.fechado_por.username|default:"-" }}</td>
+                            <td>{{ p.fechado_em|date:"d/m/Y H:i"|default:"-" }}</td>
+                            <td>{{ p.reaberto_por.username|default:"-" }}</td>
+                            <td><small>{{ p.motivo_reabertura|default:"-" }}</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 24px;">Nenhum período explicitamente encerrado. Todos os períodos passados e correntes estão abertos para lançamento.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 6: APOIO (CENTROS DE CUSTO, FORNECEDORES, CONDIÇÕES) -->
+    <div id="tab-apoio" class="fin-tab-pane">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+            <!-- Centros de Custo -->
+            <div class="fin-card">
+                <div class="fin-card-header">
+                    <span class="fin-card-title">Centros de Custo Operacionais (F-11)</span>
+                </div>
+                <div class="fin-table-wrapper">
+                    <table class="fin-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nome</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cc in centros_custo %}
+                            <tr>
+                                <td><code>{{ cc.codigo }}</code></td>
+                                <td>{{ cc.nome }}</td>
+                                <td><span class="badge badge-analitica">Ativo</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" style="text-align:center;">Nenhum centro de custo cadastrado.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Condições de Pagamento -->
+            <div class="fin-card">
+                <div class="fin-card-header">
+                    <span class="fin-card-title">Condições de Pagamento Padrão</span>
+                </div>
+                <div class="fin-table-wrapper">
+                    <table class="fin-table">
+                        <thead>
+                            <tr>
+                                <th>Condição</th>
+                                <th>Parcelas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cp in condicoes_pagamento %}
+                            <tr>
+                                <td><strong>{{ cp.nome }}</strong></td>
+                                <td><small>{{ cp.parcelas_json }}</small></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" style="text-align:center;">Nenhuma condição cadastrada.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fornecedores -->
+        <div class="fin-card" style="margin-top: 20px;">
+            <div class="fin-card-header">
+                <span class="fin-card-title">Fornecedores Homologados (F-14)</span>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Razão Social</th>
+                            <th>CNPJ / CPF</th>
+                            <th>Tipo</th>
+                            <th>Contato</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in fornecedores %}
+                        <tr>
+                            <td><strong>{{ f.razao_social }}</strong></td>
+                            <td><code>{{ f.documento }}</code></td>
+                            <td>{{ f.tipo_pessoa }}</td>
+                            <td>{{ f.email|default:"-" }} / {{ f.telefone|default:"-" }}</td>
+                            <td><span class="badge badge-analitica">Ativo</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" style="text-align:center; padding: 20px;">Nenhum fornecedor cadastrado.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: SALDO DE ABERTURA -->
+    <div id="tab-abertura" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <div>
+                    <span class="fin-card-title">Carga e Balanço de Abertura Patrimonial (F-15)</span>
+                    <p style="font-size: 0.825rem; color: var(--color-text-muted); margin-top: 4px;">
+                        Permite a simulação prévia dos saldos iniciais de Ativo e Passivo com fechamento automático no PL («Saldos de Abertura»).
+                    </p>
+                </div>
+                <span class="badge badge-analitica">Trava Única por Tenant</span>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Data Corte</th>
+                            <th>Status</th>
+                            <th class="num">Ativo Inicial</th>
+                            <th class="num">Passivo Inicial</th>
+                            <th class="num">PL de Abertura</th>
+                            <th>Lançamento</th>
+                            <th>Confirmado em</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for imp in importacoes_abertura %}
+                        <tr>
+                            <td>{{ imp.data_corte|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if imp.status == 'CONFIRMADO' %}
+                                    <span class="badge badge-analitica">Confirmado</span>
+                                {% elif imp.status == 'ESTORNADO' %}
+                                    <span class="badge badge-fechado">Estornado</span>
+                                {% else %}
+                                    <span class="badge badge-credora">Simulação</span>
+                                {% endif %}
+                            </td>
+                            <td class="num">R$ {{ imp.total_ativo }}</td>
+                            <td class="num" style="color: #ef4444;">R$ {{ imp.total_passivo }}</td>
+                            <td class="num" style="font-weight: 700;">R$ {{ imp.total_pl_abertura }}</td>
+                            <td>
+                                {% if imp.lancamento %}
+                                    <code>#{{ imp.lancamento.numero }}</code>
+                                {% else %}
+                                    <span style="color: var(--color-text-muted);">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ imp.confirmado_em|date:"d/m/Y H:i"|default:"-" }}</td>
+                            <td>
+                                {% if imp.status == 'SIMULACAO' %}
+                                    <button class="btn-fin btn-fin-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="confirmarAbertura({{ imp.id }})">Confirmar Escrituração</button>
+                                {% elif imp.status == 'CONFIRMADO' %}
+                                    <button class="btn-fin btn-fin-outline" style="padding: 4px 8px; font-size: 0.8rem; color: #ef4444;" onclick="estornarAbertura({{ imp.id }})">Estornar</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" style="text-align: center; padding: 24px;">Nenhuma importação de abertura registrada para este Tenant.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: PENDÊNCIAS CONTÁBEIS -->
+    <div id="tab-pendencias" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <div>
+                    <span class="fin-card-title">Resiliência Contábil: Fila de Pendências (F-10)</span>
+                    <p style="font-size: 0.825rem; color: var(--color-text-muted); margin-top: 4px;">
+                        Eventos de domínio com erro de contabilização retidos sem abortar operações operacionais (vendas, estadias, envase).
+                    </p>
+                </div>
+                <span class="badge badge-fechado">{{ pendencias|length }} Pendência(s)</span>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Evento</th>
+                            <th>Origem ID</th>
+                            <th>Tentativas</th>
+                            <th>Mensagem de Erro</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pend in pendencias %}
+                        <tr>
+                            <td>{{ pend.criado_em|date:"d/m/Y H:i" }}</td>
+                            <td><code>{{ pend.evento }}</code></td>
+                            <td><strong>{{ pend.origem_id }}</strong></td>
+                            <td><span class="badge badge-devedora">{{ pend.tentativas }}x</span></td>
+                            <td><small style="color: #ef4444; font-family: monospace;">{{ pend.erro_mensagem|truncatechars:80 }}</small></td>
+                            <td>
+                                <button class="btn-fin btn-fin-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="reprocessarPendencia({{ pend.id }})">
+                                    Reprocessar
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" style="text-align: center; padding: 24px; color: #10b981; font-weight: 600;">Nenhuma pendência contábil registrada no sistema.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+    <!-- TAB: DESPESAS DE CAMPO (SPRINT 9C) -->
+    <div id="tab-campo" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <div>
+                    <span class="fin-card-title">Fila de Conferência de Despesas de Campo (Antifraude)</span>
+                    <p style="font-size: 0.825rem; color: var(--color-text-muted); margin-top: 4px;">
+                        Auditoria de abastecimentos, pedágios e despesas operacionais enviadas pelos motoristas.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-fin btn-fin-primary" onclick="aprovarDespesasSelecionadasLote()">Aprovar Selecionadas em Lote</button>
+                </div>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table" id="tabela-despesas-campo">
+                    <thead>
+                        <tr>
+                            <th style="width: 30px;"><input type="checkbox" id="chk-todas-despesas" onchange="toggleTodasDespesas(this)"></th>
+                            <th>Data/Hora</th>
+                            <th>Tipo</th>
+                            <th>Veículo</th>
+                            <th>Motorista</th>
+                            <th>Forma Pagto</th>
+                            <th>Litros</th>
+                            <th>Preço/L</th>
+                            <th class="num">Valor Total</th>
+                            <th>Alertas de Auditoria</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for desp in despesas_campo_pendentes %}
+                        <tr id="linha-desp-{{ desp.id }}">
+                            <td><input type="checkbox" class="chk-despesa-item" value="{{ desp.id }}"></td>
+                            <td>{{ desp.data_hora|date:"d/m/Y H:i" }}</td>
+                            <td><strong>{{ desp.get_tipo_display }}</strong></td>
+                            <td><code>{{ desp.veiculo.placa }}</code></td>
+                            <td>{{ desp.motorista.get_full_name|default:desp.motorista.username }}</td>
+                            <td><span class="badge badge-analitica">{{ desp.get_forma_pagamento_display }}</span></td>
+                            <td>{{ desp.litros|default:"-" }}</td>
+                            <td>{% if desp.preco_litro_calculado %}R$ {{ desp.preco_litro_calculado }}{% else %}-{% endif %}</td>
+                            <td class="num" style="font-weight: 800;">R$ {{ desp.valor_informado }}</td>
+                            <td>
+                                {% if desp.alerta_auditoria %}
+                                    {% for mot in desp.motivos_alerta_json %}
+                                        <span class="badge badge-fechado" style="margin-right: 4px; display: inline-block;">⚠️ {{ mot }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="badge badge-sintetica" style="background: #10b98120; color: #10b981;">Conforme</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="display: flex; gap: 4px;">
+                                    <button class="btn-fin btn-fin-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="aprovarDespesaCampo({{ desp.id }})">Aprovar</button>
+                                    <button class="btn-fin btn-fin-outline" style="padding: 4px 8px; font-size: 0.8rem; color: #ef4444;" onclick="rejeitarDespesaCampo({{ desp.id }})">Rejeitar</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="11" style="text-align: center; padding: 24px; color: #10b981;">Nenhuma despesa pendente de conferência no momento.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: FATURAS DE POSTO / CARTÃO (SPRINT 9C) -->
+    <div id="tab-faturas" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <div>
+                    <span class="fin-card-title">Faturas Consolidadas de Postos e Cartão Frota</span>
+                    <p style="font-size: 0.825rem; color: var(--color-text-muted); margin-top: 4px;">
+                        Importação de fatura por CSV, conciliação com pré-lançamentos e geração de Contas a Pagar.
+                    </p>
+                </div>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Nº Fatura</th>
+                            <th>Cartão / Convênio</th>
+                            <th>Período</th>
+                            <th>Itens</th>
+                            <th class="num">Valor Total</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fat in faturas_posto_recentes %}
+                        <tr>
+                            <td><strong>{{ fat.numero_fatura|default:fat.id }}</strong></td>
+                            <td>{{ fat.cartao_ou_convenio }}</td>
+                            <td>{{ fat.periodo_inicio|date:"d/m/Y" }} a {{ fat.periodo_fim|date:"d/m/Y" }}</td>
+                            <td>{{ fat.itens.count }}</td>
+                            <td class="num" style="font-weight: 800;">R$ {{ fat.valor_total }}</td>
+                            <td>
+                                <span class="badge {% if fat.status == 'APROVADA' %}badge-sintetica{% elif fat.status == 'CONCILIADA' %}badge-analitica{% else %}badge-fechado{% endif %}">
+                                    {{ fat.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if fat.status == 'IMPORTADA' %}
+                                    <button class="btn-fin btn-fin-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="conciliarFatura({{ fat.id }})">Conciliar Itens</button>
+                                {% elif fat.status == 'CONCILIADA' %}
+                                    <button class="btn-fin btn-fin-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="aprovarFatura({{ fat.id }})">Aprovar e Gerar Títulos</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7" style="text-align: center; padding: 24px;">Nenhuma fatura consolidada registrada.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: FECHAMENTOS DE CAIXA DE ROTA (SPRINT 9C) -->
+    <div id="tab-caixas" class="fin-tab-pane">
+        <div class="fin-card">
+            <div class="fin-card-header">
+                <div>
+                    <span class="fin-card-title">Fechamento de Caixa de Rota & Tesouraria</span>
+                    <p style="font-size: 0.825rem; color: var(--color-text-muted); margin-top: 4px;">
+                        Controle de dinheiro físico de rota, apuração de diferenças e transferências para o cofre.
+                    </p>
+                </div>
+            </div>
+            <div class="fin-table-wrapper">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Motorista</th>
+                            <th>Conta Caixa</th>
+                            <th>Status</th>
+                            <th class="num">Valor Contado</th>
+                            <th class="num">Diferença</th>
+                            <th class="num">Entregue Tesouraria</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in fechamentos_caixa_recentes %}
+                        <tr>
+                            <td>{{ c.data|date:"d/m/Y" }}</td>
+                            <td><strong>{{ c.motorista.get_full_name|default:c.motorista.username }}</strong></td>
+                            <td>{{ c.conta_caixa.nome }}</td>
+                            <td>
+                                <span class="badge {% if c.status == 'FECHADO' %}badge-sintetica{% elif c.status == 'DIVERGENTE' %}badge-fechado{% else %}badge-analitica{% endif %}">
+                                    {{ c.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="num">{% if c.valor_contado_cego is not None %}R$ {{ c.valor_contado_cego }}{% else %}<em style="color:#64748B;">Pendente</em>{% endif %}</td>
+                            <td class="num" style="font-weight: 700; color: {% if c.diferenca < 0 %}#ef4444{% elif c.diferenca > 0 %}#10b981{% else %}inherit{% endif %};">
+                                {% if c.diferenca is not None %}R$ {{ c.diferenca }}{% else %}-{% endif %}
+                            </td>
+                            <td class="num">{% if c.valor_entregue_tesouraria is not None %}R$ {{ c.valor_entregue_tesouraria }}{% else %}-{% endif %}</td>
+                            <td>
+                                <a href="/financeiro/fechamento-caixa/{{ c.id }}/" class="btn-fin btn-fin-outline" style="padding: 4px 8px; font-size: 0.8rem; text-decoration: none;">Ver / Conferir</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" style="text-align: center; padding: 24px;">Nenhum fechamento de caixa registrado recentemente.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL TRANSFERÊNCIA ENTRE CONTAS -->
+<div id="modal-transferencia" class="fin-modal">
+    <div class="fin-modal-content">
+        <h3 style="margin-bottom: 16px; font-weight: 700;">Transferência entre Contas Financeiras</h3>
+        <form id="form-transferencia" onsubmit="executarTransferencia(event)">
+            <div class="fin-form-group">
+                <label>Conta Origem (Saída)</label>
+                <select id="transf-origem" class="fin-form-select" required>
+                    <option value="">Selecione a conta de saída...</option>
+                    {% for item in contas_financeiras %}
+                        <option value="{{ item.conta.id }}">{{ item.conta.nome }} (Saldo: R$ {{ item.saldo_atual }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="fin-form-group">
+                <label>Conta Destino (Entrada)</label>
+                <select id="transf-destino" class="fin-form-select" required>
+                    <option value="">Selecione a conta de destino...</option>
+                    {% for item in contas_financeiras %}
+                        <option value="{{ item.conta.id }}">{{ item.conta.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="fin-form-group">
+                <label>Valor (R$)</label>
+                <input type="number" id="transf-valor" class="fin-form-input" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+            <div class="fin-form-group">
+                <label>Data da Transferência</label>
+                <input type="date" id="transf-data" class="fin-form-input" value="{{ hoje|date:'Y-m-d' }}" required>
+            </div>
+            <div class="fin-form-group">
+                <label>Histórico</label>
+                <input type="text" id="transf-historico" class="fin-form-input" placeholder="Ex: Transferência de caixa para conta corrente">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+                <button type="button" class="btn-fin btn-fin-outline" onclick="fecharModalTransferencia()">Cancelar</button>
+                <button type="submit" class="btn-fin btn-fin-primary">Confirmar Transferência</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL BAIXA DE PARCELA -->
+<div id="modal-baixa" class="fin-modal">
+    <div class="fin-modal-content" style="max-width: 540px;">
+        <h3 style="margin-bottom: 12px; font-weight: 700;">Liquidação / Baixa de Parcela</h3>
+        <p style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 16px;">
+            Favorecido/Cliente: <strong id="baixa-favorecido-nome">-</strong> | Saldo Devedor: <strong id="baixa-saldo-aberto" style="color: #b45309;">-</strong>
+        </p>
+        <form id="form-baixa" onsubmit="executarBaixa(event)">
+            <input type="hidden" id="baixa-parcela-id" value="">
+            <div class="fin-form-group">
+                <label>Conta Financeira de Movimentação</label>
+                <select id="baixa-conta" class="fin-form-select" required>
+                    <option value="">Selecione a conta corrente / caixa...</option>
+                    {% for item in contas_financeiras %}
+                        <option value="{{ item.conta.id }}">{{ item.conta.nome }} (Saldo: R$ {{ item.saldo_atual }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="fin-form-group">
+                    <label>Data de Liquidação</label>
+                    <input type="date" id="baixa-data" class="fin-form-input" value="{{ hoje|date:'Y-m-d' }}" required>
+                </div>
+                <div class="fin-form-group">
+                    <label>Valor Principal (R$)</label>
+                    <input type="number" id="baixa-principal" class="fin-form-input" step="0.01" min="0.01" placeholder="0.00" required>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="fin-form-group">
+                    <label>Juros (R$)</label>
+                    <input type="number" id="baixa-juros" class="fin-form-input" step="0.01" min="0.00" value="0.00">
+                </div>
+                <div class="fin-form-group">
+                    <label>Multa (R$)</label>
+                    <input type="number" id="baixa-multa" class="fin-form-input" step="0.01" min="0.00" value="0.00">
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="fin-form-group">
+                    <label>Desconto Concedido (R$)</label>
+                    <input type="number" id="baixa-desconto" class="fin-form-input" step="0.01" min="0.00" value="0.00">
+                </div>
+                <div class="fin-form-group">
+                    <label>Tarifa Bancária (R$)</label>
+                    <input type="number" id="baixa-tarifa" class="fin-form-input" step="0.01" min="0.00" value="0.00">
+                </div>
+            </div>
+            <div class="fin-form-group">
+                <label>Nº Comprovante / Autenticação</label>
+                <input type="text" id="baixa-comprovante" class="fin-form-input" placeholder="Ex: Autenticação Pix 202610210001">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+                <button type="button" class="btn-fin btn-fin-outline" onclick="fecharModalBaixa()">Cancelar</button>
+                <button type="submit" class="btn-fin btn-fin-primary">Confirmar Baixa</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function switchFinTab(tabId) {
+        document.querySelectorAll('.fin-tab-pane').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.fin-tab-btn').forEach(el => el.classList.remove('active'));
+        const pane = document.getElementById('tab-' + tabId);
+        if (pane) pane.classList.add('active');
+        if (event && event.currentTarget) {
+            event.currentTarget.classList.add('active');
+        }
+    }
+
+    function abrirModalTransferencia() {
+        document.getElementById('modal-transferencia').classList.add('active');
+    }
+
+    function fecharModalTransferencia() {
+        document.getElementById('modal-transferencia').classList.remove('active');
+    }
+
+    function abrirModalBaixa(parcelaId, favorecido, saldo) {
+        document.getElementById('baixa-parcela-id').value = parcelaId;
+        document.getElementById('baixa-favorecido-nome').textContent = favorecido || '-';
+        document.getElementById('baixa-saldo-aberto').textContent = 'R$ ' + saldo;
+        document.getElementById('baixa-principal').value = saldo;
+        document.getElementById('baixa-juros').value = '0.00';
+        document.getElementById('baixa-multa').value = '0.00';
+        document.getElementById('baixa-desconto').value = '0.00';
+        document.getElementById('baixa-tarifa').value = '0.00';
+        document.getElementById('baixa-comprovante').value = '';
+        document.getElementById('modal-baixa').classList.add('active');
+    }
+
+    function fecharModalBaixa() {
+        document.getElementById('modal-baixa').classList.remove('active');
+    }
+
+    function executarBaixa(e) {
+        e.preventDefault();
+        const payload = {
+            parcela_id: parseInt(document.getElementById('baixa-parcela-id').value),
+            conta_financeira_id: parseInt(document.getElementById('baixa-conta').value),
+            data_liquidacao: document.getElementById('baixa-data').value,
+            valor_principal: document.getElementById('baixa-principal').value,
+            valor_juros: document.getElementById('baixa-juros').value || '0.00',
+            valor_multa: document.getElementById('baixa-multa').value || '0.00',
+            valor_desconto: document.getElementById('baixa-desconto').value || '0.00',
+            valor_tarifa: document.getElementById('baixa-tarifa').value || '0.00',
+            comprovante: document.getElementById('baixa-comprovante').value || ''
+        };
+
+        fetch('/financeiro/api/baixas/baixar-parcela/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(async res => {
+            if (res.ok) {
+                alert('Baixa executada com sucesso e lançada no razão contábil!');
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert('Erro ao baixar parcela: ' + (err.detail || JSON.stringify(err)));
+            }
+        })
+        .catch(err => alert('Erro na requisição: ' + err));
+    }
+
+    function decidirAprovacao(tituloId, decisao) {
+        const motivo = prompt('Informe uma justificativa / motivo da decisão (opcional):', '') || '';
+        fetch(`/financeiro/api/titulos/${tituloId}/aprovar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ decisao: decisao, motivo: motivo })
+        })
+        .then(async res => {
+            if (res.ok) {
+                alert(`Título #${tituloId} ${decisao.toLowerCase()} com sucesso!`);
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert('Erro ao registrar decisão de alçada: ' + (err.detail || JSON.stringify(err)));
+            }
+        })
+        .catch(err => alert('Erro na requisição: ' + err));
+    }
+
+    function confirmarAbertura(importacaoId) {
+        if (!confirm('Confirma a escrituração definitiva do saldo de abertura patrimonial? Esta ação gera partidas no Livro Razão contra o Patrimônio Líquido.')) return;
+        fetch(`/financeiro/api/saldo-abertura/${importacaoId}/confirmar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(async res => {
+            if (res.ok) {
+                alert('Saldo de abertura escriturado com sucesso no Livro Razão!');
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert('Erro ao confirmar saldo de abertura: ' + (err.detail || JSON.stringify(err)));
+            }
+        })
+        .catch(err => alert('Erro na requisição: ' + err));
+    }
+
+    function estornarAbertura(importacaoId) {
+        const motivo = prompt('Informe o motivo do estorno do saldo de abertura:', 'Ajuste cadastral de abertura') || '';
+        if (!motivo) return;
+        fetch(`/financeiro/api/saldo-abertura/${importacaoId}/estornar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ motivo: motivo })
+        })
+        .then(async res => {
+            if (res.ok) {
+                alert('Saldo de abertura estornado com sucesso via contra-partida contábil!');
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert('Erro ao estornar saldo de abertura: ' + (err.detail || JSON.stringify(err)));
+            }
+        })
+        .catch(err => alert('Erro na requisição: ' + err));
+    }
+
+    function reprocessarPendencia(pendenciaId) {
+        fetch(`/financeiro/api/pendencias-contabilizacao/${pendenciaId}/reprocessar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(async res => {
+            const data = await res.json();
+            if (res.ok && data.status === 'SUCESSO') {
+                alert('Pendência reprocessada com sucesso!');
+                window.location.reload();
+            } else {
+                alert('Falha no reprocessamento da pendência: ' + (data.erro || JSON.stringify(data)));
+            }
+        })
+        .catch(err => alert('Erro na requisição: ' + err));
+    }
+
+    function verificarIntegridadeHash() {
+        fetch('/financeiro/api/razao/verificar-integridade/')
+            .then(res => res.json())
+            .then(data => {
+                if (data.valido) {
+                    alert('Cadeia SHA-256 íntegra! Todos os hashes encadeados batem perfeitamente com os payloads.');
+                } else {
+                    alert('ALERTA DE DIVERGÊNCIA! Violação detectada na cadeia de hashes: ' + JSON.stringify(data.erros));
+                }
+            })
+            .catch(err => alert('Erro ao verificar integridade: ' + err));
+    }
+
+    function aplicarSeedPlano() {
+        if (!confirm('Deseja recarregar o plano de contas padrão idempotente?')) return;
+        fetch('/financeiro/api/plano-contas/seed-padrao/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            alert('Plano de contas atualizado com sucesso!');
+            window.location.reload();
+        })
+        .catch(err => alert('Erro: ' + err));
+    }
+
+    function executarTransferencia(e) {
+        e.preventDefault();
+        const payload = {
+            conta_origem_id: parseInt(document.getElementById('transf-origem').value),
+            conta_destino_id: parseInt(document.getElementById('transf-destino').value),
+            valor: document.getElementById('transf-valor').value,
+            data_transferencia: document.getElementById('transf-data').value,
+            historico: document.getElementById('transf-historico').value
+        };
+
+        fetch('/financeiro/api/contas-financeiras/transferir/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(async res => {
+            if (res.ok) {
+                alert('Transferência realizada com sucesso!');
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert('Erro: ' + (err.detail || JSON.stringify(err)));
+            }
+        })
+        .catch(err => alert('Erro na requisição: ' + err));
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}
