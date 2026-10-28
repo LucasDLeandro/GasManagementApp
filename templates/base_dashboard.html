@@ -15,7 +15,7 @@
     </script>
     <!-- Estilo específico do Dashboard/Home compartilhado -->
     <link rel="stylesheet" href="{% static 'core/css/home.css' %}">
-    <link rel="stylesheet" href="{% static 'core/css/components.css' %}?v=20261027_ds1">
+    <link rel="stylesheet" href="{% static 'core/css/components.css' %}?v=20261027_f1">
     <link rel="stylesheet" href="{% static 'core/css/command_bar.css' %}">
     {% block extra_css %}{% endblock %}
 {% endblock %}
@@ -139,6 +139,9 @@
                     <a href="{% url 'accounts:meu_perfil' %}" style="display: block; padding: 12px 16px; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); font-weight: 500;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px; vertical-align: text-bottom;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> Perfil
                     </a>
+                    {% if request.user.is_superuser %}
+                    <a href="{% url 'baros_admin_dashboard' %}" class="user-menu-link user-menu-link--backoffice">Backoffice Baros</a>
+                    {% endif %}
                     <button id="btn-logout" style="width: 100%; text-align: left; background: none; border: none; padding: 12px 16px; color: #dc3545; cursor: pointer; font-size: 15px; font-weight: 500;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px; vertical-align: text-bottom;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Sair
                     </button>

@@ -1,0 +1,36 @@
+{% load static %}<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{% block title %}Backoffice{% endblock %} | Baros Admin</title>
+    <link rel="stylesheet" href="{% static 'vendor/inter/inter.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/jetbrains-mono/jetbrains-mono.css' %}">
+    <link rel="stylesheet" href="{% static 'core/css/baros_admin.css' %}?v=20261027_f1">
+</head>
+<body>
+<div class="bo-shell">
+    <aside class="bo-sidebar" aria-label="Menu do backoffice">
+        <div class="bo-brand"><span class="bo-brand-badge">BAROS</span> Backoffice</div>
+        <a class="bo-nav-link {% if menu == 'dashboard' %}active{% endif %}" href="{% url 'baros_admin_dashboard' %}">Visão geral</a>
+        <a class="bo-nav-link {% if menu == 'empresas' %}active{% endif %}" href="{% url 'baros_admin_tenants' %}">Empresas</a>
+        <a class="bo-nav-link {% if menu == 'planos' %}active{% endif %}" href="{% url 'baros_admin_planos' %}">Planos</a>
+        <a class="bo-nav-link {% if menu == 'faturas' %}active{% endif %}" href="{% url 'baros_admin_faturas' %}">Faturas SaaS</a>
+        <a class="bo-nav-link {% if menu == 'suporte' %}active{% endif %}" href="{% url 'baros_admin_suporte' %}">Suporte</a>
+        <a class="bo-nav-link {% if menu == 'auditoria' %}active{% endif %}" href="{% url 'baros_admin_auditoria' %}">Auditoria</a>
+        <div class="bo-nav-spacer"></div>
+        <a class="bo-nav-link" href="/inicio/">Abrir o app ↗</a>
+        <a class="bo-nav-link" href="{% url 'baros_admin_logout' %}">Sair</a>
+        <div class="bo-user">{{ request.user.get_full_name|default:request.user.username }}<br>Sessão expira após 30 min sem uso</div>
+    </aside>
+
+    <main class="bo-main">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+<script src="{% static 'vendor/sweetalert2/sweetalert2.all.min.js' %}"></script>
+<script src="{% static 'core/js/baros_admin.js' %}?v=20261027_f1"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

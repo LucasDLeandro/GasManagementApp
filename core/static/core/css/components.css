@@ -571,3 +571,15 @@ table.dataTable tbody td {
     .ds-page-actions { width: 100%; }
     .ds-page-actions > * { flex: 1; }
 }
+
+/* Menu do usuário (topbar) */
+.user-menu-link {
+    display: block;
+    padding: 12px 16px;
+    color: var(--color-text);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-border);
+    font-weight: 500;
+}
+.user-menu-link:hover { background: var(--color-hover); }
+.user-menu-link--backoffice { color: var(--color-primary); font-weight: 600; }

@@ -1,0 +1,149 @@
+{% extends "baros_admin/base.html" %}
+{% block title %}{{ tenant.nome_fantasia }}{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'baros_admin_tenants' %}">← Empresas</a></p>
+<header class="ds-page-header">
+    <div>
+        <h1 class="ds-page-title">{{ tenant.nome_fantasia }}</h1>
+        <p class="ds-page-subtitle">{{ tenant.razao_social }} · <span class="font-mono">{{ tenant.cnpj }}</span> · {% include "baros_admin/_badge_assinatura.html" with status=tenant.status_assinatura %}</p>
+    </div>
+    <div class="ds-page-actions">
+        {% if acesso_ativo %}
+            <a class="btn-secondary" href="/inicio/">Voltar ao app desta empresa</a>
+        {% else %}
+            <button class="btn-secondary" type="button" data-acao="break-glass"
+                    data-url="{% url 'baros_admin_break_glass_iniciar' tenant.id %}" data-tenant="{{ tenant.nome_fantasia }}">Acesso de suporte</button>
+        {% endif %}
+    </div>
+</header>
+
+{% if acesso_ativo %}
+<div class="bo-alert bo-alert-danger">
+    Você tem um acesso de suporte ativo nesta empresa até {{ acesso_ativo.expira_em|date:"H:i" }}. Motivo: {{ acesso_ativo.motivo }}
+    <button class="btn-danger btn-sm" type="button" data-acao="encerrar-acesso" data-url="{% url 'baros_admin_break_glass_encerrar' acesso_ativo.id %}">Encerrar</button>
+</div>
+{% endif %}
+{% if tenant.status_assinatura == 'SUSPENSO' and tenant.motivo_suspensao %}
+<div class="bo-alert bo-alert-warning">Suspensa: {{ tenant.motivo_suspensao }}</div>
+{% endif %}
+
+<div class="metrics-grid">
+    <div class="metric-card metric-card--approved"><h4>Mensalidade</h4><p class="font-mono">R$ {{ tenant.valor_mensalidade_saas }}</p><span class="metric-card-help">Plano {{ tenant.get_plano_display }}</span></div>
+    <div class="metric-card {% if uso.cilindros_pct >= 90 %}metric-card--danger{% elif uso.cilindros_pct >= 70 %}metric-card--warning{% endif %}">
+        <h4>Cilindros</h4><p class="font-mono">{{ uso.cilindros }} / {{ uso.cilindros_limite }}</p><span class="metric-card-help">{{ uso.cilindros_pct|floatformat:0 }}% da cota</span>
+    </div>
+    <div class="metric-card {% if uso.usuarios_pct >= 90 %}metric-card--danger{% elif uso.usuarios_pct >= 70 %}metric-card--warning{% endif %}">
+        <h4>Usuários ativos</h4><p class="font-mono">{{ uso.usuarios }} / {{ uso.usuarios_limite }}</p><span class="metric-card-help">{{ uso.usuarios_pct|floatformat:0 }}% da cota</span>
+    </div>
+    <div class="metric-card"><h4>Licença até</h4><p class="font-mono">{{ tenant.data_vencimento_licenca|date:"d/m/Y"|default:"—" }}</p><span class="metric-card-help">Carência de {{ tenant.dias_carencia }} dia{{ tenant.dias_carencia|pluralize }}</span></div>
+</div>
+
+<div class="bo-grid-2">
+    <section class="bo-card">
+        <h2 class="bo-card-title">Assinatura</h2>
+        <dl class="bo-dl">
+            <dt>Status</dt><dd>{% include "baros_admin/_badge_assinatura.html" with status=tenant.status_assinatura %}</dd>
+            <dt>Plano</dt><dd>{{ tenant.get_plano_display }}</dd>
+            <dt>Cliente desde</dt><dd>{{ tenant.criado_em|date:"d/m/Y" }}</dd>
+            {% if tenant.data_cancelamento %}<dt>Cancelada em</dt><dd>{{ tenant.data_cancelamento|date:"d/m/Y" }}</dd>{% endif %}
+            {% if tenant.data_limite_exportacao %}<dt>Exportação até</dt><dd>{{ tenant.data_limite_exportacao|date:"d/m/Y" }}</dd>{% endif %}
+        </dl>
+        <div class="ds-page-actions bo-mt">
+            {% for status, rotulo in acoes_assinatura %}
+                <button type="button" class="{% if status == 'ATIVO' %}btn-primary{% else %}btn-danger{% endif %} btn-sm" data-acao="assinatura"
+                        data-url="{% url 'baros_admin_transicionar_assinatura' tenant.id %}" data-status="{{ status }}" data-atual="{{ tenant.status_assinatura }}"
+                        data-rotulo="{{ rotulo }}" data-tenant="{{ tenant.nome_fantasia }}">{{ rotulo }}</button>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="bo-card">
+        <h2 class="bo-card-title">Usuários ({{ membros|length }})</h2>
+        {% if membros %}
+        <div class="table-container">
+            <table>
+                <thead><tr><th>Usuário</th><th>Papel</th><th>Status</th></tr></thead>
+                <tbody>
+                {% for m in membros %}
+                    <tr>
+                        <td>{{ m.user.get_full_name|default:m.user.username }}<span class="bo-cell-sub">{{ m.user.email }}</span></td>
+                        <td>{{ m.get_papel_display }}</td>
+                        <td>{% if m.ativo %}<span class="badge-status-approved">Ativo</span>{% else %}<span class="badge-status-muted">Inativo</span>{% endif %}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="ds-empty"><p class="ds-empty-title">Nenhum usuário vinculado</p></div>
+        {% endif %}
+    </section>
+</div>
+
+<section class="bo-card bo-mt">
+    <h2 class="bo-card-title">Módulos contratados</h2>
+    <div class="bo-modulos">
+        {% for m in modulos %}
+        <div class="bo-modulo">
+            <label class="bo-switch">
+                <input type="checkbox" {% if m.ativo %}checked{% endif %} data-acao="toggle-modulo" data-modulo="{{ m.codigo }}" data-rotulo="{{ m.rotulo }}"
+                       data-url="{% url 'baros_admin_toggle_modulo' tenant.id %}" aria-label="Ativar {{ m.rotulo }}">
+                <span></span>
+            </label>
+            <div>
+                <strong>{{ m.rotulo }}</strong>
+                <small>{{ m.descricao }}</small>
+                {% if m.requer %}<small>Requer: {{ m.requer|join:", " }}</small>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="bo-card">
+    <h2 class="bo-card-title">Faturas SaaS <a href="{% url 'baros_admin_faturas' %}">Todas as faturas</a></h2>
+    {% if faturas %}
+    <div class="table-container">
+        <table>
+            <thead><tr><th>Competência</th><th class="ds-num">Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th></tr></thead>
+            <tbody>
+            {% for f in faturas %}
+                <tr>
+                    <td class="font-mono">{{ f.competencia|date:"m/Y" }}</td>
+                    <td class="ds-num">R$ {{ f.valor }}</td>
+                    <td class="font-mono">{{ f.vencimento|date:"d/m/Y" }}</td>
+                    <td>{% include "baros_admin/_badge_fatura.html" with fatura=f %}</td>
+                    <td class="font-mono">{{ f.pago_em|date:"d/m/Y"|default:"—" }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="ds-empty"><p class="ds-empty-title">Nenhuma fatura gerada</p></div>
+    {% endif %}
+</section>
+
+<div class="bo-grid-2">
+    <section class="bo-card">
+        <h2 class="bo-card-title">Acessos de suporte</h2>
+        {% for a in acessos %}
+            <p>{{ a.superadmin.username }} · {{ a.inicio|date:"d/m/Y H:i" }}
+               {% if a.encerrado_em %}<span class="badge-status-muted">Encerrado</span>{% elif a.expira_em < agora %}<span class="badge-status-muted">Expirado</span>{% else %}<span class="badge-status-danger">Ativo</span>{% endif %}
+               <span class="bo-cell-sub">{{ a.motivo }}</span></p>
+        {% empty %}
+            <div class="ds-empty"><p class="ds-empty-title">Nenhum acesso de suporte</p></div>
+        {% endfor %}
+    </section>
+    <section class="bo-card">
+        <h2 class="bo-card-title">Histórico <a href="{% url 'baros_admin_auditoria' %}?tenant={{ tenant.id }}">Ver tudo</a></h2>
+        {% for log in logs %}
+            <p>{{ log.acao }}{% if log.modulo %} · {{ log.modulo }}{% endif %}
+               <span class="bo-cell-sub">{{ log.usuario.username|default:"sistema" }} · {{ log.timestamp|date:"d/m/Y H:i" }}</span></p>
+        {% empty %}
+            <div class="ds-empty"><p class="ds-empty-title">Nenhuma ação registrada</p></div>
+        {% endfor %}
+    </section>
+</div>
+{% endblock %}

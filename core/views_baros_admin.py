@@ -19,6 +19,69 @@ from core.services.assinatura import transicionar
 from core.services.onboarding import onboarding_tenant
 
 
+def _bool(valor, padrao: bool = False) -> bool:
+    """Converte valores de formulário/JSON ('true', 'on', '1', True...) em bool; None usa o padrão."""
+    if valor is None or valor == '':
+        return padrao
+    if isinstance(valor, bool):
+        return valor
+    return str(valor).strip().lower() in ('1', 'true', 'on', 'sim', 'yes')
+
+
+def _ler_dados(request: HttpRequest):
+    import json
+    if request.content_type == 'application/json':
+        return json.loads(request.body.decode('utf-8') or '{}')
+    return request.POST
+
+
+def _quer_json(request: HttpRequest) -> bool:
+    return request.headers.get('accept') == 'application/json'
+
+
+def _auditar(request: HttpRequest, acao: str, tenant=None, modulo: str = '', **detalhes) -> None:
+    LogAuditoriaSaaS.objects.create(
+        tenant=tenant,
+        usuario=request.user,
+        acao=acao,
+        modulo=modulo,
+        detalhes_json={k: str(v) for k, v in detalhes.items()},
+        ip=get_current_ip() or get_client_ip(request),
+        request_id=get_current_request_id(),
+        timestamp=timezone.now(),
+    )
+
+
+def _uso_tenant(tenant) -> dict:
+    """Uso das cotas do plano (cilindros ativos e usuários ativos)."""
+    from produtos.models import Cilindro
+    from core.models import Membership
+
+    cilindros = Cilindro.unscoped.filter(tenant=tenant).exclude(status__in=['BAIXADO', 'EXTRAVIADO']).count()
+    usuarios = Membership.objects.filter(tenant=tenant, ativo=True).count()
+
+    def pct(uso, limite):
+        return float(quantize(Decimal(uso) / Decimal(limite) * 100, 2)) if limite else 0.0
+
+    return {
+        'cilindros': cilindros,
+        'cilindros_limite': tenant.limite_cilindros,
+        'cilindros_pct': pct(cilindros, tenant.limite_cilindros),
+        'usuarios': usuarios,
+        'usuarios_limite': tenant.limite_usuarios,
+        'usuarios_pct': pct(usuarios, tenant.limite_usuarios),
+    }
+
+
+# Transições oferecidas na tela (espelham core/services/assinatura.py).
+ACOES_ASSINATURA = {
+    'TRIAL': [('ATIVO', 'Ativar'), ('SUSPENSO', 'Suspender'), ('CANCELADO', 'Cancelar')],
+    'ATIVO': [('SUSPENSO', 'Suspender'), ('CANCELADO', 'Cancelar')],
+    'SUSPENSO': [('ATIVO', 'Reativar'), ('CANCELADO', 'Cancelar')],
+    'CANCELADO': [('ATIVO', 'Reativar')],
+}
+
+
 def get_client_ip(request: HttpRequest) -> str:
     """Extrai o IP real do cliente a partir dos cabeçalhos HTTP."""
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -289,9 +352,15 @@ class BarosAdminDashboardView(View):
             'tenants': tenants_alertas,
         }
 
-        if request.headers.get('accept') == 'application/json':
+        if _quer_json(request):
             return JsonResponse(dados_dashboard)
 
+        dados_dashboard['tenants'] = sorted(tenants_alertas, key=lambda t: -t['cilindros_pct'])
+        dados_dashboard['faturas_vencidas'] = FaturaSaaS.unscoped.filter(
+            models.Q(status='VENCIDO') | models.Q(status='PENDENTE', vencimento__lt=hoje)
+        ).select_related('tenant').order_by('vencimento')[:8]
+        dados_dashboard['logs'] = LogAuditoriaSaaS.objects.select_related('tenant', 'usuario').order_by('-timestamp')[:8]
+        dados_dashboard['menu'] = 'dashboard'
         return render(request, 'baros_admin/dashboard.html', dados_dashboard)
 
 
@@ -303,26 +372,85 @@ class BarosAdminTenantsView(View):
             return auth_err
 
         tenants = Tenant.objects.all().order_by('nome_fantasia')
+        busca = request.GET.get('q', '').strip()
+        status_filtro = request.GET.get('status', '').strip()
+        if busca:
+            tenants = tenants.filter(
+                models.Q(nome_fantasia__icontains=busca) | models.Q(razao_social__icontains=busca) | models.Q(cnpj__icontains=busca)
+            )
+        if status_filtro:
+            tenants = tenants.filter(status_assinatura=status_filtro)
+
         tenants_data = [
             {
                 'id': str(t.id),
                 'nome_fantasia': t.nome_fantasia,
                 'razao_social': t.razao_social,
                 'cnpj': t.cnpj,
+                'plano': t.plano,
                 'status_assinatura': t.status_assinatura,
                 'valor_mensalidade_saas': str(t.valor_mensalidade_saas),
                 'vencimento_licenca': str(t.data_vencimento_licenca) if t.data_vencimento_licenca else None,
                 'modulo_envase_ativo': t.modulo_envase_ativo,
                 'modulo_logistica_ativo': t.modulo_logistica_ativo,
                 'modulo_financeiro_ativo': t.modulo_financeiro_ativo,
+                'uso': _uso_tenant(t),
             }
             for t in tenants
         ]
 
-        if request.headers.get('accept') == 'application/json':
+        if _quer_json(request):
             return JsonResponse({'tenants': tenants_data})
 
-        return render(request, 'baros_admin/tenants.html', {'tenants': tenants_data})
+        return render(request, 'baros_admin/tenants.html', {
+            'tenants': tenants_data,
+            'busca': busca,
+            'status_filtro': status_filtro,
+            'status_opcoes': Tenant.STATUS_ASSINATURA_CHOICES,
+            'menu': 'empresas',
+        })
+
+
+class BarosAdminTenantDetalheView(View):
+    """Página de gestão de uma empresa: dados, assinatura, módulos, cotas, usuários, faturas e histórico."""
+    def get(self, request, tenant_id):
+        auth_err = verificar_acesso_baros_admin(request)
+        if auth_err:
+            return auth_err
+
+        from core.models import Membership
+        from core.modulos import is_modulo_ativo
+
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        modulos = [
+            {
+                'codigo': cod,
+                'rotulo': info['rotulo'],
+                'descricao': info['descricao'],
+                'requer': [MODULOS_REGISTRO[r]['rotulo'] for r in info['requer']],
+                'ativo': is_modulo_ativo(tenant, cod),
+            }
+            for cod, info in MODULOS_REGISTRO.items()
+        ]
+        agora = timezone.now()
+        contexto = {
+            'tenant': tenant,
+            'uso': _uso_tenant(tenant),
+            'modulos': modulos,
+            'acoes_assinatura': ACOES_ASSINATURA.get(tenant.status_assinatura, []),
+            'membros': Membership.objects.filter(tenant=tenant).select_related('user').order_by('-ativo', 'papel'),
+            'faturas': FaturaSaaS.unscoped.filter(tenant=tenant).select_related('plano').order_by('-vencimento')[:12],
+            'acessos': AcessoSuporte.objects.filter(tenant=tenant).select_related('superadmin').order_by('-inicio')[:10],
+            'acesso_ativo': AcessoSuporte.objects.filter(
+                tenant=tenant, superadmin=request.user, encerrado_em__isnull=True, expira_em__gte=agora
+            ).first(),
+            'logs': LogAuditoriaSaaS.objects.filter(tenant=tenant).select_related('usuario').order_by('-timestamp')[:20],
+            'planos': PlanoSaaS.objects.filter(ativo=True).order_by('preco_base'),
+            'hoje': timezone.localdate(),
+            'agora': agora,
+            'menu': 'empresas',
+        }
+        return render(request, 'baros_admin/tenant_detalhe.html', contexto)
 
 
 class BarosAdminToggleModuloView(View):
@@ -428,11 +556,18 @@ class BarosAdminBreakGlassIniciarView(View):
             timestamp=agora
         )
 
+        redirect_url = None
+        if request.POST.get('abrir_app') in ('1', 'true'):
+            # Abre o app da distribuidora já no contexto da empresa (banner de suporte visível).
+            request.session['active_tenant_id'] = str(tenant.id)
+            redirect_url = '/inicio/'
+
         return JsonResponse({
             'sucesso': True,
             'acesso_id': str(acesso.id),
             'tenant_id': str(tenant.id),
             'expira_em': str(expira_em),
+            'redirect': redirect_url,
         })
 
 
@@ -472,13 +607,20 @@ class BarosAdminOnboardingView(View):
         if auth_err:
             return auth_err
         
-        planos = list(PlanoSaaS.objects.filter(ativo=True).values('id', 'nome', 'preco_base'))
-        return JsonResponse({
+        planos = list(PlanoSaaS.objects.filter(ativo=True).order_by('preco_base').values(
+            'id', 'nome', 'preco_base', 'limite_usuarios', 'limite_cilindros'
+        ))
+        modulos = [
+            {'codigo': cod, 'rotulo': info['rotulo'], 'requer': info['requer'], 'descricao': info['descricao']}
+            for cod, info in MODULOS_REGISTRO.items()
+        ]
+        if _quer_json(request):
+            return JsonResponse({'planos': planos, 'modulos_disponiveis': modulos})
+        return render(request, 'baros_admin/onboarding.html', {
             'planos': planos,
-            'modulos_disponiveis': [
-                {'codigo': cod, 'rotulo': info['rotulo'], 'requer': info['requer']}
-                for cod, info in MODULOS_REGISTRO.items()
-            ]
+            'modulos': modulos,
+            'planos_codigo': Tenant.PLANO_CHOICES,
+            'menu': 'empresas',
         })
 
     def post(self, request):
@@ -571,7 +713,13 @@ class BarosAdminPlanosView(View):
             }
             for p in planos
         ]
-        return JsonResponse({'planos': planos_data})
+        if _quer_json(request):
+            return JsonResponse({'planos': planos_data})
+        return render(request, 'baros_admin/planos.html', {
+            'planos': planos,
+            'modulos': MODULOS_REGISTRO,
+            'menu': 'planos',
+        })
 
     def post(self, request):
         auth_err = verificar_acesso_baros_admin(request)
@@ -590,16 +738,16 @@ class BarosAdminPlanosView(View):
                 preco_base=Decimal(str(dados.get('preco_base', '0.00'))),
                 limite_usuarios=int(dados.get('limite_usuarios', 5)),
                 limite_cilindros=int(dados.get('limite_cilindros', 500)),
-                modulo_patrimonio_ativo=bool(dados.get('modulo_patrimonio_ativo', True)),
-                modulo_comercial_ativo=bool(dados.get('modulo_comercial_ativo', True)),
-                modulo_vendas_ativo=bool(dados.get('modulo_vendas_ativo', True)),
-                modulo_envase_ativo=bool(dados.get('modulo_envase_ativo', False)),
-                modulo_logistica_ativo=bool(dados.get('modulo_logistica_ativo', True)),
-                modulo_fiscal_ativo=bool(dados.get('modulo_fiscal_ativo', False)),
-                modulo_b2b_ativo=bool(dados.get('modulo_b2b_ativo', False)),
-                modulo_financeiro_ativo=bool(dados.get('modulo_financeiro_ativo', True)),
-                modulo_analytics_ativo=bool(dados.get('modulo_analytics_ativo', False)),
-                ativo=bool(dados.get('ativo', True)),
+                modulo_patrimonio_ativo=_bool(dados.get('modulo_patrimonio_ativo'), True),
+                modulo_comercial_ativo=_bool(dados.get('modulo_comercial_ativo'), True),
+                modulo_vendas_ativo=_bool(dados.get('modulo_vendas_ativo'), True),
+                modulo_envase_ativo=_bool(dados.get('modulo_envase_ativo'), False),
+                modulo_logistica_ativo=_bool(dados.get('modulo_logistica_ativo'), True),
+                modulo_fiscal_ativo=_bool(dados.get('modulo_fiscal_ativo'), False),
+                modulo_b2b_ativo=_bool(dados.get('modulo_b2b_ativo'), False),
+                modulo_financeiro_ativo=_bool(dados.get('modulo_financeiro_ativo'), True),
+                modulo_analytics_ativo=_bool(dados.get('modulo_analytics_ativo'), False),
+                ativo=_bool(dados.get('ativo'), True),
             )
             return JsonResponse({'sucesso': True, 'plano_id': str(plano.id), 'nome': plano.nome}, status=201)
         except (ValueError, KeyError, TypeError, ValidationError) as exc:
@@ -614,6 +762,21 @@ class BarosAdminFaturasView(View):
             return auth_err
 
         faturas = FaturaSaaS.unscoped.all().select_related('tenant', 'plano').order_by('-vencimento')
+        status_filtro = request.GET.get('status', '').strip()
+        if status_filtro == 'EM_ATRASO':
+            faturas = faturas.filter(models.Q(status='VENCIDO') | models.Q(status='PENDENTE', vencimento__lt=timezone.localdate()))
+        elif status_filtro:
+            faturas = faturas.filter(status=status_filtro)
+        if not _quer_json(request):
+            return render(request, 'baros_admin/faturas.html', {
+                'faturas': faturas[:200],
+                'status_filtro': status_filtro,
+                'status_opcoes': FaturaSaaS.STATUS_CHOICES,
+                'tenants': Tenant.objects.order_by('nome_fantasia'),
+                'planos': PlanoSaaS.objects.filter(ativo=True).order_by('preco_base'),
+                'hoje': timezone.localdate(),
+                'menu': 'faturas',
+            })
         faturas_data = [
             {
                 'id': str(f.id),
@@ -675,10 +838,121 @@ class BarosAdminFaturaStatusView(View):
         if novo_status == 'PAGO':
             fatura.pago_em = timezone.localdate()
         fatura.save(update_fields=['status', 'pago_em'])
+        _auditar(request, 'FATURA_SAAS_STATUS', tenant=fatura.tenant, modulo='faturas',
+                 fatura_id=fatura.id, status=novo_status)
 
         return JsonResponse({
             'sucesso': True,
             'fatura_id': str(fatura.id),
             'status': fatura.status,
             'pago_em': str(fatura.pago_em) if fatura.pago_em else None,
+        })
+
+
+CAMPOS_MODULO_PLANO = [f"modulo_{cod}_ativo" for cod in MODULOS_REGISTRO]
+
+
+class BarosAdminPlanoEditarView(View):
+    """Edita preço, cotas, módulos incluídos e status de um PlanoSaaS."""
+    def post(self, request, plano_id):
+        auth_err = verificar_acesso_baros_admin(request)
+        if auth_err:
+            return auth_err
+
+        plano = get_object_or_404(PlanoSaaS, id=plano_id)
+        dados = _ler_dados(request)
+        try:
+            if 'nome' in dados:
+                plano.nome = str(dados['nome']).strip()
+            if 'preco_base' in dados:
+                plano.preco_base = Decimal(str(dados['preco_base']))
+            if 'limite_usuarios' in dados:
+                plano.limite_usuarios = int(dados['limite_usuarios'])
+            if 'limite_cilindros' in dados:
+                plano.limite_cilindros = int(dados['limite_cilindros'])
+            for campo in CAMPOS_MODULO_PLANO + ['ativo']:
+                if campo in dados:
+                    setattr(plano, campo, _bool(dados[campo]))
+            plano.full_clean()
+            plano.save()
+        except (ValueError, TypeError, ArithmeticError, ValidationError) as exc:
+            return JsonResponse({'sucesso': False, 'erro': str(exc)}, status=400)
+
+        _auditar(request, 'PLANO_SAAS_EDITADO', modulo='planos', plano_id=plano.id, nome=plano.nome)
+        return JsonResponse({'sucesso': True, 'plano_id': str(plano.id)})
+
+
+class BarosAdminFaturasGerarLoteView(View):
+    """
+    Gera as faturas SaaS de uma competência para todas as empresas ATIVAS que ainda não têm
+    fatura nesse mês (idempotente: rodar duas vezes não duplica).
+    """
+    def post(self, request):
+        auth_err = verificar_acesso_baros_admin(request)
+        if auth_err:
+            return auth_err
+
+        dados = _ler_dados(request)
+        try:
+            competencia = datetime.date.fromisoformat(f"{dados.get('competencia', '')}-01")
+            vencimento = datetime.date.fromisoformat(str(dados.get('vencimento', '')))
+        except ValueError:
+            return JsonResponse({'sucesso': False, 'erro': 'Informe competência (AAAA-MM) e vencimento (AAAA-MM-DD).'}, status=400)
+
+        ja_faturados = set(FaturaSaaS.unscoped.filter(competencia=competencia).values_list('tenant_id', flat=True))
+        criadas = 0
+        for tenant in Tenant.objects.filter(status_assinatura='ATIVO').exclude(id__in=ja_faturados):
+            if tenant.valor_mensalidade_saas <= 0:
+                continue
+            FaturaSaaS.unscoped.create(
+                tenant=tenant,
+                competencia=competencia,
+                valor=tenant.valor_mensalidade_saas,
+                vencimento=vencimento,
+                status='PENDENTE',
+            )
+            criadas += 1
+
+        _auditar(request, 'FATURAS_SAAS_LOTE', modulo='faturas', competencia=competencia, criadas=criadas)
+        return JsonResponse({'sucesso': True, 'criadas': criadas, 'ja_existentes': len(ja_faturados)})
+
+
+class BarosAdminSuporteView(View):
+    """Acessos de suporte (break-glass): ativos agora e histórico."""
+    def get(self, request):
+        auth_err = verificar_acesso_baros_admin(request)
+        if auth_err:
+            return auth_err
+
+        agora = timezone.now()
+        acessos = AcessoSuporte.objects.select_related('tenant', 'superadmin').order_by('-inicio')
+        return render(request, 'baros_admin/suporte.html', {
+            'ativos': acessos.filter(encerrado_em__isnull=True, expira_em__gte=agora),
+            'historico': acessos[:100],
+            'agora': agora,
+            'menu': 'suporte',
+        })
+
+
+class BarosAdminAuditoriaView(View):
+    """Trilha de auditoria SaaS (LogAuditoriaSaaS) com filtros por empresa e ação."""
+    def get(self, request):
+        auth_err = verificar_acesso_baros_admin(request)
+        if auth_err:
+            return auth_err
+
+        logs = LogAuditoriaSaaS.objects.select_related('tenant', 'usuario').order_by('-timestamp')
+        tenant_id = request.GET.get('tenant', '').strip()
+        acao = request.GET.get('acao', '').strip()
+        if tenant_id:
+            logs = logs.filter(tenant_id=tenant_id)
+        if acao:
+            logs = logs.filter(acao=acao)
+        return render(request, 'baros_admin/auditoria.html', {
+            'logs': logs[:300],
+            'tenants': Tenant.objects.order_by('nome_fantasia'),
+            'acoes': LogAuditoriaSaaS.objects.order_by('acao').values_list('acao', flat=True).distinct(),
+            'tenant_filtro': tenant_id,
+            'acao_filtro': acao,
+            'menu': 'auditoria',
         })

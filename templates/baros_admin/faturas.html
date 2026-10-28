@@ -1,0 +1,94 @@
+{% extends "baros_admin/base.html" %}
+{% block title %}Faturas SaaS{% endblock %}
+
+{% block content %}
+<header class="ds-page-header">
+    <div>
+        <h1 class="ds-page-title">Faturas SaaS</h1>
+        <p class="ds-page-subtitle">Mensalidades cobradas das empresas</p>
+    </div>
+    <div class="ds-page-actions">
+        <button class="btn-secondary" type="button" data-abrir-dialogo="dialogo-lote">Gerar faturas do mês</button>
+        <button class="btn-primary" type="button" data-abrir-dialogo="dialogo-fatura">Nova fatura</button>
+    </div>
+</header>
+
+<form class="bo-filtros" method="get">
+    <select name="status" aria-label="Status">
+        <option value="">Todos os status</option>
+        <option value="EM_ATRASO" {% if status_filtro == 'EM_ATRASO' %}selected{% endif %}>Em atraso</option>
+        {% for valor, rotulo in status_opcoes %}<option value="{{ valor }}" {% if valor == status_filtro %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+    </select>
+    <button class="btn-secondary" type="submit">Filtrar</button>
+    {% if status_filtro %}<a class="btn-outline" href="{% url 'baros_admin_faturas' %}">Limpar</a>{% endif %}
+</form>
+
+{% if faturas %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>Empresa</th><th>Competência</th><th class="ds-num">Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th></th></tr></thead>
+        <tbody>
+        {% for f in faturas %}
+            <tr>
+                <td><a href="{% url 'baros_admin_tenant_detalhe' f.tenant_id %}">{{ f.tenant.nome_fantasia }}</a>{% if f.plano %}<span class="bo-cell-sub">{{ f.plano.nome }}</span>{% endif %}</td>
+                <td class="font-mono">{{ f.competencia|date:"m/Y" }}</td>
+                <td class="ds-num">R$ {{ f.valor }}</td>
+                <td class="font-mono">{{ f.vencimento|date:"d/m/Y" }}</td>
+                <td>{% include "baros_admin/_badge_fatura.html" with fatura=f %}</td>
+                <td class="font-mono">{{ f.pago_em|date:"d/m/Y"|default:"—" }}</td>
+                <td>
+                    {% if f.status == 'PENDENTE' or f.status == 'VENCIDO' %}
+                        <button class="btn-primary btn-sm" type="button" data-acao="fatura-status" data-status="PAGO"
+                                data-url="{% url 'baros_admin_fatura_status' f.id %}" data-descricao="{{ f.tenant.nome_fantasia }} · {{ f.competencia|date:'m/Y' }} · R$ {{ f.valor }}">Paga</button>
+                        <button class="btn-outline btn-sm" type="button" data-acao="fatura-status" data-status="CANCELADO"
+                                data-url="{% url 'baros_admin_fatura_status' f.id %}" data-descricao="{{ f.tenant.nome_fantasia }} · {{ f.competencia|date:'m/Y' }}">Cancelar</button>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="ds-empty"><p class="ds-empty-title">Nenhuma fatura {% if status_filtro %}com esse filtro{% else %}gerada{% endif %}</p></div>
+{% endif %}
+
+<dialog class="bo-dialog" id="dialogo-fatura" aria-labelledby="titulo-fatura">
+    <form method="post" data-acao="enviar-json" data-sucesso="Fatura criada." action="{% url 'baros_admin_faturas' %}">
+        <div class="bo-dialog-head"><h3 id="titulo-fatura">Nova fatura</h3><button type="button" class="bo-close" data-fechar aria-label="Fechar">×</button></div>
+        <div class="bo-dialog-body">
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label for="f-tenant">Empresa *</label>
+                    <select id="f-tenant" name="tenant_id" required>
+                        <option value="">Selecione</option>
+                        {% for t in tenants %}<option value="{{ t.id }}">{{ t.nome_fantasia }} · R$ {{ t.valor_mensalidade_saas }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="f-plano">Plano</label>
+                    <select id="f-plano" name="plano_id"><option value="">—</option>{% for p in planos %}<option value="{{ p.id }}">{{ p.nome }}</option>{% endfor %}</select>
+                </div>
+                <div class="form-group"><label for="f-valor">Valor (R$) *</label><input id="f-valor" name="valor" type="number" min="0.01" step="0.01" required class="font-mono"></div>
+                <div class="form-group"><label for="f-competencia">Competência (1º dia do mês) *</label><input id="f-competencia" name="competencia" type="date" required></div>
+                <div class="form-group"><label for="f-vencimento">Vencimento *</label><input id="f-vencimento" name="vencimento" type="date" required></div>
+            </div>
+        </div>
+        <div class="bo-dialog-foot"><button type="button" class="btn-outline" data-fechar>Cancelar</button><button type="submit" class="btn-primary">Criar fatura</button></div>
+    </form>
+</dialog>
+
+<dialog class="bo-dialog" id="dialogo-lote" aria-labelledby="titulo-lote">
+    <form method="post" data-acao="enviar-json" action="{% url 'baros_admin_faturas_gerar_lote' %}">
+        <div class="bo-dialog-head"><h3 id="titulo-lote">Gerar faturas do mês</h3><button type="button" class="bo-close" data-fechar aria-label="Fechar">×</button></div>
+        <div class="bo-dialog-body">
+            <p class="ds-page-subtitle bo-mb">Cria uma fatura pendente para cada empresa <strong>ativa</strong>, com o valor da mensalidade dela. Empresas que já têm fatura nessa competência são ignoradas.</p>
+            <div class="form-grid">
+                <div class="form-group"><label for="l-competencia">Competência *</label><input id="l-competencia" name="competencia" type="month" required value="{{ hoje|date:'Y-m' }}"></div>
+                <div class="form-group"><label for="l-vencimento">Vencimento *</label><input id="l-vencimento" name="vencimento" type="date" required></div>
+            </div>
+        </div>
+        <div class="bo-dialog-foot"><button type="button" class="btn-outline" data-fechar>Cancelar</button><button type="submit" class="btn-primary">Gerar faturas</button></div>
+    </form>
+</dialog>
+{% endblock %}

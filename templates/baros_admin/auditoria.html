@@ -1,0 +1,46 @@
+{% extends "baros_admin/base.html" %}
+{% block title %}Auditoria{% endblock %}
+
+{% block content %}
+<header class="ds-page-header">
+    <div>
+        <h1 class="ds-page-title">Auditoria SaaS</h1>
+        <p class="ds-page-subtitle">Registro imutável das ações feitas no backoffice e nas assinaturas (últimos 300 registros do filtro)</p>
+    </div>
+</header>
+
+<form class="bo-filtros" method="get">
+    <select name="tenant" aria-label="Empresa">
+        <option value="">Todas as empresas</option>
+        {% for t in tenants %}<option value="{{ t.id }}" {% if t.id|stringformat:"s" == tenant_filtro %}selected{% endif %}>{{ t.nome_fantasia }}</option>{% endfor %}
+    </select>
+    <select name="acao" aria-label="Ação">
+        <option value="">Todas as ações</option>
+        {% for a in acoes %}<option value="{{ a }}" {% if a == acao_filtro %}selected{% endif %}>{{ a }}</option>{% endfor %}
+    </select>
+    <button class="btn-secondary" type="submit">Filtrar</button>
+    {% if tenant_filtro or acao_filtro %}<a class="btn-outline" href="{% url 'baros_admin_auditoria' %}">Limpar</a>{% endif %}
+</form>
+
+{% if logs %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>Data/hora</th><th>Ação</th><th>Empresa</th><th>Usuário</th><th>Detalhes</th><th>IP</th></tr></thead>
+        <tbody>
+        {% for log in logs %}
+            <tr>
+                <td class="font-mono">{{ log.timestamp|date:"d/m/Y H:i:s" }}</td>
+                <td><strong>{{ log.acao }}</strong>{% if log.modulo %}<span class="bo-cell-sub">{{ log.modulo }}</span>{% endif %}</td>
+                <td>{{ log.tenant.nome_fantasia|default:"—" }}</td>
+                <td>{{ log.usuario.username|default:"sistema" }}</td>
+                <td><span class="bo-cell-sub font-mono">{% for k, v in log.detalhes_json.items %}{{ k }}={{ v }}{% if not forloop.last %} · {% endif %}{% endfor %}</span></td>
+                <td class="font-mono">{{ log.ip|default:"—" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="ds-empty"><p class="ds-empty-title">Nenhum registro encontrado</p></div>
+{% endif %}
+{% endblock %}

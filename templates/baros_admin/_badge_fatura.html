@@ -1,0 +1,1 @@
+{% if fatura.status == 'PAGO' %}<span class="badge-status-approved">Paga</span>{% elif fatura.status == 'CANCELADO' %}<span class="badge-status-muted">Cancelada</span>{% elif fatura.status == 'VENCIDO' or fatura.vencimento < hoje %}<span class="badge-status-danger">Em atraso</span>{% else %}<span class="badge-status-warning">Pendente</span>{% endif %}

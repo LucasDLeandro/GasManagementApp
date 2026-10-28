@@ -99,6 +99,13 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 
 **Objetivo:** vocês conseguirem operar o SaaS inteiro pela tela, com segurança.
 
+> **Status (27/10/2026): concluída na branch `fase-1/backoffice`.** Todas as telas foram verificadas no navegador com dados locais. A suíte completa está verde.
+>
+> - **Feito:** layout próprio (sem CDN); visão geral; lista de empresas com busca e filtro; **detalhe da empresa** (cotas, assinatura, módulos com dependências, usuários, faturas, acessos de suporte, histórico); **onboarding em 5 etapas** com revisão; **planos** (criar/editar); **faturas SaaS** (avulsa, **lote do mês idempotente**, paga/cancelada com auditoria); **suporte**; **auditoria**; link "Backoffice Baros" para superusuários. MFA com cadastro obrigatório (1.1) já entrou na Fase 0.
+> - **Bugs corrigidos no caminho:** o cadastro de plano lia `"false"` como verdadeiro; campos numéricos recebiam valores localizados (`499,00`) e ficavam vazios.
+> - **Decisão (27/10/2026):** o superusuário continua podendo entrar em qualquer empresa pelo seletor da topbar, sem break-glass. O break-glass fica como acesso **registrado** opcional, iniciado pela tela da empresa.
+> - **Ficou para depois:** códigos de recuperação e troca do autenticador (1.1, parcial). A **troca de senha obrigatória no primeiro acesso** não existe no app (o template `first_login_password.html` não é usado) e foi movida para a tarefa 7.5. Por isso o onboarding exige uma senha provisória.
+
 | ID | Tarefa | Detalhe | Tam. |
 |---|---|---|:---:|
 | 1.1 | **Cadastro e verificação de MFA** | Primeiro acesso: gerar `TOTPDevice` não confirmado → mostrar QR code → confirmar com o código → só então logar. Códigos de recuperação. Tela para trocar o dispositivo | M |
@@ -272,7 +279,7 @@ Título a receber/pagar em etapas (Dados → Parcelas → Rateio/Retenções →
 | 7.2 | **Integrações**: webhooks (criar, testar, log de entregas, reenviar), exportação ERP | M |
 | 7.3 | **Perfil regulatório e RTs** no padrão novo | P |
 | 7.4 | **Filiais**: tela de cadastro (hoje sem tela) | M |
-| 7.5 | **Accounts**: lista de pessoal, convite/cadastro em etapas (Dados → Papel/Filial → Dados trabalhistas), meu perfil, troca de senha | M |
+| 7.5 | **Accounts**: lista de pessoal, convite/cadastro em etapas (Dados → Papel/Filial → Dados trabalhistas), meu perfil, troca de senha, **troca obrigatória da senha provisória no primeiro acesso** (hoje não existe) | M |
 | 7.6 | **LGPD**: solicitações de titulares (fila e atendimento) | M |
 | 7.7 | **Analytics**: colocar o funil de alertas no menu; redesign; painel de previsão de recompra e risco de não retorno; indicadores executivos | G |
 | 7.8 | **Menu lateral**: reorganizar por áreas (Operação, Comercial, Logística, Financeiro, Fiscal, Configurações) e respeitar módulos e papéis | M |

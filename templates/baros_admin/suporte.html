@@ -1,0 +1,59 @@
+{% extends "baros_admin/base.html" %}
+{% block title %}Suporte{% endblock %}
+
+{% block content %}
+<header class="ds-page-header">
+    <div>
+        <h1 class="ds-page-title">Acessos de suporte</h1>
+        <p class="ds-page-subtitle">Acesso registrado à conta de uma empresa (break-glass): motivo obrigatório, 30 minutos, banner visível para o cliente. Para iniciar, abra a empresa em <a href="{% url 'baros_admin_tenants' %}">Empresas</a>.</p>
+    </div>
+</header>
+
+<section class="bo-card">
+    <h2 class="bo-card-title">Ativos agora</h2>
+    {% if ativos %}
+    <div class="table-container">
+        <table>
+            <thead><tr><th>Empresa</th><th>Superadmin</th><th>Motivo</th><th>Expira</th><th></th></tr></thead>
+            <tbody>
+            {% for a in ativos %}
+                <tr>
+                    <td><a href="{% url 'baros_admin_tenant_detalhe' a.tenant_id %}">{{ a.tenant.nome_fantasia }}</a></td>
+                    <td>{{ a.superadmin.username }}</td>
+                    <td>{{ a.motivo }}</td>
+                    <td class="font-mono">{{ a.expira_em|date:"H:i" }}</td>
+                    <td>{% if a.superadmin_id == request.user.id %}<button class="btn-danger btn-sm" type="button" data-acao="encerrar-acesso" data-url="{% url 'baros_admin_break_glass_encerrar' a.id %}">Encerrar</button>{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="ds-empty"><p class="ds-empty-title">Nenhum acesso de suporte ativo</p></div>
+    {% endif %}
+</section>
+
+<section class="bo-card">
+    <h2 class="bo-card-title">Histórico</h2>
+    {% if historico %}
+    <div class="table-container">
+        <table>
+            <thead><tr><th>Início</th><th>Empresa</th><th>Superadmin</th><th>Motivo</th><th>Situação</th></tr></thead>
+            <tbody>
+            {% for a in historico %}
+                <tr>
+                    <td class="font-mono">{{ a.inicio|date:"d/m/Y H:i" }}</td>
+                    <td>{{ a.tenant.nome_fantasia }}</td>
+                    <td>{{ a.superadmin.username }}</td>
+                    <td>{{ a.motivo }}</td>
+                    <td>{% if a.encerrado_em %}<span class="badge-status-muted">Encerrado {{ a.encerrado_em|date:"H:i" }}</span>{% elif a.expira_em < agora %}<span class="badge-status-muted">Expirado</span>{% else %}<span class="badge-status-danger">Ativo</span>{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="ds-empty"><p class="ds-empty-title">Nenhum acesso registrado</p></div>
+    {% endif %}
+</section>
+{% endblock %}

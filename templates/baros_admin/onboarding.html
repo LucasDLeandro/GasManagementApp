@@ -1,0 +1,261 @@
+{% extends "baros_admin/base.html" %}
+{% load baros_ui l10n %}
+{% block title %}Nova empresa{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'baros_admin_tenants' %}">← Empresas</a></p>
+<header class="ds-page-header">
+    <div>
+        <h1 class="ds-page-title">Nova empresa</h1>
+        <p class="ds-page-subtitle">Cria a empresa, a filial matriz, o perfil regulatório, os módulos e o usuário administrador em uma única operação.</p>
+    </div>
+</header>
+
+<div id="onboarding">
+    {% include "components/_stepper.html" with etapas="Empresa|Plano|Módulos|Administrador|Revisão" %}
+
+    <form id="form-onboarding" class="bo-card" novalidate>
+        <!-- 1. Empresa -->
+        <div class="ds-step-pane" data-step="1">
+            <div class="form-grid">
+                <div class="form-group"><label for="razao_social">Razão social *</label><input id="razao_social" name="razao_social" required maxlength="255"></div>
+                <div class="form-group"><label for="nome_fantasia">Nome fantasia *</label><input id="nome_fantasia" name="nome_fantasia" required maxlength="255"></div>
+                <div class="form-group">
+                    <label for="cnpj">CNPJ *</label>
+                    <input id="cnpj" name="cnpj" required inputmode="numeric" class="font-mono" pattern="\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}" placeholder="00.000.000/0000-00">
+                </div>
+                <div class="form-group">
+                    <label for="modo_operacao">Tipo de operação *</label>
+                    <select id="modo_operacao" name="modo_operacao" required>
+                        <option value="DISTRIBUIDORA">Distribuidora (sem envase)</option>
+                        <option value="ENVASADORA">Envasadora</option>
+                        <option value="MISTO">Envasadora e distribuidora</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="filial_nome">Nome da filial matriz</label><input id="filial_nome" name="filial_nome" placeholder="Matriz"></div>
+                <div class="form-group">
+                    <label for="uf">UF *</label>
+                    <input id="uf" name="uf" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="SP">
+                </div>
+                <div class="form-group">
+                    <label for="municipio_ibge">Código IBGE do município *</label>
+                    <input id="municipio_ibge" name="municipio_ibge" required class="font-mono" pattern="\d{7}" inputmode="numeric" placeholder="3550308">
+                    <span class="ds-field-help">7 dígitos. Ex.: São Paulo = 3550308</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Plano -->
+        <div class="ds-step-pane" data-step="2">
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label for="plano_saas">Plano do catálogo</label>
+                    <select id="plano_saas">
+                        <option value="">Personalizado (preencher abaixo)</option>
+                        {% for p in planos %}
+                            <option value="{{ p.id }}" data-preco="{{ p.preco_base|unlocalize }}" data-usuarios="{{ p.limite_usuarios|unlocalize }}" data-cilindros="{{ p.limite_cilindros|unlocalize }}">{{ p.nome }} · R$ {{ p.preco_base }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="ds-field-help">Preenche mensalidade e cotas. Dá para ajustar depois.</span>
+                </div>
+                <div class="form-group">
+                    <label for="plano">Faixa do plano *</label>
+                    <select id="plano" name="plano" required>
+                        {% for valor, rotulo in planos_codigo %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status_assinatura">Começa como *</label>
+                    <select id="status_assinatura" name="status_assinatura" required>
+                        <option value="TRIAL">Trial</option>
+                        <option value="ATIVO">Ativa</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="valor_mensalidade_saas">Mensalidade (R$) *</label><input id="valor_mensalidade_saas" name="valor_mensalidade_saas" required type="number" min="0" step="0.01" value="499.00" class="font-mono"></div>
+                <div class="form-group"><label for="dias_carencia">Dias de carência na inadimplência *</label><input id="dias_carencia" name="dias_carencia" required type="number" min="0" max="60" value="5"></div>
+                <div class="form-group"><label for="limite_usuarios">Limite de usuários *</label><input id="limite_usuarios" name="limite_usuarios" required type="number" min="1" value="5"></div>
+                <div class="form-group"><label for="limite_cilindros">Limite de cilindros *</label><input id="limite_cilindros" name="limite_cilindros" required type="number" min="1" value="500"></div>
+            </div>
+        </div>
+
+        <!-- 3. Módulos -->
+        <div class="ds-step-pane" data-step="3">
+            <p class="ds-page-subtitle bo-mb">Os módulos exigidos por outro são marcados automaticamente.</p>
+            <div class="bo-modulos">
+                {% for m in modulos %}
+                <div class="bo-modulo">
+                    <label class="bo-switch">
+                        <input type="checkbox" name="modulos" value="{{ m.codigo }}" data-requer="{{ m.requer|join:',' }}"
+                               {% if m.codigo in 'patrimonio,comercial,vendas,logistica,financeiro'|dividir:',' %}checked{% endif %} aria-label="{{ m.rotulo }}">
+                        <span></span>
+                    </label>
+                    <div><strong>{{ m.rotulo }}</strong><small>{{ m.descricao }}</small></div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 4. Administrador -->
+        <div class="ds-step-pane" data-step="4">
+            <div class="form-grid">
+                <div class="form-group"><label for="admin_email">E-mail do administrador *</label><input id="admin_email" name="admin_email" type="email" required></div>
+                <div class="form-group"><label for="admin_username">Usuário de login</label><input id="admin_username" name="admin_username" placeholder="Padrão: parte antes do @"></div>
+                <div class="form-group full-width">
+                    <label for="admin_senha">Senha provisória *</label>
+                    <input id="admin_senha" name="admin_senha" type="password" required minlength="8" autocomplete="new-password">
+                    <span class="ds-field-help">Mínimo de 8 caracteres. Envie ao cliente por um canal seguro e peça que troque no primeiro acesso.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Revisão -->
+        <div class="ds-step-pane" data-step="5">
+            <dl class="bo-dl" id="revisao"></dl>
+        </div>
+
+        <div class="ds-stepper-footer">
+            <a class="btn-outline" href="{% url 'baros_admin_tenants' %}">Cancelar</a>
+            <div class="ds-stepper-nav">
+                <button type="button" class="btn-secondary" id="btn-voltar">Voltar</button>
+                <button type="button" class="btn-primary" id="btn-proximo">Próximo</button>
+                <button type="submit" class="btn-primary" id="btn-confirmar">Criar empresa</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ modulos|json_script:"modulos-info" }}
+<script>
+(function () {
+    const form = document.getElementById('form-onboarding');
+    const paineis = [...form.querySelectorAll('.ds-step-pane')];
+    const itens = [...document.querySelectorAll('[data-stepper-nav] .step-item')];
+    const btnVoltar = document.getElementById('btn-voltar');
+    const btnProximo = document.getElementById('btn-proximo');
+    const btnConfirmar = document.getElementById('btn-confirmar');
+    const modulosInfo = JSON.parse(document.getElementById('modulos-info').textContent);
+    let atual = 1;
+
+    function render() {
+        paineis.forEach(p => p.classList.toggle('active', Number(p.dataset.step) === atual));
+        itens.forEach(i => {
+            const n = Number(i.dataset.step);
+            i.classList.toggle('active', n === atual);
+            i.classList.toggle('completed', n < atual);
+        });
+        btnVoltar.hidden = atual === 1;
+        btnProximo.hidden = atual === paineis.length;
+        btnConfirmar.hidden = atual !== paineis.length;
+        if (atual === paineis.length) montarRevisao();
+    }
+
+    function validarEtapa() {
+        const painel = paineis[atual - 1];
+        painel.querySelectorAll('.ds-field-error').forEach(e => e.remove());
+        painel.querySelectorAll('.ds-invalid').forEach(e => e.classList.remove('ds-invalid'));
+        let primeiro = null;
+        painel.querySelectorAll('input, select').forEach(campo => {
+            if (campo.checkValidity()) return;
+            const grupo = campo.closest('.form-group');
+            if (!grupo) return;
+            grupo.classList.add('ds-invalid');
+            const erro = document.createElement('span');
+            erro.className = 'ds-field-error';
+            erro.textContent = campo.validationMessage;
+            grupo.appendChild(erro);
+            primeiro = primeiro || campo;
+        });
+        if (primeiro) primeiro.focus();
+        return !primeiro;
+    }
+
+    // Máscara de CNPJ
+    form.cnpj.addEventListener('input', () => {
+        const d = form.cnpj.value.replace(/\D/g, '').slice(0, 14);
+        form.cnpj.value = d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+            .replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+    });
+    form.uf.addEventListener('input', () => { form.uf.value = form.uf.value.toUpperCase(); });
+
+    // Plano do catálogo preenche os valores
+    document.getElementById('plano_saas').addEventListener('change', (e) => {
+        const op = e.target.selectedOptions[0];
+        if (!op.value) return;
+        form.valor_mensalidade_saas.value = op.dataset.preco;
+        form.limite_usuarios.value = op.dataset.usuarios;
+        form.limite_cilindros.value = op.dataset.cilindros;
+        // Faixa com o mesmo nome do plano do catálogo (Starter, Profissional, Enterprise)
+        const nome = op.text.split(' · ')[0].trim().toLowerCase();
+        const faixa = [...form.plano.options].find(o => o.text.trim().toLowerCase() === nome);
+        if (faixa) form.plano.value = faixa.value;
+    });
+
+    // Dependências entre módulos
+    const caixas = [...form.querySelectorAll('input[name="modulos"]')];
+    function caixa(codigo) { return caixas.find(c => c.value === codigo); }
+    caixas.forEach(c => c.addEventListener('change', () => {
+        if (c.checked) {
+            const marcar = (cod) => (modulosInfo.find(m => m.codigo === cod) || { requer: [] }).requer.forEach(r => {
+                const alvo = caixa(r);
+                if (alvo && !alvo.checked) { alvo.checked = true; marcar(r); }
+            });
+            marcar(c.value);
+        } else {
+            const desmarcar = (cod) => modulosInfo.filter(m => m.requer.includes(cod)).forEach(m => {
+                const alvo = caixa(m.codigo);
+                if (alvo && alvo.checked) { alvo.checked = false; desmarcar(m.codigo); }
+            });
+            desmarcar(c.value);
+        }
+    }));
+
+    function montarRevisao() {
+        const modulos = caixas.filter(c => c.checked).map(c => modulosInfo.find(m => m.codigo === c.value).rotulo);
+        const linhas = [
+            ['Empresa', form.nome_fantasia.value + ' (' + form.razao_social.value + ')'],
+            ['CNPJ', form.cnpj.value],
+            ['Operação', form.modo_operacao.selectedOptions[0].text],
+            ['Matriz', (form.filial_nome.value || 'Matriz') + ' · ' + form.uf.value + ' · IBGE ' + form.municipio_ibge.value],
+            ['Plano', form.plano.selectedOptions[0].text + ' · começa como ' + form.status_assinatura.selectedOptions[0].text],
+            ['Mensalidade', 'R$ ' + Number(form.valor_mensalidade_saas.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })],
+            ['Cotas', form.limite_usuarios.value + ' usuários · ' + form.limite_cilindros.value + ' cilindros'],
+            ['Módulos', modulos.join(', ') || 'nenhum'],
+            ['Administrador', form.admin_email.value + (form.admin_username.value ? ' (' + form.admin_username.value + ')' : '')],
+        ];
+        const dl = document.getElementById('revisao');
+        dl.innerHTML = '';
+        linhas.forEach(([rotulo, valor]) => {
+            const dt = document.createElement('dt'); dt.textContent = rotulo;
+            const dd = document.createElement('dd'); dd.textContent = valor;
+            dl.append(dt, dd);
+        });
+    }
+
+    btnProximo.addEventListener('click', () => { if (validarEtapa()) { atual += 1; render(); } });
+    btnVoltar.addEventListener('click', () => { atual -= 1; render(); });
+
+    form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const dados = {};
+        new FormData(form).forEach((v, k) => { if (k !== 'modulos') dados[k] = v; });
+        dados.filial_nome = dados.filial_nome || 'Matriz';
+        dados.modulos = caixas.filter(c => c.checked).map(c => c.value);
+        btnConfirmar.disabled = true;
+        btnConfirmar.textContent = 'Criando...';
+        try {
+            const r = await BarosAdmin.enviar('{% url "baros_admin_onboarding" %}', dados, { json: true });
+            sessionStorage.setItem('bo-toast', 'Empresa criada: ' + r.nome_fantasia);
+            window.location.href = '/baros-admin/tenants/' + r.tenant_id + '/';
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'Não foi possível criar a empresa', text: e.message });
+            btnConfirmar.disabled = false;
+            btnConfirmar.textContent = 'Criar empresa';
+        }
+    });
+
+    render();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "baros_admin/base.html" %}
+{% load l10n %}
+{% block title %}Planos{% endblock %}
+
+{% block content %}
+<header class="ds-page-header">
+    <div>
+        <h1 class="ds-page-title">Planos</h1>
+        <p class="ds-page-subtitle">Catálogo usado no onboarding. Alterar um plano não muda as empresas que já o usam.</p>
+    </div>
+    <div class="ds-page-actions">
+        <button class="btn-primary" type="button" data-abrir-dialogo="dialogo-plano"
+                data-action="{% url 'baros_admin_planos' %}" data-titulo="Novo plano">Novo plano</button>
+    </div>
+</header>
+
+{% if planos %}
+<div class="table-container">
+    <table>
+        <thead><tr><th>Plano</th><th class="ds-num">Preço base</th><th class="ds-num">Usuários</th><th class="ds-num">Cilindros</th><th>Módulos incluídos</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+        {% for p in planos %}
+            <tr>
+                <td><strong>{{ p.nome }}</strong></td>
+                <td class="ds-num">R$ {{ p.preco_base }}</td>
+                <td class="ds-num">{{ p.limite_usuarios }}</td>
+                <td class="ds-num">{{ p.limite_cilindros }}</td>
+                <td>
+                    {% if p.modulo_envase_ativo %}<span class="badge-status-transit">Envase</span>{% endif %}
+                    {% if p.modulo_logistica_ativo %}<span class="badge-status-transit">Logística</span>{% endif %}
+                    {% if p.modulo_financeiro_ativo %}<span class="badge-status-transit">Financeiro</span>{% endif %}
+                    {% if p.modulo_fiscal_ativo %}<span class="badge-status-transit">Fiscal</span>{% endif %}
+                    {% if p.modulo_b2b_ativo %}<span class="badge-status-transit">Portal B2B</span>{% endif %}
+                    {% if p.modulo_analytics_ativo %}<span class="badge-status-transit">Analytics</span>{% endif %}
+                </td>
+                <td>{% if p.ativo %}<span class="badge-status-approved">Ativo</span>{% else %}<span class="badge-status-muted">Inativo</span>{% endif %}</td>
+                <td>
+                    <button class="btn-outline btn-sm" type="button" data-abrir-dialogo="dialogo-plano"
+                            data-action="{% url 'baros_admin_plano_editar' p.id %}" data-titulo="Editar {{ p.nome }}"
+                            data-preencher='{"nome": "{{ p.nome|escapejs }}", "preco_base": "{{ p.preco_base|unlocalize }}", "limite_usuarios": {{ p.limite_usuarios|unlocalize }}, "limite_cilindros": {{ p.limite_cilindros|unlocalize }}, "ativo": {{ p.ativo|yesno:"true,false" }}, "modulo_patrimonio_ativo": {{ p.modulo_patrimonio_ativo|yesno:"true,false" }}, "modulo_comercial_ativo": {{ p.modulo_comercial_ativo|yesno:"true,false" }}, "modulo_vendas_ativo": {{ p.modulo_vendas_ativo|yesno:"true,false" }}, "modulo_envase_ativo": {{ p.modulo_envase_ativo|yesno:"true,false" }}, "modulo_logistica_ativo": {{ p.modulo_logistica_ativo|yesno:"true,false" }}, "modulo_fiscal_ativo": {{ p.modulo_fiscal_ativo|yesno:"true,false" }}, "modulo_b2b_ativo": {{ p.modulo_b2b_ativo|yesno:"true,false" }}, "modulo_financeiro_ativo": {{ p.modulo_financeiro_ativo|yesno:"true,false" }}, "modulo_analytics_ativo": {{ p.modulo_analytics_ativo|yesno:"true,false" }}}'>Editar</button>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="ds-empty"><p class="ds-empty-title">Nenhum plano cadastrado</p><p class="ds-empty-text">Crie o primeiro plano para usá-lo no onboarding.</p></div>
+{% endif %}
+
+<dialog class="bo-dialog" id="dialogo-plano" aria-labelledby="titulo-plano">
+    <form method="post" data-acao="enviar-json" data-sucesso="Plano salvo." action="{% url 'baros_admin_planos' %}">
+        <div class="bo-dialog-head"><h3 id="titulo-plano" data-titulo>Novo plano</h3><button type="button" class="bo-close" data-fechar aria-label="Fechar">×</button></div>
+        <div class="bo-dialog-body">
+            <div class="form-grid">
+                <div class="form-group full-width"><label for="p-nome">Nome *</label><input id="p-nome" name="nome" required maxlength="100"></div>
+                <div class="form-group"><label for="p-preco">Preço base (R$) *</label><input id="p-preco" name="preco_base" type="number" min="0" step="0.01" required class="font-mono"></div>
+                <div class="form-group"><label for="p-ativo">Status</label><label class="bo-checks"><span><input id="p-ativo" type="checkbox" name="ativo" checked> Disponível no onboarding</span></label></div>
+                <div class="form-group"><label for="p-usuarios">Limite de usuários *</label><input id="p-usuarios" name="limite_usuarios" type="number" min="1" required></div>
+                <div class="form-group"><label for="p-cilindros">Limite de cilindros *</label><input id="p-cilindros" name="limite_cilindros" type="number" min="1" required></div>
+                <div class="form-group full-width">
+                    <label>Módulos incluídos</label>
+                    <div class="bo-checks">
+                        {% for codigo, info in modulos.items %}
+                            <label><input type="checkbox" name="modulo_{{ codigo }}_ativo"> {{ info.rotulo }}</label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="bo-dialog-foot"><button type="button" class="btn-outline" data-fechar>Cancelar</button><button type="submit" class="btn-primary">Salvar plano</button></div>
+    </form>
+</dialog>
+{% endblock %}
