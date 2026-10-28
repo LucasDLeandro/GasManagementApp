@@ -26,6 +26,20 @@ from .views import (
     RecallCampanhaViewSet,
     ItemRecallClienteViewSet,
     SincronizarMovimentacoesOfflineAPIView,
+    FabricanteCilindroViewSet,
+    ClasseAtivoViewSet,
+    AtivoImobilizadoViewSet,
+    LoteAquisicaoCilindrosViewSet,
+    TabelaIndenizacaoCilindroViewSet,
+    HistoricoRetesteHidrostaticoViewSet,
+    EnvioRetesteViewSet,
+    BaixaPatrimonialViewSet,
+    TanqueCriogenicoViewSet,
+    MedicaoTanqueViewSet,
+    EntradaGasGranelViewSet,
+    MovimentoEstoqueGasViewSet,
+    CustoLoteEnvaseViewSet,
+    MovimentoEstoqueProdutoViewSet,
 )
 
 
@@ -37,6 +51,20 @@ router.register(r'api/recebimentos-fornecedor', RecebimentoCilindroCheioViewSet,
 router.register(r'api/lotes', LoteEnvaseViewSet, basename='lote-api')
 router.register(r'api/campanhas-recall', RecallCampanhaViewSet, basename='campanha-recall-api')
 router.register(r'api/itens-recall', ItemRecallClienteViewSet, basename='item-recall-api')
+router.register(r'api/patrimonio/fabricantes', FabricanteCilindroViewSet, basename='patrimonio-fabricantes-api')
+router.register(r'api/patrimonio/classes', ClasseAtivoViewSet, basename='patrimonio-classes-api')
+router.register(r'api/patrimonio/ativos', AtivoImobilizadoViewSet, basename='patrimonio-ativos-api')
+router.register(r'api/patrimonio/lotes', LoteAquisicaoCilindrosViewSet, basename='patrimonio-lotes-api')
+router.register(r'api/patrimonio/indenizacoes', TabelaIndenizacaoCilindroViewSet, basename='patrimonio-indenizacoes-api')
+router.register(r'api/patrimonio/retestes', HistoricoRetesteHidrostaticoViewSet, basename='patrimonio-retestes-api')
+router.register(r'api/patrimonio/envios-reteste', EnvioRetesteViewSet, basename='patrimonio-envios-reteste-api')
+router.register(r'api/patrimonio/baixas', BaixaPatrimonialViewSet, basename='patrimonio-baixas-api')
+router.register(r'api/tanques', TanqueCriogenicoViewSet, basename='tanque-api')
+router.register(r'api/medicoes-tanque', MedicaoTanqueViewSet, basename='medicao-tanque-api')
+router.register(r'api/entradas-granel', EntradaGasGranelViewSet, basename='entrada-granel-api')
+router.register(r'api/estoque-gas/movimentos', MovimentoEstoqueGasViewSet, basename='movimento-estoque-gas-api')
+router.register(r'api/custos-lote', CustoLoteEnvaseViewSet, basename='custo-lote-api')
+router.register(r'api/estoque-produto/movimentos', MovimentoEstoqueProdutoViewSet, basename='movimento-estoque-produto-api')
 router.register(r'api', ProdutoViewSet, basename='produto-api')
 
 app_name = 'produtos'

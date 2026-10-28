@@ -13,6 +13,7 @@ from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 
 
+from core.guards import assert_modulo, assert_tenant_writable
 from core.mixins import TenantViewSetMixin
 from core.permissions import (
     IsTenantMember,
@@ -20,6 +21,8 @@ from core.permissions import (
     CanApproveLoteOuMedicinal,
     IsResponsavelTecnico,
     IsMotoristaOrAdmin,
+    RequiresModuleEnvase,
+    RequiresModulePatrimonio,
 )
 from core.models import ResponsavelTecnico
 
@@ -36,6 +39,23 @@ from .models import (
     RecallCampanha,
     ItemRecallCliente,
     MovimentacaoCilindro,
+    FabricanteCilindro,
+    ClasseAtivo,
+    LoteAquisicaoCilindros,
+    AtivoImobilizado,
+    TabelaIndenizacaoCilindro,
+    HistoricoRetesteHidrostatico,
+    EnvioReteste,
+    ItemEnvioReteste,
+    BaixaPatrimonial,
+    TanqueCriogenico,
+    MedicaoTanque,
+    EntradaGasGranel,
+    MovimentoEstoqueGas,
+    FechamentoPeriodoTanque,
+    CustoEnergiaRampa,
+    CustoLoteEnvase,
+    MovimentoEstoqueProduto,
 )
 from .serializers import (
     ProdutoSerializer,
@@ -49,6 +69,36 @@ from .serializers import (
     RecallCampanhaSerializer,
     ItemRecallClienteSerializer,
     MovimentacaoCilindroSerializer,
+    FabricanteCilindroSerializer,
+    ClasseAtivoSerializer,
+    AtivoImobilizadoSerializer,
+    LoteAquisicaoCilindrosSerializer,
+    TabelaIndenizacaoCilindroSerializer,
+    HistoricoRetesteHidrostaticoSerializer,
+    EnvioRetesteSerializer,
+    ItemEnvioRetesteSerializer,
+    BaixaPatrimonialSerializer,
+    TanqueCriogenicoSerializer,
+    MedicaoTanqueSerializer,
+    EntradaGasGranelSerializer,
+    MovimentoEstoqueGasSerializer,
+    FechamentoPeriodoTanqueSerializer,
+    CustoEnergiaRampaSerializer,
+    CustoLoteEnvaseSerializer,
+    MovimentoEstoqueProdutoSerializer,
+)
+from .services.granel import (
+    registrar_entrada_granel,
+    registrar_medicao_tanque,
+    fechar_periodo_tanque,
+    registrar_perda_purga,
+)
+from .services.custo_envase import (
+    fechar_lote_envase,
+    estornar_fechamento_lote,
+)
+from .services.estoque_produto import (
+    movimentar_estoque_produto,
 )
 from .services import (
     registrar_envase_cilindro,
@@ -66,6 +116,12 @@ from .services import (
     sincronizar_movimentacoes_offline,
     retornar_de_reteste,
     estornar_movimentacao_ledger,
+    enviar_cilindros_para_reteste,
+    registrar_retorno_reteste,
+    retificar_reteste,
+    baixar_cilindro_patrimonial,
+    estornar_baixa,
+    registrar_extravio,
 )
 
 
@@ -152,6 +208,16 @@ class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(status='EM_POSSE_CLIENTE', posse_desde__lte=limite)
 
         return qs
+
+    @action(detail=True, methods=['get'], url_path='calcular-indenizacao')
+    def calcular_indenizacao(self, request, pk=None):
+        """
+        Calcula o valor contratual de indenização, valor contábil líquido e ganho/perda (Sprint 8A - Tarefa 9).
+        """
+        cilindro = self.get_object()
+        from produtos.services.indenizacao import calcular_indenizacao
+        resultado = calcular_indenizacao(cilindro)
+        return Response(resultado)
 
     @action(detail=True, methods=['post'], url_path='reclassificar')
     def reclassificar(self, request, pk=None):
@@ -326,6 +392,129 @@ class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['get'], url_path='timeline-retestes')
+    def timeline_retestes(self, request, pk=None):
+        """
+        Retorna a linha do tempo cronológica perpétua de retestes hidrostáticos do cilindro (Sprint 8B).
+        """
+        cilindro = self.get_object()
+        retestes = HistoricoRetesteHidrostatico.objects.filter(
+            cilindro=cilindro,
+            tenant=request.tenant
+        ).order_by('-data_execucao', '-criado_em')
+        serializer = HistoricoRetesteHidrostaticoSerializer(retestes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='enviar-reteste')
+    def enviar_reteste(self, request):
+        """
+        Despacha em lote cilindros para reteste hidrostático externo (Sprint 8B - Tarefa 3).
+        """
+        oficina_nome = request.data.get('oficina_nome')
+        oficina_cnpj = request.data.get('oficina_cnpj')
+        cilindro_ids = request.data.get('cilindro_ids', [])
+        data_envio = request.data.get('data_envio')
+        observacoes = request.data.get('observacoes', '')
+
+        if not (oficina_nome and oficina_cnpj and cilindro_ids):
+            return Response(
+                {'error': 'oficina_nome, oficina_cnpj e cilindro_ids são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            dt_envio = datetime.date.fromisoformat(str(data_envio).strip()) if data_envio else None
+            envio, cilindros = enviar_cilindros_para_reteste(
+                tenant=request.tenant,
+                oficina_nome=oficina_nome,
+                oficina_cnpj=oficina_cnpj,
+                cilindro_ids=cilindro_ids,
+                data_envio=dt_envio,
+                usuario=request.user,
+                observacoes=observacoes
+            )
+            return Response(EnvioRetesteSerializer(envio).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='registrar-retorno-reteste')
+    def registrar_retorno_reteste_completo(self, request):
+        """
+        Processa o laudo e certificado de retorno do ensaio hidrostático (Sprint 8B - Tarefa 4).
+        """
+        try:
+            dt_exec = datetime.date.fromisoformat(str(request.data['data_execucao']).strip())
+            dt_prox = None
+            if request.data.get('data_proximo_reteste'):
+                dt_prox = datetime.date.fromisoformat(str(request.data['data_proximo_reteste']).strip())
+
+            cil, hist = registrar_retorno_reteste(
+                tenant=request.tenant,
+                cilindro_id=request.data.get('cilindro_id'),
+                numero_certificado=request.data.get('numero_certificado'),
+                data_execucao=dt_exec,
+                oficina_nome=request.data.get('oficina_nome'),
+                oficina_cnpj=request.data.get('oficina_cnpj'),
+                registro_inmetro=request.data.get('registro_inmetro'),
+                pressao_teste_bar=request.data.get('pressao_teste_bar'),
+                expansao_total_cm3=request.data.get('expansao_total_cm3'),
+                expansao_permanente_cm3=request.data.get('expansao_permanente_cm3'),
+                tara_real_kg=request.data.get('tara_real_kg'),
+                resultado=request.data.get('resultado', 'APROVADO'),
+                data_proximo_reteste=dt_prox,
+                custo_servico_reteste=request.data.get('custo_servico_reteste', '0.00'),
+                motivo_reprovacao=request.data.get('motivo_reprovacao', ''),
+                observacoes=request.data.get('observacoes', ''),
+                usuario=request.user,
+                envio_id=request.data.get('envio_id')
+            )
+            return Response({
+                'cilindro': CilindroSerializer(cil).data,
+                'reteste': HistoricoRetesteHidrostaticoSerializer(hist).data
+            }, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], url_path='relatorio-vencimentos')
+    def relatorio_vencimentos(self, request):
+        """
+        Relatório consolidado de vencimento de testes hidrostáticos nos horizontes de 30/60/90 dias (Sprint 8B - Tarefa 11).
+        """
+        hoje = timezone.localdate()
+        d30 = hoje + datetime.timedelta(days=30)
+        d60 = hoje + datetime.timedelta(days=60)
+        d90 = hoje + datetime.timedelta(days=90)
+
+        base_qs = self.get_queryset().exclude(status__in=['BAIXADO', 'EXTRAVIADO'])
+        filtro = request.query_params.get('filtro', 'todos')
+
+        if filtro == 'vencidos':
+            qs = base_qs.filter(data_proximo_reteste__lt=hoje)
+        elif filtro == '30dias':
+            qs = base_qs.filter(data_proximo_reteste__gte=hoje, data_proximo_reteste__lte=d30)
+        elif filtro == '60dias':
+            qs = base_qs.filter(data_proximo_reteste__gt=d30, data_proximo_reteste__lte=d60)
+        elif filtro == '90dias':
+            qs = base_qs.filter(data_proximo_reteste__gt=d60, data_proximo_reteste__lte=d90)
+        else:
+            qs = base_qs
+
+        dados = CilindroSerializer(qs.order_by('data_proximo_reteste')[:200], many=True).data
+        contadores = {
+            'vencidos': base_qs.filter(data_proximo_reteste__lt=hoje).count(),
+            'vencendo_30_dias': base_qs.filter(data_proximo_reteste__gte=hoje, data_proximo_reteste__lte=d30).count(),
+            'vencendo_60_dias': base_qs.filter(data_proximo_reteste__gt=d30, data_proximo_reteste__lte=d60).count(),
+            'vencendo_90_dias': base_qs.filter(data_proximo_reteste__gt=d60, data_proximo_reteste__lte=d90).count(),
+            'total_ativos': base_qs.count()
+        }
+        return Response({'contadores': contadores, 'cilindros': dados}, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'], url_path='estorno')
     def estornar(self, request, pk=None):
         """
@@ -366,7 +555,7 @@ class EnvaseCilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
     """
     queryset = EnvaseCilindro.unscoped.all()
     serializer_class = EnvaseCilindroSerializer
-    permission_classes = [IsTenantMember]
+    permission_classes = [IsTenantMember, RequiresModuleEnvase]
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -380,7 +569,7 @@ class InspecaoPreEnvaseViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet
     """
     queryset = InspecaoPreEnvase.unscoped.all()
     serializer_class = InspecaoPreEnvaseSerializer
-    permission_classes = [IsTenantMember]
+    permission_classes = [IsTenantMember, RequiresModuleEnvase]
 
     def get_queryset(self):
         return super().get_queryset().select_related('cilindro', 'operador')
@@ -392,7 +581,7 @@ class RecebimentoCilindroCheioViewSet(TenantViewSetMixin, viewsets.ReadOnlyModel
     """
     queryset = RecebimentoCilindroCheio.unscoped.all()
     serializer_class = RecebimentoCilindroCheioSerializer
-    permission_classes = [IsTenantMember]
+    permission_classes = [IsTenantMember, RequiresModulePatrimonio]
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -405,7 +594,7 @@ class ValidarCilindroRampaAPIView(TenantViewSetMixin, APIView):
     Validação em tempo real para acoplamento na rampa de envase em batelada (IN 129/2022).
     Verifica reteste hidrostático, bloqueio sanitário, compatibilidade química de gás e status.
     """
-    permission_classes = [CanOperateRampaEnvase]
+    permission_classes = [CanOperateRampaEnvase, RequiresModuleEnvase]
 
     def post(self, request):
         codigo_qr = request.data.get('codigo_qr') or request.data.get('termo') or request.data.get('cilindro_id')
@@ -443,7 +632,7 @@ class RegistrarEnvaseAPIView(TenantViewSetMixin, APIView):
     Endpoint para registro operacional de envase individual com Checklist Pré-Envase (IN 129/2022).
     Apenas operadores de pátio, RTs ou administradores do tenant podem operar.
     """
-    permission_classes = [CanOperateRampaEnvase]
+    permission_classes = [CanOperateRampaEnvase, RequiresModuleEnvase]
 
     def post(self, request):
         cilindro_id = request.data.get('cilindro_id')
@@ -503,7 +692,7 @@ class RegistrarEnvaseBateladaAPIView(TenantViewSetMixin, APIView):
     """
     Conclusão atômica da batelada de envase na rampa com checklist IN 129/2022.
     """
-    permission_classes = [CanOperateRampaEnvase]
+    permission_classes = [CanOperateRampaEnvase, RequiresModuleEnvase]
 
     def post(self, request):
         lote_id = request.data.get('lote_id')
@@ -547,7 +736,7 @@ class EtiquetasColarinhoAPIView(TenantViewSetMixin, APIView):
     Gera as etiquetas de colarinho regulamentares (ABNT NBR 12176 / IN 129/2022)
     para impressão imediata após a conclusão da batelada de envase.
     """
-    permission_classes = [IsTenantMember]
+    permission_classes = [IsTenantMember, RequiresModuleEnvase]
 
     def get(self, request):
         envase_ids = request.query_params.get('envase_ids')
@@ -613,7 +802,7 @@ class ReceberCilindroCheioAPIView(TenantViewSetMixin, APIView):
     Endpoint para recebimento de cilindros cheios de fornecedores externos (RDC 887/2024).
     Suporta entrada individual ou em lote (múltiplos cascos na mesma NF e Lote de fornecedor).
     """
-    permission_classes = [CanOperateRampaEnvase]
+    permission_classes = [CanOperateRampaEnvase, RequiresModulePatrimonio]
 
     def post(self, request):
         cilindros = request.data.get('cilindros') or request.data.get('cilindro_ids')
@@ -728,7 +917,7 @@ class DownloadLaudoLoteView(TenantViewSetMixin, APIView):
     Download seguro e autenticado do laudo de análise (PDF) do lote de envase.
     Garante validação estrita de isolamento multi-tenant (nunca exposto sem autenticação).
     """
-    permission_classes = [IsTenantMember]
+    permission_classes = [IsTenantMember, RequiresModuleEnvase]
 
     def get(self, request, pk):
         lote = LoteEnvase.objects.filter(pk=pk).first()
@@ -748,7 +937,7 @@ class DownloadLaudoRecebimentoView(TenantViewSetMixin, APIView):
     Download seguro e autenticado do laudo de análise de cilindro recebido de fornecedor.
     Garante validação estrita de isolamento multi-tenant.
     """
-    permission_classes = [IsTenantMember]
+    permission_classes = [IsTenantMember, RequiresModulePatrimonio]
 
     def get(self, request, pk):
         rec = RecebimentoCilindroCheio.objects.filter(pk=pk).first()
@@ -775,7 +964,7 @@ class LotesAnvisaListAPIView(TenantViewSetMixin, APIView):
     API para listagem dos Lotes Químicos/Medicinais do tenant ativo.
     Alimenta selects, filtros e autocomplete do painel de rastreabilidade ANVISA.
     """
-    permission_classes = [IsTenantMember]
+    permission_classes = [IsTenantMember, RequiresModuleEnvase]
 
     def get(self, request):
         lotes = LoteEnvase.objects.select_related('gas', 'responsavel_tecnico_fk').order_by('-data_envase')
@@ -806,7 +995,7 @@ class LoteEnvaseViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     """
     queryset = LoteEnvase.unscoped.all()
     serializer_class = LoteEnvaseSerializer
-    permission_classes = [IsTenantMember]
+    permission_classes = [IsTenantMember, RequiresModuleEnvase]
 
     def get_queryset(self):
         return super().get_queryset().select_related('gas', 'responsavel_tecnico_fk')
@@ -836,6 +1025,94 @@ class LoteEnvaseViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='fechar')
+    def fechar(self, request, pk=None):
+        """
+        Fecha o lote de envase, baixa o gás do tanque e apura o custo industrial (Sprint 8C - Tarefa 7).
+        """
+        lote = self.get_object()
+        tanque_id = request.data.get('tanque_id') or request.data.get('tanque')
+        if not tanque_id:
+            return Response({'error': 'tanque_id é obrigatório para fechamento do lote.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        taxa_energia = request.data.get('taxa_energia_kwh_por_kg')
+        custo_kwh = request.data.get('custo_kwh')
+        custo_mo = request.data.get('custo_mao_de_obra', '0.00')
+        pct_perda = request.data.get('percentual_perda_rampa', '0.0000')
+
+        try:
+            lote, custo = fechar_lote_envase(
+                lote_id=lote.id,
+                tanque_id=tanque_id,
+                taxa_energia_kwh_por_kg=Decimal(str(taxa_energia)) if taxa_energia else None,
+                custo_kwh=Decimal(str(custo_kwh)) if custo_kwh else None,
+                custo_mao_de_obra=Decimal(str(custo_mo)),
+                percentual_perda_rampa=Decimal(str(pct_perda)),
+                usuario=request.user
+            )
+            return Response({
+                'lote': LoteEnvaseSerializer(lote).data,
+                'custo': CustoLoteEnvaseSerializer(custo).data
+            }, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='estornar-fechamento')
+    def estornar_fechamento(self, request, pk=None):
+        """
+        Estorna o fechamento do lote de envase, recompõe o estoque do tanque e reabre o lote.
+        """
+        lote = self.get_object()
+        motivo = request.data.get('motivo', '')
+        if not motivo:
+            return Response({'error': 'Motivo do estorno é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            lote, custo = estornar_fechamento_lote(
+                lote_id=lote.id,
+                motivo=motivo,
+                usuario=request.user
+            )
+            return Response({
+                'lote': LoteEnvaseSerializer(lote).data,
+                'custo': CustoLoteEnvaseSerializer(custo).data
+            }, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'], url_path='dossie-anvisa')
+    def dossie_anvisa(self, request, pk=None):
+        """
+        Gera e serve o Dossiê Técnico Regulatório ANVISA do lote (Sprint 10).
+        Carrega a árvore hierárquica completa sem N+1, gera PDF com Hash SHA-256 no rodapé
+        e registra auditoria em AuditoriaDownloadLog.
+        """
+        lote = self.get_object()
+        from produtos.services.dossie_builder import gerar_dossie_anvisa_pdf
+
+        ip_origem = request.META.get('REMOTE_ADDR')
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+        pdf_buffer, canonical_hash = gerar_dossie_anvisa_pdf(
+            lote=lote,
+            usuario=request.user,
+            ip_origem=ip_origem,
+            user_agent=user_agent
+        )
+
+        nome_arquivo = f"dossie_anvisa_lote_{lote.codigo_lote}.pdf"
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{nome_arquivo}"'
+        response['X-Integrity-SHA256'] = canonical_hash
+        return response
+
 
 
 class RecallCampanhaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
@@ -1379,5 +1656,450 @@ class EtiquetaColarinhoView(LoginRequiredMixin, View):
             'pressao_bar': pressao_bar,
         })
 
+
+# ==============================================================================
+# VIEWSETS DE PATRIMÔNIO E ATIVOS IMOBILIZADOS (SPRINT 8A)
+# ==============================================================================
+
+class FabricanteCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    queryset = FabricanteCilindro.unscoped.all()
+    serializer_class = FabricanteCilindroSerializer
+    permission_classes = [RequiresModulePatrimonio]
+
+    def perform_create(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save(tenant=self.request.tenant)
+
+    def perform_update(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save()
+
+
+class ClasseAtivoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    queryset = ClasseAtivo.unscoped.all()
+    serializer_class = ClasseAtivoSerializer
+    permission_classes = [RequiresModulePatrimonio]
+
+    def perform_create(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save(tenant=self.request.tenant)
+
+    def perform_update(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save()
+
+
+class AtivoImobilizadoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    queryset = AtivoImobilizado.unscoped.all()
+    serializer_class = AtivoImobilizadoSerializer
+    permission_classes = [RequiresModulePatrimonio]
+
+    def perform_create(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save(tenant=self.request.tenant)
+
+    def perform_update(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save()
+
+
+class LoteAquisicaoCilindrosViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    queryset = LoteAquisicaoCilindros.unscoped.all()
+    serializer_class = LoteAquisicaoCilindrosSerializer
+    permission_classes = [RequiresModulePatrimonio]
+
+    def perform_create(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save(tenant=self.request.tenant)
+
+    def perform_update(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save()
+
+
+class TabelaIndenizacaoCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    queryset = TabelaIndenizacaoCilindro.unscoped.all()
+    serializer_class = TabelaIndenizacaoCilindroSerializer
+    permission_classes = [RequiresModulePatrimonio]
+
+    def perform_create(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save(tenant=self.request.tenant)
+
+    def perform_update(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save()
+
+
+# ==============================================================================
+# VIEWSETS DE RETESTES HIDROSTÁTICOS, ENVIOS E BAIXA PATRIMONIAL (SPRINT 8B)
+# ==============================================================================
+
+class HistoricoRetesteHidrostaticoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    queryset = HistoricoRetesteHidrostatico.unscoped.all()
+    serializer_class = HistoricoRetesteHidrostaticoSerializer
+    permission_classes = [RequiresModulePatrimonio]
+
+    def perform_create(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        serializer.save(tenant=self.request.tenant, usuario=self.request.user)
+
+    def perform_update(self, serializer):
+        raise ValidationError("Registros de reteste hidrostático são estritamente imutáveis. Emita uma retificação.")
+
+    def perform_destroy(self, instance):
+        raise ValidationError("Registros de reteste hidrostático são estritamente imutáveis e perpétuos.")
+
+    @action(detail=True, methods=['post'], url_path='retificar')
+    def retificar(self, request, pk=None):
+        try:
+            novo = retificar_reteste(
+                reteste_anterior_id=pk,
+                novos_dados=request.data,
+                usuario=request.user
+            )
+            return Response(self.get_serializer(novo).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EnvioRetesteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    queryset = EnvioReteste.unscoped.all()
+    serializer_class = EnvioRetesteSerializer
+    permission_classes = [RequiresModulePatrimonio]
+
+    def create(self, request, *args, **kwargs):
+        oficina_nome = request.data.get('oficina_nome')
+        oficina_cnpj = request.data.get('oficina_cnpj')
+        cilindro_ids = request.data.get('cilindro_ids', [])
+        data_envio = request.data.get('data_envio')
+        observacoes = request.data.get('observacoes', '')
+
+        if not (oficina_nome and oficina_cnpj and cilindro_ids):
+            return Response(
+                {'error': 'oficina_nome, oficina_cnpj e cilindro_ids são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            dt_envio = datetime.date.fromisoformat(str(data_envio).strip()) if data_envio else None
+            envio, cilindros = enviar_cilindros_para_reteste(
+                tenant=request.tenant,
+                oficina_nome=oficina_nome,
+                oficina_cnpj=oficina_cnpj,
+                cilindro_ids=cilindro_ids,
+                data_envio=dt_envio,
+                usuario=request.user,
+                observacoes=observacoes
+            )
+            return Response(self.get_serializer(envio).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BaixaPatrimonialViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    queryset = BaixaPatrimonial.unscoped.all()
+    serializer_class = BaixaPatrimonialSerializer
+    permission_classes = [RequiresModulePatrimonio]
+
+    def create(self, request, *args, **kwargs):
+        cilindro_id = request.data.get('cilindro') or request.data.get('cilindro_id')
+        tipo = request.data.get('tipo', 'INUTILIZACAO_TECNICA')
+        data_baixa = request.data.get('data')
+        motivo = request.data.get('motivo', '')
+        documento_ref = request.data.get('documento_ref', '')
+        valor_recebido = Decimal(str(request.data.get('valor_recebido', '0.00')))
+
+        try:
+            dt_baixa = datetime.date.fromisoformat(str(data_baixa).strip()) if data_baixa else None
+            cil, baixa = baixar_cilindro_patrimonial(
+                cilindro_id=cilindro_id,
+                tipo=tipo,
+                data_baixa=dt_baixa,
+                motivo=motivo,
+                documento_ref=documento_ref,
+                valor_recebido=valor_recebido,
+                usuario=request.user
+            )
+            return Response(self.get_serializer(baixa).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='estornar')
+    def estornar(self, request, pk=None):
+        motivo = request.data.get('motivo', '')
+        if not motivo:
+            return Response({'error': 'Motivo do estorno é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            cil, baixa, mov = estornar_baixa(
+                baixa_id=pk,
+                motivo=motivo,
+                usuario=request.user
+            )
+            return Response(self.get_serializer(baixa).data, status=status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TanqueCriogenicoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    Gestão e monitoramento de Tanques Criogênicos estacionários (Sprint 8C - Tarefa 2).
+    """
+    queryset = TanqueCriogenico.unscoped.all()
+    serializer_class = TanqueCriogenicoSerializer
+    permission_classes = [RequiresModuleEnvase]
+
+    def get_queryset(self):
+        return super().get_queryset().select_related('gas', 'filial', 'ativo_imobilizado')
+
+    @action(detail=True, methods=['get'], url_path='painel')
+    def painel(self, request, pk=None):
+        """
+        Retorna o painel operacional do tanque: saldo, custo médio, ocupação e perdas do mês (Tarefa 10).
+        """
+        tanque = self.get_object()
+        hoje = timezone.localdate()
+        inicio_mes = hoje.replace(day=1)
+
+        perdas_mes = MovimentoEstoqueGas.objects.filter(
+            tenant=tanque.tenant,
+            tanque=tanque,
+            tipo__in=['PERDA_EVAPORACAO', 'PERDA_PURGA'],
+            criado_em__date__gte=inicio_mes
+        )
+
+        total_perda_kg = sum(abs(m.quantidade_kg) for m in perdas_mes)
+        total_perda_valor = sum(m.custo_total for m in perdas_mes)
+
+        pct_ocupacao = Decimal('0.00')
+        if tanque.capacidade_kg > Decimal('0.000'):
+            pct_ocupacao = quantize((tanque.saldo_atual_kg / tanque.capacidade_kg) * Decimal('100.0'), 2)
+
+        return Response({
+            'tanque': TanqueCriogenicoSerializer(tanque).data,
+            'ocupacao_pct': str(pct_ocupacao),
+            'perdas_mes_kg': str(quantize(total_perda_kg, 3)),
+            'perdas_mes_valor': str(quantize(total_perda_valor, 2)),
+            'total_movimentos': tanque.movimentos_estoque.count(),
+            'ultima_medicao': MedicaoTanqueSerializer(tanque.medicoes.first()).data if tanque.medicoes.exists() else None
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='fechar-periodo')
+    def fechar_periodo(self, request, pk=None):
+        """
+        Fecha o balanço de massa do tanque e apura o boil-off (Sprint 8C - Tarefa 6).
+        """
+        tanque = self.get_object()
+        data_inicio = request.data.get('data_inicio')
+        data_fim = request.data.get('data_fim')
+        medicao_final_kg = request.data.get('medicao_final_kg')
+        justificativa = request.data.get('justificativa', '')
+
+        if not data_inicio or not data_fim or medicao_final_kg is None:
+            return Response(
+                {'error': 'data_inicio, data_fim e medicao_final_kg são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            dt_ini = datetime.date.fromisoformat(str(data_inicio).strip())
+            dt_fim = datetime.date.fromisoformat(str(data_fim).strip())
+            fechamento, mov = fechar_periodo_tanque(
+                tenant=tanque.tenant,
+                tanque_id=tanque.id,
+                data_inicio=dt_ini,
+                data_fim=dt_fim,
+                medicao_final_kg=Decimal(str(medicao_final_kg)),
+                justificativa=justificativa,
+                usuario=request.user
+            )
+            return Response(FechamentoPeriodoTanqueSerializer(fechamento).data, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='registrar-medicao')
+    def registrar_medicao(self, request, pk=None):
+        """
+        Registra medição física ou telemétrica do tanque (Sprint 8C - Tarefa 3).
+        """
+        tanque = self.get_object()
+        massa_kg = request.data.get('massa_kg_medida')
+        pressao_bar = request.data.get('pressao_bar', '0.00')
+        nivel_pct = request.data.get('nivel_percentual')
+        origem = request.data.get('origem', 'MANUAL')
+        observacoes = request.data.get('observacoes', '')
+
+        if massa_kg is None:
+            return Response({'error': 'massa_kg_medida é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            medicao = registrar_medicao_tanque(
+                tenant=tanque.tenant,
+                tanque_id=tanque.id,
+                massa_kg_medida=Decimal(str(massa_kg)),
+                pressao_bar=Decimal(str(pressao_bar)),
+                nivel_percentual=Decimal(str(nivel_pct)) if nivel_pct else None,
+                origem=origem,
+                observacoes=observacoes,
+                usuario=request.user
+            )
+            return Response(MedicaoTanqueSerializer(medicao).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MedicaoTanqueViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    Histórico de medições físicas e telemétricas de tanques criogênicos.
+    """
+    queryset = MedicaoTanque.unscoped.all()
+    serializer_class = MedicaoTanqueSerializer
+    permission_classes = [RequiresModuleEnvase]
+
+    def get_queryset(self):
+        return super().get_queryset().select_related('tanque', 'usuario')
+
+
+class EntradaGasGranelViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    Recebimento de cargas criogênicas a granel (Sprint 8C - Tarefa 4).
+    """
+    queryset = EntradaGasGranel.unscoped.all()
+    serializer_class = EntradaGasGranelSerializer
+    permission_classes = [RequiresModuleEnvase]
+
+    def get_queryset(self):
+        return super().get_queryset().select_related('tanque', 'tanque__gas', 'usuario')
+
+    def create(self, request, *args, **kwargs):
+        tanque_id = request.data.get('tanque') or request.data.get('tanque_id')
+        fornecedor_nome = request.data.get('fornecedor_nome', '')
+        fornecedor_documento = request.data.get('fornecedor_documento', '')
+        chave_nfe = request.data.get('chave_nfe', '')
+        data_entrada = request.data.get('data_entrada')
+        qtd_nf = request.data.get('quantidade_kg_nf')
+        qtd_rec = request.data.get('quantidade_kg_recebida')
+        custo_nf = request.data.get('custo_total_nf')
+        custo_frete = request.data.get('custo_frete', '0.00')
+        imp_rec = request.data.get('impostos_recuperaveis', '0.00')
+        obs = request.data.get('observacoes', '')
+
+        if not tanque_id or not chave_nfe or not qtd_nf or not qtd_rec or not custo_nf:
+            return Response(
+                {'error': 'tanque, chave_nfe, quantidade_kg_nf, quantidade_kg_recebida e custo_total_nf são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            dt_ent = datetime.date.fromisoformat(str(data_entrada).strip()) if data_entrada else None
+            tanque, entrada, mov = registrar_entrada_granel(
+                tenant=request.user.current_tenant,
+                tanque_id=tanque_id,
+                fornecedor_nome=fornecedor_nome,
+                fornecedor_documento=fornecedor_documento,
+                chave_nfe=chave_nfe,
+                data_entrada=dt_ent,
+                quantidade_kg_nf=Decimal(str(qtd_nf)),
+                quantidade_kg_recebida=Decimal(str(qtd_rec)),
+                custo_total_nf=Decimal(str(custo_nf)),
+                custo_frete=Decimal(str(custo_frete)),
+                impostos_recuperaveis=Decimal(str(imp_rec)),
+                observacoes=obs,
+                usuario=request.user
+            )
+            return Response(EntradaGasGranelSerializer(entrada).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MovimentoEstoqueGasViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    Ledger financeiro perpétuo do estoque de gás a granel (Sprint 8C - Tarefa 5).
+    """
+    queryset = MovimentoEstoqueGas.unscoped.all()
+    serializer_class = MovimentoEstoqueGasSerializer
+    permission_classes = [RequiresModuleEnvase]
+
+    def get_queryset(self):
+        return super().get_queryset().select_related('tanque', 'gas', 'usuario')
+
+
+class CustoLoteEnvaseViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    Consulta e auditoria dos custos apurados de lotes de envase (Sprint 8C - Tarefa 7).
+    """
+    queryset = CustoLoteEnvase.unscoped.all()
+    serializer_class = CustoLoteEnvaseSerializer
+    permission_classes = [RequiresModuleEnvase]
+
+    def get_queryset(self):
+        return super().get_queryset().select_related('lote', 'tanque_origem', 'usuario_estorno')
+
+    @action(detail=True, methods=['post'], url_path='estornar')
+    def estornar(self, request, pk=None):
+        custo = self.get_object()
+        motivo = request.data.get('motivo', '')
+        if not motivo:
+            return Response({'error': 'Motivo do estorno é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            lote, custo = estornar_fechamento_lote(
+                lote_id=custo.lote_id,
+                motivo=motivo,
+                usuario=request.user
+            )
+            return Response(CustoLoteEnvaseSerializer(custo).data, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, 'messages') else str(e)
+            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MovimentoEstoqueProdutoViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
+    """
+    Ledger financeiro do estoque de produtos acabados (Sprint 8C - Tarefa 8).
+    """
+    queryset = MovimentoEstoqueProduto.unscoped.all()
+    serializer_class = MovimentoEstoqueProdutoSerializer
+    permission_classes = [RequiresModuleEnvase]
+
+    def get_queryset(self):
+        return super().get_queryset().select_related('filial', 'sku', 'produto')
 
 

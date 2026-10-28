@@ -1,8 +1,13 @@
+import os
 import uuid
 from datetime import date, timedelta
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+
+# Habilita produtos.services a carregar submódulos em produtos/services/
+__path__ = [os.path.join(os.path.dirname(__file__), 'services')]
+
 
 from .models import (
     Cilindro,
@@ -26,7 +31,8 @@ TRANSIÇÕES_PERMITIDAS_CILINDRO = {
     'VAZIO_TRIAGEM': {
         'EM_ENVASE',          # Início do processo de enchimento
         'CHEIO_DISPONIVEL',   # Conclusão do envase (ou envase direto)
-        'EM_RETESTE',         # Envio para requalificação / manutenção
+        'EM_RETESTE',         # Envio para requalificação / manutenção (legado)
+        'EM_REQUALIFICACAO',  # Envio para reteste hidrostático externo (Sprint 8B)
         'BAIXADO',            # Condenação na inspeção inicial / triagem
     },
     'EM_ENVASE': {
@@ -49,32 +55,42 @@ TRANSIÇÕES_PERMITIDAS_CILINDRO = {
     'EM_POSSE_CLIENTE': {
         'VAZIO_TRIAGEM',      # Recolhido vazio pelo motorista (Full-for-Empty)
         'CHEIO_DISPONIVEL',   # Devolução de cilindro cheio não consumido
-        'BAIXADO',            # Cilindro perdido / indenizado como sucata
+        'BAIXADO',            # Cilindro perdido / indenizado como sucata / extraviado
+        'EXTRAVIADO',         # Extravio patrimonial
     },
     'EM_RETESTE': {
         'VAZIO_TRIAGEM',      # Aprovado no teste hidrostático (revalidado por 5 anos)
         'BAIXADO',            # Reprovado / condenado no teste hidrostático INMETRO
     },
-    'BAIXADO': set(),         # ESTADO TERMINAL: Proibida qualquer reativação
+    'EM_REQUALIFICACAO': {
+        'VAZIO_TRIAGEM',      # Aprovado no reteste hidrostático
+        'BAIXADO',            # Reprovado / condenado no ensaio
+    },
+    'EXTRAVIADO': {
+        'BAIXADO',            # Baixa definitiva de extravio
+        'VAZIO_TRIAGEM',      # Recuperação de cilindro extraviado
+    },
+    'BAIXADO': set(),         # ESTADO TERMINAL: Proibida qualquer reativação direta
 }
 
-def validar_transicao_status_cilindro(cilindro, novo_status):
+def validar_transicao_status_cilindro(cilindro, novo_status, permitir_estorno_baixa=False):
     """
     Valida a transição de status do Cilindro de acordo com a FSM.
-    Garante que o estado BAIXADO é estritamente terminal e impede transições ilegais.
+    Garante que o estado BAIXADO é estritamente terminal e impede transições ilegais,
+    exceto mediante estorno operacional autorizado (permitir_estorno_baixa=True).
     """
     status_atual = cilindro.status
     if status_atual == novo_status:
         return True
 
-    if status_atual == 'BAIXADO':
+    if status_atual == 'BAIXADO' and not permitir_estorno_baixa:
         raise ValidationError(
             f"Transição Ilegal de Estado: O cilindro {cilindro.numero_serie_ogiva} está BAIXADO/CONDENADO "
             f"(estado terminal) e não pode ser reativado para '{novo_status}'."
         )
 
     transicoes_permitidas = TRANSIÇÕES_PERMITIDAS_CILINDRO.get(status_atual, set())
-    if novo_status not in transicoes_permitidas:
+    if novo_status not in transicoes_permitidas and not (status_atual == 'BAIXADO' and permitir_estorno_baixa):
         raise ValidationError(
             f"Transição Ilegal de Estado: O cilindro {cilindro.numero_serie_ogiva} não pode transitar "
             f"de '{status_atual}' para '{novo_status}'. Transições permitidas: {sorted(list(transicoes_permitidas))}."
@@ -888,6 +904,11 @@ def reclassificar_cilindro_gas(
     adequacao_pintura_executada=False,
     nova_cor_padrao="",
     laudo_descontaminacao_pdf=None,
+    laudo_descontaminacao=None,
+    validade_estanqueidade=None,
+    exigiu_novo_reteste=False,
+    reteste_vinculado=None,
+    reteste_vinculado_id=None,
     usuario=None,
     responsavel_tecnico=None,
     homologado_por_rt=None,
@@ -896,8 +917,10 @@ def reclassificar_cilindro_gas(
     observacoes=""
 ):
     """
-    Realiza a reclassificação auditada de gás de um cilindro (ex: Industrial para Medicinal).
-    Exige cumprimento das 3 etapas físicas (descontaminação/purga, troca de válvula e pintura).
+    Realiza a reclassificação auditada de gás de um cilindro (Sprint 8B - Tarefa 8).
+    Exige cumprimento das 3 etapas físicas (descontaminação/purga, troca de válvula e pintura),
+    laudo técnico de descontaminação, teste de estanqueidade vigente e, caso exigido,
+    comprovação de novo reteste hidrostático aprovado e vinculado.
     Se o novo gás for medicinal, exige homologação exclusiva do Responsável Técnico (CRF/CRQ).
     """
     if cilindro is not None and cilindro_id is None:
@@ -908,10 +931,15 @@ def reclassificar_cilindro_gas(
         pintura_adequada_abnt = adequacao_pintura_executada
     if homologado_por_rt is not None and responsavel_tecnico is None:
         responsavel_tecnico = homologado_por_rt
+    if reteste_vinculado_id and not reteste_vinculado:
+        from produtos.models import HistoricoRetesteHidrostatico
+        reteste_vinculado = HistoricoRetesteHidrostatico.objects.get(id=reteste_vinculado_id)
     if client_uuid is None:
         client_uuid = uuid.uuid4()
     if ocorrido_em is None:
         ocorrido_em = timezone.now()
+
+    arquivo_laudo = laudo_descontaminacao or laudo_descontaminacao_pdf
 
     existing_mov = MovimentacaoCilindro.objects.filter(client_uuid=client_uuid).first()
     if existing_mov:
@@ -936,6 +964,35 @@ def reclassificar_cilindro_gas(
             "substituição de válvula e adequação de pintura/cor padrão ABNT."
         )
 
+    # Validação obrigatória de laudo técnico de descontaminação (Tarefa 8)
+    if not arquivo_laudo:
+        raise ValidationError(
+            "Reclassificação bloqueada: O laudo/certificado de descontaminação é obrigatório para liberação do cilindro."
+        )
+
+    # Validação de ensaio de estanqueidade com validade vigente (Tarefa 8)
+    hoje = timezone.localdate()
+    if not validade_estanqueidade or validade_estanqueidade < hoje:
+        raise ValidationError(
+            "Reclassificação bloqueada: O ensaio de estanqueidade deve estar informado e com validade vigente."
+        )
+
+    # Validação de novo reteste vinculado caso exigido (Tarefa 8)
+    if exigiu_novo_reteste:
+        if not reteste_vinculado:
+            raise ValidationError(
+                "Reclassificação bloqueada: Esta operação exigiu novo reteste hidrostático, mas nenhum reteste foi vinculado."
+            )
+        if reteste_vinculado.cilindro_id != cilindro.id:
+            raise ValidationError(
+                f"Reclassificação bloqueada: O reteste vinculado (Cilindro #{reteste_vinculado.cilindro_id}) "
+                f"não pertence a este cilindro ({cilindro.numero_serie_ogiva})."
+            )
+        if reteste_vinculado.resultado != 'APROVADO':
+            raise ValidationError(
+                f"Reclassificação bloqueada: O reteste vinculado deve estar APROVADO (resultado atual: {reteste_vinculado.resultado})."
+            )
+
     # Exigência sanitária: aprovação exclusiva do Responsável Técnico se envolver gás medicinal
     is_medicinal = bool(novo_gas.exige_lote_anvisa or novo_gas.categoria == 'MEDICINAL')
     if is_medicinal:
@@ -953,13 +1010,18 @@ def reclassificar_cilindro_gas(
 
     # Criar registro auditado
     reclassificacao = ReclassificacaoCilindro.objects.create(
+        tenant=cilindro.tenant,
         cilindro=cilindro,
         gas_origem=gas_antigo,
         gas_destino=novo_gas,
         descontaminacao_purga_executada=descontaminacao_purga_executada,
         troca_valvula_executada=troca_valvula_executada,
         pintura_adequada_abnt=pintura_adequada_abnt,
-        laudo_descontaminacao_pdf=laudo_descontaminacao_pdf,
+        laudo_descontaminacao_pdf=arquivo_laudo,
+        laudo_descontaminacao=arquivo_laudo,
+        exigiu_novo_reteste=exigiu_novo_reteste,
+        reteste_vinculado=reteste_vinculado,
+        validade_estanqueidade=validade_estanqueidade,
         homologado_por_rt=responsavel_tecnico,
         rt_nome_snapshot=rt_nome,
         rt_registro_snapshot=rt_reg,
@@ -985,7 +1047,7 @@ def reclassificar_cilindro_gas(
         ocorrido_em=ocorrido_em,
         registrado_por=usuario,
         client_uuid=client_uuid,
-        observacao=f"Reclassificação de {gas_antigo.sigla} para {novo_gas.sigla}: descontaminação, purga e válvula homologadas."
+        observacao=f"Reclassificação de {gas_antigo.sigla} para {novo_gas.sigla}: laudo, estanqueidade e pintura homologados."
     )
 
     return cilindro, reclassificacao, movimentacao
@@ -1997,4 +2059,17 @@ def receber_cilindros_fornecedor_batelada(
     return recebimentos, movimentacoes
 
 
-
+# ==============================================================================
+# SERVIÇOS DE PATRIMÔNIO, RETESTE E BAIXA (SPRINTS 8A E 8B)
+# ==============================================================================
+from produtos.services.indenizacao import calcular_indenizacao
+from produtos.services.baixa import (
+    baixar_cilindro_patrimonial,
+    estornar_baixa,
+    registrar_extravio,
+)
+from produtos.services.reteste import (
+    enviar_cilindros_para_reteste,
+    registrar_retorno_reteste,
+    retificar_reteste,
+)

@@ -250,6 +250,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const timeline = await resTimeline.json();
                 renderTimelineLedger(timeline);
             }
+
+            // Busca histórico perpétuo de retestes (Sprint 8B)
+            const resRetestes = await fetch(`/produtos/api/cilindros/${cilindroId}/timeline-retestes/`, { headers: getAuthHeaders() });
+            if (resRetestes.ok) {
+                const retestes = await resRetestes.json();
+                renderTimelineRetestes(retestes);
+            }
         } catch (err) {
             console.error("Erro no drawer:", err);
             document.getElementById('drawer-timeline-container').innerHTML = `<p style="color: var(--status-danger);">Erro: ${err.message}</p>`;
@@ -284,6 +291,20 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('drawer-reteste').textContent = `${formatarData(c.data_proximo_reteste)} ${c.reteste_vencido ? '⚠️ (VENCIDO)' : '✅'}`;
         document.getElementById('drawer-status').textContent = c.status_display;
         document.getElementById('drawer-posse').textContent = c.cliente_posse_nome ? `${c.cliente_posse_nome} (desde ${formatarData(c.posse_desde ? c.posse_desde.split('T')[0] : '')})` : 'Pátio Central';
+
+        // Preenche Card Patrimônio & CAPEX (Sprint 8A)
+        const elProp = document.getElementById('drawer-patrimonio-propriedade');
+        if (elProp) elProp.textContent = c.propriedade_display || c.propriedade || '-';
+        const elPatNum = document.getElementById('drawer-patrimonio-numero');
+        if (elPatNum) elPatNum.textContent = c.numero_patrimonio || 'Não tombado';
+        const elValAq = document.getElementById('drawer-patrimonio-valor-aquisicao');
+        if (elValAq) elValAq.textContent = c.valor_aquisicao ? `R$ ${Number(c.valor_aquisicao).toFixed(2)}` : '-';
+        const elValCont = document.getElementById('drawer-patrimonio-valor-contabil');
+        if (elValCont) elValCont.textContent = c.valor_contabil_liquido_atual ? `R$ ${Number(c.valor_contabil_liquido_atual).toFixed(2)}` : '-';
+        const elLote = document.getElementById('drawer-patrimonio-lote');
+        if (elLote) elLote.textContent = c.lote_aquisicao ? `Lote #${c.lote_aquisicao}` : '-';
+        const elNfe = document.getElementById('drawer-patrimonio-nfe');
+        if (elNfe) elNfe.textContent = c.chave_nfe_aquisicao ? `${c.chave_nfe_aquisicao.slice(0, 6)}...${c.chave_nfe_aquisicao.slice(-6)}` : '-';
 
         // Atualiza botão de bloqueio sanitário
         const btnToggleBloqueio = document.getElementById('drawer-btn-bloqueio');
@@ -355,6 +376,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 iniciarModalEstorno(movId, tipo);
             });
         });
+    }
+
+    function renderTimelineRetestes(retestes) {
+        const container = document.getElementById('drawer-retestes-timeline');
+        const countBadge = document.getElementById('drawer-reteste-count');
+        if (!container) return;
+
+        if (countBadge) {
+            const qtd = retestes ? retestes.length : 0;
+            countBadge.textContent = `${qtd} ${qtd === 1 ? 'ensaio' : 'ensaios'}`;
+        }
+
+        if (!retestes || retestes.length === 0) {
+            container.innerHTML = `<p style="color: var(--color-text-muted); font-size: 12px; margin: 4px 0;">Nenhum ensaio hidrostático registrado.</p>`;
+            return;
+        }
+
+        container.innerHTML = retestes.map(r => {
+            const isAprovado = r.resultado === 'APROVADO';
+            const badgeColor = isAprovado ? '#10b981' : '#ef4444';
+            const badgeBg = isAprovado ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+            const retificaBadge = r.retifica ? `<span style="font-size: 10px; background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 1px 4px; border-radius: 3px; margin-left: 6px;">Retificação</span>` : '';
+
+            return `
+                <div style="background: rgba(30, 41, 59, 0.5); border-left: 3px solid ${badgeColor}; padding: 8px 10px; border-radius: 4px; font-size: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-weight: 700; color: #f1f5f9;">
+                            ${formatarData(r.data_execucao)}
+                            ${retificaBadge}
+                        </span>
+                        <span style="font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor};">
+                            ${r.resultado_display || r.resultado}
+                        </span>
+                    </div>
+                    <div style="color: #94a3b8; font-size: 11px; display: flex; flex-direction: column; gap: 2px;">
+                        <div><strong>Certificado:</strong> ${r.numero_certificado || 'Carga Legada'} | <strong>Oficina:</strong> ${r.oficina_nome || '-'}</div>
+                        <div><strong>Exp. Permanente:</strong> ${r.expansao_permanente_percentual ? r.expansao_permanente_percentual + '%' : '-'} (Limite: ${r.limite_expansao_percentual_aplicado}%)</div>
+                        ${r.tara_real_kg ? `<div><strong>Tara Aferida:</strong> ${r.tara_real_kg} kg ${r.variacao_tara_percentual ? `(Var: ${r.variacao_tara_percentual}%)` : ''}</div>` : ''}
+                        ${r.data_proximo_reteste ? `<div><strong>Próximo Vencimento:</strong> ${formatarData(r.data_proximo_reteste)}</div>` : ''}
+                        ${r.motivo_reprovacao ? `<div style="color: #f87171;"><strong>Motivo:</strong> ${r.motivo_reprovacao}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     if (btnCloseDrawer && drawerDialog) {

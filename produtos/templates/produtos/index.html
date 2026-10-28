@@ -170,6 +170,7 @@
             Ativos 360° (Frota)
         </button>
 
+        {% if tem_modulo_envase %}
         <button class="module-tab-btn" id="tab-btn-rampa" onclick="alternarAba('rampa')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"></circle>
@@ -178,7 +179,9 @@
             </svg>
             Rampa em Batelada (IN 129/2022)
         </button>
+        {% endif %}
 
+        {% if tem_modulo_distribuicao %}
         <button class="module-tab-btn" id="tab-btn-recebimento" onclick="alternarAba('recebimento')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -187,7 +190,9 @@
             </svg>
             Recebimento de Fornecedor (RDC 887/2024)
         </button>
+        {% endif %}
 
+        {% if tem_modulo_envase %}
         <button class="module-tab-btn" id="tab-btn-lotes" onclick="alternarAba('lotes')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -197,6 +202,7 @@
             </svg>
             Central de Lotes & Qualidade CQ
         </button>
+        {% endif %}
 
         <button class="module-tab-btn" id="tab-btn-catalogo" onclick="alternarAba('catalogo')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -238,7 +244,9 @@
         <div class="filter-pills-bar">
             <button class="pill-filter-btn active" data-filter="todos">Todos</button>
             <button class="pill-filter-btn" data-filter="CHEIO_DISPONIVEL">Cheios no Pátio</button>
+            {% if tem_modulo_distribuicao %}
             <button class="pill-filter-btn" data-filter="EM_POSSE_CLIENTE">Em Clientes</button>
+            {% endif %}
             <button class="pill-filter-btn" data-filter="VAZIO_TRIAGEM">Vazios em Triagem</button>
             <button class="pill-filter-btn" data-filter="bloqueio_sanitario">Bloqueio Sanitário</button>
             <button class="pill-filter-btn" data-filter="reteste_vencido">Reteste Vencido</button>
@@ -281,6 +289,7 @@
     <!-- ============================================================================== -->
     <!-- ABA 2: ESTAÇÃO DE RAMPA EM BATELADA (IN 129/2022)                              -->
     <!-- ============================================================================== -->
+    {% if tem_modulo_envase %}
     <div id="aba-conteudo-rampa" style="display: none;">
         <div class="batch-manifold-header">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
@@ -404,10 +413,12 @@
             </table>
         </div>
     </div>
+    {% endif %}
 
     <!-- ============================================================================== -->
     <!-- ABA 3: RECEBIMENTO DE FORNECEDOR (RDC 887/2024 - DISTRIBUIDORAS)               -->
     <!-- ============================================================================== -->
+    {% if tem_modulo_distribuicao %}
     <div id="aba-conteudo-recebimento" style="display: none;">
         <div style="margin-bottom: 20px;">
             <h2 style="font-size: 22px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
@@ -527,10 +538,12 @@
             </table>
         </div>
     </div>
+    {% endif %}
 
     <!-- ============================================================================== -->
     <!-- ABA 4: CENTRAL DE LOTES & QUALIDADE CQ                                         -->
     <!-- ============================================================================== -->
+    {% if tem_modulo_envase %}
     <div id="aba-conteudo-lotes" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
             <div>
@@ -592,6 +605,7 @@
             </table>
         </div>
     </div>
+    {% endif %}
 
     <!-- ============================================================================== -->
     <!-- ABA 5: CATÁLOGO COMERCIAL DE GASES E PREÇOS                                    -->
@@ -696,6 +710,54 @@
                 <div class="ficha-item" style="grid-column: span 2;">
                     <span class="ficha-label">Localização / Posse</span>
                     <span class="ficha-value" id="drawer-posse">-</span>
+                </div>
+            </div>
+
+            <!-- Card Patrimônio & CAPEX (Sprint 8A - Tarefa 11) -->
+            <div id="drawer-card-patrimonio" style="margin-top: 15px; background: rgba(30, 41, 59, 0.5); border: 1px solid var(--color-border); border-radius: 8px; padding: 12px;">
+                <h5 style="font-size: 13px; font-weight: 700; color: #38bdf8; margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    Patrimônio & CAPEX
+                </h5>
+                <div class="ficha-tecnica-grid" style="grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                    <div class="ficha-item">
+                        <span class="ficha-label">Propriedade</span>
+                        <span class="ficha-value" id="drawer-patrimonio-propriedade">-</span>
+                    </div>
+                    <div class="ficha-item">
+                        <span class="ficha-label">Nº Patrimônio</span>
+                        <span class="ficha-value" id="drawer-patrimonio-numero">-</span>
+                    </div>
+                    <div class="ficha-item">
+                        <span class="ficha-label">Valor de Aquisição</span>
+                        <span class="ficha-value font-mono" id="drawer-patrimonio-valor-aquisicao">-</span>
+                    </div>
+                    <div class="ficha-item">
+                        <span class="ficha-label">Valor Contábil Estimado</span>
+                        <span class="ficha-value font-mono" id="drawer-patrimonio-valor-contabil" style="color: #34d399;">-</span>
+                    </div>
+                    <div class="ficha-item">
+                        <span class="ficha-label">Lote de Compra</span>
+                        <span class="ficha-value" id="drawer-patrimonio-lote">-</span>
+                    </div>
+                    <div class="ficha-item">
+                        <span class="ficha-label">NF-e de Entrada</span>
+                        <span class="ficha-value font-mono" id="drawer-patrimonio-nfe" style="font-size: 11px;">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Histórico Perpétuo de Retestes (ABNT NBR 12274) - Sprint 8B -->
+            <div id="drawer-card-retestes" style="margin-top: 15px; background: rgba(30, 41, 59, 0.5); border: 1px solid #0284c7; border-radius: 8px; padding: 12px;">
+                <h5 style="font-size: 13px; font-weight: 700; color: #38bdf8; margin: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between;">
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        Histórico de Retestes (ABNT NBR 12274)
+                    </span>
+                    <span id="drawer-reteste-count" style="font-size: 11px; background: rgba(56, 189, 248, 0.2); padding: 2px 6px; border-radius: 4px; color: #38bdf8;">0 ensaios</span>
+                </h5>
+                <div id="drawer-retestes-timeline" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+                    <p style="color: var(--color-text-muted); font-size: 12px; margin: 4px 0;">Nenhum ensaio hidrostático registrado.</p>
                 </div>
             </div>
 
