@@ -115,6 +115,7 @@ class CilindroSerializer(serializers.ModelSerializer):
     depreciacao_mensal_rs = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     depreciacao_diaria_rs = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     valor_contabil_liquido_atual = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    lote_atual_codigo = serializers.SerializerMethodField()
 
     class Meta:
         model = Cilindro

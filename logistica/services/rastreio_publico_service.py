@@ -47,14 +47,16 @@ def consultar_rastreio_publico(token_uuid: uuid.UUID) -> Dict[str, Any]:
       (b) Estiver dentro de 60 minutos antes do ETA estimado da parada.
       Caso contrário, exibe apenas status 'Em rota para sua região' sem expor o ponto GPS no mapa.
     """
-    token_obj = TokenRastreio.objects.select_related(
+    # Rota pública: não há tenant ativo. O UUID (não adivinhável) é a chave de acesso,
+    # então a busca é feita sem escopo e o tenant vem do próprio token.
+    token_obj = TokenRastreio.unscoped.select_related(
         'entrega', 'entrega__veiculo', 'parada', 'parada__cliente', 'entrega__tenant'
     ).filter(token=token_uuid).first()
 
     if not token_obj or not token_obj.esta_valido:
-        entrega_legada = Entrega.objects.filter(token_rastreio=token_uuid).first()
+        entrega_legada = Entrega.unscoped.filter(token_rastreio=token_uuid).first()
         if entrega_legada and not token_obj:
-            token_obj, _ = TokenRastreio.objects.get_or_create(
+            token_obj, _ = TokenRastreio.unscoped.get_or_create(
                 tenant=entrega_legada.tenant,
                 entrega=entrega_legada,
                 token=token_uuid,
@@ -85,7 +87,8 @@ def consultar_rastreio_publico(token_uuid: uuid.UUID) -> Dict[str, Any]:
             posicao_visivel = False
         else:
             # Conta quantas paradas pendentes existem antes da parada atual
-            paradas_anteriores = ParadaEntrega.objects.filter(
+            paradas_anteriores = ParadaEntrega.unscoped.filter(
+                tenant=entrega.tenant,
                 entrega=entrega,
                 ordem__lt=parada.ordem,
                 status__in=['PENDENTE', 'A_CAMINHO', 'CHEGOU']
@@ -99,7 +102,8 @@ def consultar_rastreio_publico(token_uuid: uuid.UUID) -> Dict[str, Any]:
     # 2. Última coordenada GPS transmitida
     ultima_coord = None
     if posicao_visivel:
-        coord_obj = CoordenadaRastreamento.objects.filter(
+        coord_obj = CoordenadaRastreamento.unscoped.filter(
+            tenant=entrega.tenant,
             entrega=entrega
         ).order_by('-capturado_em').first()
 

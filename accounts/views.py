@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, update_session_auth_hash
 from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -257,7 +257,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
         user.set_password(nova_senha)
         user.save()
-        login(request, user)
+        # Mantém a sessão válida após a troca de senha (o hash de sessão muda com a senha).
+        update_session_auth_hash(request, user)
         return Response({'sucesso': True, 'mensagem': 'Senha alterada com sucesso!'})
 
     @action(detail=False, methods=['post', 'patch'], permission_classes=[permissions.IsAuthenticated])

@@ -199,12 +199,12 @@
     <div class="info-card">
       <div class="info-row">
         <div>
-          <div class="info-label">Motorista</div>
-          <div class="info-val" id="motoristaNome">{{ nome_motorista }}</div>
+          <div class="info-label">Destinatário</div>
+          <div class="info-val" id="destinatario">{{ destinatario }}</div>
         </div>
         <div>
           <div class="info-label">Veículo</div>
-          <div class="vehicle-badge" id="veiculoPlaca">{{ placa_mascarada }}</div>
+          <div class="vehicle-badge" id="veiculoPlaca">{{ veiculo_placa_mascarada }}</div>
         </div>
       </div>
 
@@ -216,10 +216,14 @@
         <div style="text-align: right;">
           <div class="info-label">Sinal GPS</div>
           <div class="info-val" id="gpsStatus" style="color: #34d399; font-size: 0.85rem;">
-            {% if ultima_lat %}Online / Ativo{% else %}Aguardando Sinal{% endif %}
+            {% if ultima_posicao %}Online / Ativo{% else %}Aguardando Sinal{% endif %}
           </div>
         </div>
       </div>
+
+      {% if not posicao_visivel %}
+      <div class="update-time" id="avisoPrivacidade">{{ aviso_seguranca }}</div>
+      {% endif %}
 
       <div class="update-time" id="ultimaAtualizacao">
         Atualização contínua a cada 15 segundos
@@ -236,9 +240,9 @@
     let marker = null;
 
     // Coordenadas iniciais
-    const initialLat = {{ ultima_lat|default:"-23.550520" }};
-    const initialLng = {{ ultima_lng|default:"-46.633308" }};
-    const hasInitialCoords = {% if ultima_lat %}true{% else %}false{% endif %};
+    const initialLat = {{ ultima_posicao.latitude|default:"-23.550520"|stringformat:"s" }};
+    const initialLng = {{ ultima_posicao.longitude|default:"-46.633308"|stringformat:"s" }};
+    const hasInitialCoords = {% if ultima_posicao %}true{% else %}false{% endif %};
 
     // Inicializa o mapa com estilo escuro Leaflet / CartoDB Dark Matter
     map = L.map('map', {
@@ -271,7 +275,7 @@
 
     if (hasInitialCoords) {
       marker = L.marker([initialLat, initialLng], { icon: truckIcon }).addTo(map);
-      marker.bindPopup(`<b>${document.getElementById('motoristaNome').innerText}</b><br>${document.getElementById('veiculoPlaca').innerText}`);
+      marker.bindPopup(document.getElementById('veiculoPlaca').innerText);
     }
 
     // Auto-polling a cada 15s para atualizar a posição sem recarregar a página
@@ -288,8 +292,8 @@
           document.getElementById('statusText').innerText = data.status_entrega;
         }
 
-        if (data.ultima_lat && data.ultima_lng) {
-          const newLatLng = [data.ultima_lat, data.ultima_lng];
+        if (data.ultima_posicao) {
+          const newLatLng = [data.ultima_posicao.latitude, data.ultima_posicao.longitude];
           if (!marker) {
             marker = L.marker(newLatLng, { icon: truckIcon }).addTo(map);
           } else {

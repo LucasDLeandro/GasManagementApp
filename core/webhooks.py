@@ -1,4 +1,3 @@
-import sys
 import time
 import hmac
 import hashlib
@@ -97,11 +96,12 @@ def processar_envio_webhook_log(log_id):
         return None
 
 
-def disparar_webhooks_tenant(tenant, evento, payload, endpoint_especifico=None):
+def disparar_webhooks_tenant(tenant, evento, payload, endpoint_especifico=None, sincrono=False):
     """
     Padrão Transactional Outbox (D7 - Fase 0):
     1. Grava WebhookDeliveryLog na transação atômica corrente com status='PENDENTE'.
-    2. Agenda o envio HTTP assíncrono via transaction.on_commit (ou executa imediatamente no test runner).
+    2. Agenda o envio HTTP via transaction.on_commit.
+       Com sincrono=True (ex.: ping de teste da tela), envia na hora e retorna o log já processado.
     3. Retorna os registros outbox criados.
     """
     if not tenant:
@@ -134,13 +134,12 @@ def disparar_webhooks_tenant(tenant, evento, payload, endpoint_especifico=None):
             tentativas=0,
             enviado_em=timezone.now()
         )
-        # 2. Agendamento para processamento pós-commit
-        if transaction.get_connection().in_atomic_block and 'test' not in sys.argv:
-            transaction.on_commit(lambda target_id=log.id: processar_envio_webhook_log(target_id))
+        # 2. Envio pós-commit (fora de transação, o on_commit executa imediatamente).
+        # Em testes, use self.captureOnCommitCallbacks(execute=True).
+        if sincrono:
+            log = processar_envio_webhook_log(log.id) or log
         else:
-            resultado = processar_envio_webhook_log(log.id)
-            if resultado:
-                log = resultado
+            transaction.on_commit(lambda target_id=log.id: processar_envio_webhook_log(target_id))
 
         logs_gerados.append(log)
 

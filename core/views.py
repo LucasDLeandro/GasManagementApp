@@ -263,7 +263,8 @@ class WebhookEndpointViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
                 'endpoint_id': endpoint.id,
                 'timestamp': timezone.now().isoformat()
             },
-            endpoint_especifico=endpoint
+            endpoint_especifico=endpoint,
+            sincrono=True,
         )
         log = logs[0] if logs else None
         return Response({

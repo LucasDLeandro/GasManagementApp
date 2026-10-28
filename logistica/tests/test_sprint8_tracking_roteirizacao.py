@@ -150,14 +150,16 @@ class Sprint8TorreControleTrackingTests(TestCase):
     # =========================================================================
     def test_otimizar_ordem_paradas_service(self):
         """Testa o cálculo da ordem otimizada de waypoints para os clientes da entrega."""
-        resultado = otimizar_ordem_paradas(self.entrega.id)
+        with tenant_context(self.tenant):
+            resultado = otimizar_ordem_paradas(self.entrega.id)
         self.assertTrue(resultado['sucesso'])
         self.assertEqual(resultado['total_paradas'], 2)
-        self.assertEqual(len(resultado['ordem_otimizada']), 2)
-        self.assertIn(self.venda_1.id, resultado['ordem_otimizada'])
-        self.assertIn(self.venda_2.id, resultado['ordem_otimizada'])
-        self.assertTrue(resultado['distancia_estimada_km'] > 0)
-        self.assertTrue(resultado['tempo_estimado_min'] > 0)
+        # Contrato da Sprint 12A: paradas persistidas em ParadaEntrega.
+        self.assertEqual(len(resultado['paradas_ordenadas']), 2)
+        clientes_roteirizados = {p['cliente_id'] for p in resultado['paradas_ordenadas']}
+        self.assertEqual(clientes_roteirizados, {self.venda_1.cliente_id, self.venda_2.cliente_id})
+        self.assertTrue(resultado['distancia_total_km'] > 0)
+        self.assertTrue(resultado['tempo_total_min'] > 0)
 
     # =========================================================================
     # 8.1. API de Sincronização em Lote de GPS (PWA de Campo)
@@ -212,7 +214,8 @@ class Sprint8TorreControleTrackingTests(TestCase):
         response_html = self.client.get(f'/rastreio/{self.entrega.token_rastreio}/')
         self.assertEqual(response_html.status_code, 200)
         self.assertContains(response_html, '<div id="map">')
-        self.assertContains(response_html, 'João Silva')
+        # Correção F-34 (Sprint 12A / LGPD): o nome do motorista não é exposto no rastreio público.
+        self.assertNotContains(response_html, 'João Silva')
         self.assertContains(response_html, 'BRA-***9')
         # Garante Fail-Closed: Não contém valores em R$ ou nomes de clientes da rota
         self.assertNotContains(response_html, 'R$ 450,00')
@@ -226,10 +229,11 @@ class Sprint8TorreControleTrackingTests(TestCase):
         self.assertEqual(response_json.status_code, 200)
         data = response_json.json()
         self.assertEqual(data['status_entrega'], 'Em Rota')
-        self.assertEqual(data['placa_mascarada'], 'BRA-***9')
-        self.assertEqual(data['nome_motorista'], 'João Silva')
-        self.assertEqual(data['ultima_lat'], -23.56)
-        self.assertEqual(data['ultima_lng'], -46.65)
+        self.assertEqual(data['veiculo_placa_mascarada'], 'BRA-***9')
+        self.assertNotIn('nome_motorista', data)
+        self.assertTrue(data['posicao_visivel'])
+        self.assertEqual(data['ultima_posicao']['latitude'], -23.56)
+        self.assertEqual(data['ultima_posicao']['longitude'], -46.65)
 
     def test_view_publica_rastreio_token_invalido_retorna_404(self):
         """Token inexistente ou adulterado deve retornar 404 (Fail-Closed)."""

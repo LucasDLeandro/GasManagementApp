@@ -97,11 +97,12 @@ class WebhookShieldingTestCase(APITestCase):
             eventos=['fatura.fechada']
         )
 
-        logs = disparar_webhooks_tenant(
-            tenant=self.tenant,
-            evento='fatura.fechada',
-            payload={'fatura_id': 999, 'total': 1500.0}
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            logs = disparar_webhooks_tenant(
+                tenant=self.tenant,
+                evento='fatura.fechada',
+                payload={'fatura_id': 999, 'total': 1500.0}
+            )
 
         self.assertEqual(len(logs), 1)
         log = logs[0]

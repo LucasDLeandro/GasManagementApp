@@ -546,7 +546,8 @@ class Sprint6FieldOperationPWATests(APITestCase):
         )
 
         self.client.force_authenticate(user=self.motorista)
-        resp = self.client.post(f'/logistica/api/entregas/{self.entrega.id}/concluir-romaneio/')
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self.client.post(f'/logistica/api/entregas/{self.entrega.id}/concluir-romaneio/')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
         self.entrega.refresh_from_db()

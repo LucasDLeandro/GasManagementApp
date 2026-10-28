@@ -70,7 +70,10 @@ class CrossTenantIsolationTestSuite(TestCase):
             razao_social='Distribuidora Beta Ltda (Tenant B)',
             nome_fantasia='Beta Gases',
             plano='STARTER',
-            ativo=True
+            ativo=True,
+            # Mesmo módulo do Tenant A: o teste mede isolamento de objetos,
+            # não o bloqueio por módulo não contratado (que responde 403 por design).
+            modulo_envase_ativo=True,
         )
 
         # 2. Criação dos Usuários com isolamento estrito de Membership

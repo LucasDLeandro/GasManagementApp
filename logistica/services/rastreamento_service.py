@@ -76,8 +76,13 @@ def sincronizar_lote_gps(
                 duplicados += 1
                 continue
 
-        lat = Decimal(str(pt['latitude']))
-        lon = Decimal(str(pt['longitude']))
+        # O PWA grava a fila gps_tracking_queue com 'lat'/'lng'; aceita também os nomes longos.
+        lat_raw = pt.get('latitude', pt.get('lat'))
+        lon_raw = pt.get('longitude', pt.get('lng'))
+        if lat_raw is None or lon_raw is None:
+            raise ValidationError("Ponto de GPS sem latitude/longitude.")
+        lat = Decimal(str(lat_raw))
+        lon = Decimal(str(lon_raw))
         vel = Decimal(str(pt['velocidade'])) if pt.get('velocidade') is not None else None
         prec = Decimal(str(precisao)) if precisao is not None else None
 

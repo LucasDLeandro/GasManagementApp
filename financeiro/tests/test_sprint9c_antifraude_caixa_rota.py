@@ -13,6 +13,7 @@ Testes abrangentes da Sprint 9C:
 """
 
 import os
+import re
 import uuid
 from decimal import Decimal
 from datetime import date, timedelta
@@ -835,7 +836,11 @@ class TestMultiTenantEADR(BaseSprint9CTestCase):
         js_path = os.path.join("static", "js", "offline_sync.js")
         with open(js_path, "r", encoding="utf-8") as f:
             js_content = f.read()
-            self.assertIn("DB_VERSION = 8", js_content)
+            # A versão segue subindo em ADRs posteriores (ex.: 9 na ADR-043); o que a
+            # ADR-040 exige é que a migração encadeada da v8 continue presente.
+            self.assertRegex(js_content, r"DB_VERSION = (\d+)")
+            self.assertGreaterEqual(int(re.search(r"DB_VERSION = (\d+)", js_content).group(1)), 8)
+            self.assertIn("oldVersion < 8", js_content)
             self.assertIn("despesas_pendentes", js_content)
             self.assertIn("enfileirarDespesaCampo", js_content)
 
