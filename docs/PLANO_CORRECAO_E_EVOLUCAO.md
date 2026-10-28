@@ -129,6 +129,21 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 
 **Objetivo:** o núcleo operacional (cilindro → envase → sanitário → patrimônio → granel) inteiro com telas no padrão novo.
 
+> **Inventário (27/10/2026)**, feito no início da fase:
+> - A tela `/produtos/` tem 5 abas (Ativos 360°, Rampa, Recebimento, Lotes/CQ e Catálogo), um drawer e 6 modais. **2.1.1 concluída**: o `index.html` passou de 1.061 para 54 linhas, com uma parcial por aba.
+> - **Lacunas de backend que bloqueiam telas** (viram o bloco 2.0 abaixo):
+>   - não existe API de **gases, modelos de cilindro e SKUs**. A aba "Catálogo" e o "Cadastro de SKU de Gás" gravam no modelo **legado `Produto`**;
+>   - a API de cilindros é **somente leitura**: **não há como cadastrar um cilindro pelo app**. Hoje eles só entram por carga legada ou pelo admin do Django;
+>   - a reclassificação de gás no drawer lista os gases a partir do `Produto` legado, e não de `GasQuimico`.
+> - JS: `fase3_rampa_recebimento_lotes.js` tem 18 `alert()`/`confirm()` nativos.
+
+### 2.0 Backend que falta (pré-requisito das telas)
+| ID | Tarefa | Tam. |
+|---|---|:---:|
+| 2.0.1 | API de catálogo: `GasQuimico`, `ModeloCilindro` e `SkuRecarga` (CRUD por tenant, só ADMIN/GERENTE altera) | M |
+| 2.0.2 | Serviço + API de **cadastro de cilindro**: valida cota do plano (`checar_cota`), série/QR únicos, status inicial `VAZIO_TRIAGEM` e movimentação `ENTRADA_ESTOQUE` no ledger | M |
+| 2.0.3 | Reclassificação passa a listar `GasQuimico` | P |
+
 ### 2.1 Reestruturação
 | ID | Tarefa | Tam. |
 |---|---|:---:|
