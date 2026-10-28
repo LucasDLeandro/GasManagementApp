@@ -145,58 +145,6 @@
         </div>
     </dialog>
 
-    <!-- Modal Novo Produto do Catálogo Legado -->
-    <div class="modal-overlay" id="modal-produto">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Cadastro de SKU de Gás</h3>
-                <button class="close-modal" id="btn-fechar-modal">&times;</button>
-            </div>
-            <form id="form-produto">
-                <div class="form-grid">
-                    <div class="form-group full-width">
-                        <label for="nome">Nome do Gás</label>
-                        <input type="text" id="nome" name="nome" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="categoria">Categoria</label>
-                        <select id="categoria" name="categoria" required>
-                            <option value="Medicinal">Medicinal</option>
-                            <option value="Industrial">Industrial</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="codigo_barras">Código / SKU (Opcional)</label>
-                        <input type="text" id="codigo_barras" name="codigo_barras">
-                    </div>
-                    <div class="form-group">
-                        <label for="capacidade">Capacidade/Peso</label>
-                        <input type="number" step="0.01" id="capacidade" name="capacidade" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="unidade_medida">Unidade de Medida</label>
-                        <select id="unidade_medida" name="unidade_medida" required>
-                            <option value="m³">Metros Cúbicos (m³)</option>
-                            <option value="kg">Quilogramas (kg)</option>
-                            <option value="litros">Litros</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="preco">Preço de Venda (R$)</label>
-                        <input type="number" step="0.01" id="preco" name="preco" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="estoque">Estoque Inicial (Cilindros Cheios)</label>
-                        <input type="number" id="estoque" name="estoque" required value="0">
-                    </div>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn-secondary" id="btn-cancelar">Cancelar</button>
-                    <button type="submit" class="btn-primary">Salvar Produto</button>
-                </div>
-            </form>
-        </div>
-    </div>
     <!-- ============================================================================== -->
     <!-- MODAL 6: ETIQUETAS DE COLARINHO DO LOTE (ABNT NBR 12176 / IN 129/2022)         -->
     <!-- ============================================================================== -->

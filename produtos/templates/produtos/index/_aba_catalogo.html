@@ -1,44 +1,166 @@
     <!-- ============================================================================== -->
-    <!-- ABA 5: CATÁLOGO COMERCIAL DE GASES E PREÇOS                                    -->
+    <!-- ABA 5: CATÁLOGO (SKUs de recarga, modelos de cilindro e gases)                  -->
+    <!-- Design System v1 — docs/DESIGN_SYSTEM.md                                        -->
     <!-- ============================================================================== -->
-    <div id="aba-conteudo-catalogo" style="display: none;">
-        <div class="produtos-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div id="aba-conteudo-catalogo" class="ds-hidden" data-pode-editar="{{ pode_editar_catalogo|yesno:'1,0' }}">
+        <header class="ds-page-header">
             <div>
-                <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0;">Catálogo de Gases & Preços</h2>
-                <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Tabela comercial de skus de recarga e produtos precificados vinculados aos cilindros.</p>
+                <h1 class="ds-page-title">Catálogo</h1>
+                <p class="ds-page-subtitle">O que você vende (SKUs de recarga), os modelos de cilindro e os gases.</p>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <button type="button" class="btn-secondary" onclick="alternarAba('ativos')" style="display: inline-flex; align-items: center; gap: 6px;">
-                    🛡️ Ver Ativos Físicos 360°
-                </button>
-                <button class="btn-primary" id="btn-novo-produto" style="display: inline-flex; align-items: center; gap: 8px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                    Novo Produto / SKU
-                </button>
+            {% if pode_editar_catalogo %}
+            <div class="ds-page-actions">
+                <button type="button" class="btn-secondary" id="btn-novo-modelo">Novo modelo de cilindro</button>
+                <button type="button" class="btn-primary" id="btn-novo-sku">Novo SKU</button>
+            </div>
+            {% endif %}
+        </header>
+
+        <div class="tabs-nav" role="tablist">
+            <button type="button" class="tab-btn active" data-catalogo-aba="skus" role="tab">SKUs de recarga</button>
+            <button type="button" class="tab-btn" data-catalogo-aba="modelos" role="tab">Modelos de cilindro</button>
+            <button type="button" class="tab-btn" data-catalogo-aba="gases" role="tab">Gases</button>
+        </div>
+
+        <!-- SKUs -->
+        <section data-catalogo-painel="skus">
+            <div class="ds-filtros">
+                <input type="search" id="catalogo-busca" placeholder="Buscar por nome ou gás" aria-label="Buscar SKU">
+                <label class="ds-check"><input type="checkbox" id="catalogo-so-ativos" checked> Só ativos</label>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>SKU</th><th>Gás</th><th>Cilindro</th><th class="ds-num">Carga</th><th class="ds-num">Preço base</th><th>Fiscal</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody id="catalogo-skus-tbody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Modelos -->
+        <section data-catalogo-painel="modelos" class="ds-hidden">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>Modelo</th><th>Material</th><th class="ds-num">Volume (L)</th><th class="ds-num">Pressão (bar)</th><th class="ds-num">Tara (kg)</th><th class="ds-num">Reteste</th><th></th></tr>
+                    </thead>
+                    <tbody id="catalogo-modelos-tbody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Gases (cadastro global, somente leitura) -->
+        <section data-catalogo-painel="gases" class="ds-hidden">
+            <p class="ds-page-subtitle ds-mb">Os gases são um cadastro único da plataforma, com dados técnicos e de transporte (ONU/ANTT). Para incluir um gás, fale com o suporte Baros.</p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>Gás</th><th>Sigla</th><th>Categoria</th><th>ONU</th><th>Classe de risco</th><th>Cor ABNT</th><th>Lote ANVISA</th></tr>
+                    </thead>
+                    <tbody id="catalogo-gases-tbody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        {% if pode_editar_catalogo %}
+        <!-- Modal: SKU (stepper) -->
+        <div class="modal-overlay" id="modal-sku" role="dialog" aria-modal="true" aria-labelledby="modal-sku-titulo">
+            <div class="modal-content ds-modal-lg">
+                <div class="modal-header">
+                    <h3 id="modal-sku-titulo">Novo SKU</h3>
+                    <button type="button" class="close-modal" data-fechar-modal aria-label="Fechar">×</button>
+                </div>
+                <div id="stepper-sku">
+                    {% include "components/_stepper.html" with etapas="Produto|Preço e fiscal|Regulatório|Revisão" %}
+                    <form id="form-sku" novalidate>
+                        <div class="ds-step-pane" data-step="1">
+                            <div class="form-grid">
+                                <div class="form-group"><label for="sku-gas">Gás *</label><select id="sku-gas" name="gas" required></select></div>
+                                <div class="form-group"><label for="sku-modelo">Modelo de cilindro *</label><select id="sku-modelo" name="modelo_cilindro" required></select></div>
+                                <div class="form-group full-width"><label for="sku-nome">Nome comercial *</label><input id="sku-nome" name="nome_comercial" required maxlength="200" placeholder="Ex.: Oxigênio Medicinal 10 m³"></div>
+                                <div class="form-group"><label for="sku-carga">Quantidade de carga *</label><input id="sku-carga" name="quantidade_carga" type="number" min="0" step="0.01" required></div>
+                                <div class="form-group">
+                                    <label for="sku-unidade">Unidade *</label>
+                                    <select id="sku-unidade" name="unidade" required>{% for v, r in unidades_sku %}<option value="{{ v }}">{{ r }}</option>{% endfor %}</select>
+                                </div>
+                                <div class="form-group"><label for="sku-massa">Massa de gás (kg) *</label><input id="sku-massa" name="massa_gas_kg" type="number" min="0" step="0.01" required><span class="ds-field-help">Usada no peso da carga e no custo do envase.</span></div>
+                            </div>
+                        </div>
+                        <div class="ds-step-pane" data-step="2">
+                            <div class="form-grid">
+                                <div class="form-group"><label for="sku-preco">Preço base (R$) *</label><input id="sku-preco" name="preco_base" type="number" min="0" step="0.01" required class="font-mono"></div>
+                                <div class="form-group"><label for="sku-ncm">NCM</label><input id="sku-ncm" name="ncm" maxlength="8" pattern="\d{8}" inputmode="numeric" class="font-mono" placeholder="28044000"></div>
+                                <div class="form-group"><label for="sku-cest">CEST</label><input id="sku-cest" name="cest" maxlength="7" pattern="\d{7}" inputmode="numeric" class="font-mono"></div>
+                                <div class="form-group"><label for="sku-origem">Origem da mercadoria</label>
+                                    <select id="sku-origem" name="origem">
+                                        <option value="0">0 · Nacional</option><option value="1">1 · Estrangeira (importação direta)</option><option value="2">2 · Estrangeira (mercado interno)</option>
+                                        <option value="3">3 · Nacional, conteúdo importado 40–70%</option><option value="5">5 · Nacional, conteúdo importado ≤ 40%</option><option value="8">8 · Nacional, conteúdo importado &gt; 70%</option>
+                                    </select>
+                                </div>
+                                <div class="form-group"><label for="sku-unid-trib">Unidade tributável</label><input id="sku-unid-trib" name="unidade_tributavel" maxlength="10" value="m3"></div>
+                                <div class="form-group"><label for="sku-grupo">Grupo fiscal</label><input id="sku-grupo" name="grupo_fiscal" maxlength="50"><span class="ds-field-help">Liga o SKU às regras tributárias do módulo Fiscal.</span></div>
+                            </div>
+                        </div>
+                        <div class="ds-step-pane" data-step="3">
+                            <div class="modal-section-card">
+                                <h4 class="modal-section-title">Gás medicinal (ANVISA)</h4>
+                                <div class="form-grid">
+                                    <div class="form-group full-width"><label class="ds-check"><input type="checkbox" name="medicinal" id="sku-medicinal"> SKU medicinal</label><span class="ds-field-help">Só para gases da categoria medicinal. Exige laudo de CQ liberado para faturar.</span></div>
+                                    <div class="form-group"><label for="sku-anvisa">Registro/notificação ANVISA</label><input id="sku-anvisa" name="registro_anvisa" maxlength="50"></div>
+                                    <div class="form-group"><label class="ds-check"><input type="checkbox" name="exige_rastro" id="sku-rastro"> Exige rastro por lote na NF-e</label></div>
+                                </div>
+                            </div>
+                            <label class="ds-check"><input type="checkbox" name="ativo" id="sku-ativo" checked> Disponível para venda</label>
+                        </div>
+                        <div class="ds-step-pane" data-step="4">
+                            <dl class="ds-review" id="sku-revisao"></dl>
+                        </div>
+                        <div class="ds-stepper-footer">
+                            <button type="button" class="btn-outline" data-fechar-modal>Cancelar</button>
+                            <div class="ds-stepper-nav">
+                                <button type="button" class="btn-secondary" data-stepper-voltar>Voltar</button>
+                                <button type="button" class="btn-primary" data-stepper-proximo>Próximo</button>
+                                <button type="submit" class="btn-primary" data-stepper-confirmar>Salvar SKU</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-        
-        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-                <thead>
-                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
-                        <th style="padding: 12px 16px;">SKU/Código</th>
-                        <th style="padding: 12px 16px;">Gás</th>
-                        <th style="padding: 12px 16px;">Categoria</th>
-                        <th style="padding: 12px 16px;">Capacidade</th>
-                        <th style="padding: 12px 16px;">Preço (R$)</th>
-                        <th style="padding: 12px 16px;">Estoque</th>
-                        <th style="padding: 12px 16px; text-align: right;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="produtos-tbody">
-                    <tr>
-                        <td colspan="7" style="text-align:center; padding: 25px;">Carregando catálogo...</td>
-                    </tr>
-                </tbody>
-            </table>
+
+        <!-- Modal: Modelo de cilindro (edição curta, com seções) -->
+        <div class="modal-overlay" id="modal-modelo" role="dialog" aria-modal="true" aria-labelledby="modal-modelo-titulo">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-modelo-titulo">Novo modelo de cilindro</h3>
+                    <button type="button" class="close-modal" data-fechar-modal aria-label="Fechar">×</button>
+                </div>
+                <form id="form-modelo" novalidate>
+                    <div class="modal-section-card">
+                        <h4 class="modal-section-title">Identificação</h4>
+                        <div class="form-grid">
+                            <div class="form-group full-width"><label for="mod-desc">Descrição *</label><input id="mod-desc" name="descricao" required maxlength="150" placeholder="Ex.: Cilindro aço 50 L 200 bar"></div>
+                            <div class="form-group"><label for="mod-material">Material *</label><select id="mod-material" name="material" required>{% for v, r in materiais_modelo %}<option value="{{ v }}">{{ r }}</option>{% endfor %}</select></div>
+                            <div class="form-group"><label for="mod-valvula">Padrão de válvula (ABNT)</label><input id="mod-valvula" name="padrao_valvula_abnt" maxlength="50"></div>
+                        </div>
+                    </div>
+                    <div class="modal-section-card">
+                        <h4 class="modal-section-title">Dados técnicos</h4>
+                        <div class="form-grid">
+                            <div class="form-group"><label for="mod-volume">Volume hidráulico (L) *</label><input id="mod-volume" name="volume_hidraulico_litros" type="number" min="0.1" step="0.01" required></div>
+                            <div class="form-group"><label for="mod-pressao">Pressão de serviço (bar) *</label><input id="mod-pressao" name="pressao_servico_bar" type="number" min="1" required></div>
+                            <div class="form-group"><label for="mod-tara">Tara nominal (kg) *</label><input id="mod-tara" name="tara_nominal_kg" type="number" min="0" step="0.01" required></div>
+                            <div class="form-group"><label for="mod-massa">Massa de gás padrão (kg)</label><input id="mod-massa" name="massa_gas_padrao_kg" type="number" min="0" step="0.01"></div>
+                            <div class="form-group"><label for="mod-reteste">Reteste a cada (anos) *</label><input id="mod-reteste" name="periodicidade_reteste_anos" type="number" min="1" max="10" value="5" required></div>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-outline" data-fechar-modal>Cancelar</button>
+                        <button type="submit" class="btn-primary">Salvar modelo</button>
+                    </div>
+                </form>
+            </div>
         </div>
+        {% endif %}
     </div>

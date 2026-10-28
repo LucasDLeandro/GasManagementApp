@@ -514,19 +514,17 @@ document.addEventListener('DOMContentLoaded', () => {
             modalReclassificar.showModal();
 
             try {
-                const res = await fetch('/produtos/api/cilindros/1/reclassificar/', { method: 'OPTIONS', headers: getAuthHeaders() });
-                const resGases = await fetch('/produtos/api/?page_size=100', { headers: getAuthHeaders() });
-                // Fallback ou carregamento padrão
-                selectGas.innerHTML = `
-                    <option value="">Selecione o novo gás...</option>
-                    <option value="1">Oxigênio Medicinal (O2-MED) [Branco]</option>
-                    <option value="2">Oxigênio Industrial (O2-IND) [Verde]</option>
-                    <option value="3">Nitrogênio (N2) [Cinza]</option>
-                    <option value="4">Argônio (AR) [Marrom]</option>
-                    <option value="5">Dióxido de Carbono (CO2) [Alumínio]</option>
-                    <option value="6">Acetileno (AC) [Bordô]</option>
-                    <option value="7">Ar Comprimido Medicinal (AR-COMP) [Azul]</option>
-                `;
+                // Gases reais do cadastro global (antes a lista era fixa no código, com IDs presumidos).
+                const resGases = await fetch('/produtos/api/catalogo/gases/', { headers: getAuthHeaders() });
+                if (!resGases.ok) throw new Error('HTTP ' + resGases.status);
+                const gases = await resGases.json();
+                const gasAtual = activeCilindroData ? activeCilindroData.gas_dedicado : null;
+                selectGas.innerHTML = '';
+                selectGas.appendChild(new Option('Selecione o novo gás...', ''));
+                gases.filter(g => g.id !== gasAtual).forEach(g => {
+                    const cor = g.cor_padrao_abnt ? ` [${g.cor_padrao_abnt}]` : '';
+                    selectGas.appendChild(new Option(`${g.nome} (${g.sigla})${cor}`, g.id));
+                });
             } catch (err) {
                 selectGas.innerHTML = '<option value="">Erro ao carregar lista de gases</option>';
             }
@@ -667,6 +665,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Abertura automática caso haja parâmetro cilindro_id ou abrir_drawer na URL
     const urlParams = new URLSearchParams(window.location.search);
+    // Permite que outras telas (ex.: cadastro de cilindro) recarreguem a lista e abram o drawer.
+    window.CilindrosFrota = { recarregar: () => carregarCilindros(1), abrir: (id) => abrirDrawerAtivo(id) };
+
     const paramCilindroId = urlParams.get('cilindro_id') || urlParams.get('abrir_drawer');
     if (paramCilindroId) {
         setTimeout(() => abrirDrawerAtivo(paramCilindroId), 300);

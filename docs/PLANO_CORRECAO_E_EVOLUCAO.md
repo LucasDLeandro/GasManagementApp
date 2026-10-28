@@ -144,6 +144,14 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 | 2.0.2 | Serviço + API de **cadastro de cilindro**: valida cota do plano (`checar_cota`), série/QR únicos, status inicial `VAZIO_TRIAGEM` e movimentação `ENTRADA_ESTOQUE` no ledger | M |
 | 2.0.3 | Reclassificação passa a listar `GasQuimico` | P |
 
+> **Status do bloco 2.0 (27/10/2026): concluído**, com 10 testes novos e a suíte completa verde.
+> - API `/produtos/api/catalogo/{gases,modelos,skus}/`. Gases são cadastro **global** e somente leitura no app; modelos e SKUs são por empresa e só ADMIN/GERENTE altera. Um registro em uso não pode ser excluído.
+> - `POST /produtos/api/cilindros/` (ADMIN, GERENTE, OPERADOR_PATIO) com `produtos/services/cadastro_cilindro.py`: valida QR/série duplicados, aplica a cota do plano (cilindro do cliente é isento), calcula o próximo reteste e grava `ENTRADA_ESTOQUE` no ledger.
+> - Telas: **aba Catálogo refeita** (SKUs com stepper Produto → Preço e fiscal → Regulatório → Revisão; modelos em modal com seções; gases para consulta). **Cadastro de cilindro em 4 etapas** na aba Ativos. O modal legado de "SKU" (que gravava `Produto`) e o `produtos/js/index.js` foram removidos.
+> - **Reclassificação:** a lista de gases era **fixa no código, com IDs presumidos (1 a 7)**. Agora vem da API e exclui o gás atual.
+> - Corrigido no Design System: o atributo `hidden` perdia para o `display` dos botões (o stepper mostrava "Próximo" e "Salvar" juntos; afetava também o onboarding do backoffice).
+> - **Pendências:** (a) nenhum fluxo publica o evento contábil `compra_imobilizado`, então cadastrar um cilindro próprio com valor de aquisição não gera lançamento; isso vai para a Fase 5. (b) O banco de desenvolvimento tem gases de teste ("Test Gas", "Test Gas 2") no cadastro global.
+
 ### 2.1 Reestruturação
 | ID | Tarefa | Tam. |
 |---|---|:---:|

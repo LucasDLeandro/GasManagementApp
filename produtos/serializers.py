@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from clientes.models import Cliente
 from .models import (
     Produto,
     Cilindro,
@@ -6,6 +7,7 @@ from .models import (
     LoteEnvase,
     GasQuimico,
     ModeloCilindro,
+    SkuRecarga,
     InspecaoPreEnvase,
     RecebimentoCilindroCheio,
     ReclassificacaoCilindro,
@@ -46,9 +48,80 @@ class GasQuimicoSerializer(serializers.ModelSerializer):
 
 
 class ModeloCilindroSerializer(serializers.ModelSerializer):
+    material_display = serializers.CharField(source='get_material_display', read_only=True)
+
     class Meta:
         model = ModeloCilindro
         fields = '__all__'
+        read_only_fields = ['tenant']
+
+
+class SkuRecargaSerializer(serializers.ModelSerializer):
+    gas_sigla = serializers.CharField(source='gas.sigla', read_only=True)
+    gas_nome = serializers.CharField(source='gas.nome', read_only=True)
+    gas_categoria = serializers.CharField(source='gas.categoria', read_only=True)
+    modelo_descricao = serializers.CharField(source='modelo_cilindro.descricao', read_only=True)
+    unidade_display = serializers.CharField(source='get_unidade_display', read_only=True)
+
+    class Meta:
+        model = SkuRecarga
+        fields = '__all__'
+        read_only_fields = ['tenant']
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        for campo in ('quantidade_carga', 'massa_gas_kg', 'preco_base'):
+            valor = attrs.get(campo)
+            if valor is not None and valor < 0:
+                raise serializers.ValidationError({campo: 'O valor não pode ser negativo.'})
+        ncm = attrs.get('ncm')
+        if ncm and (len(ncm) != 8 or not ncm.isdigit()):
+            raise serializers.ValidationError({'ncm': 'O NCM tem 8 dígitos numéricos.'})
+        gas = attrs.get('gas') or getattr(self.instance, 'gas', None)
+        medicinal = attrs.get('medicinal', getattr(self.instance, 'medicinal', False))
+        if medicinal and gas is not None and gas.categoria != 'MEDICINAL':
+            raise serializers.ValidationError({'medicinal': 'Só gases da categoria medicinal podem ter SKU medicinal.'})
+        return attrs
+
+
+class CadastroCilindroSerializer(serializers.Serializer):
+    """Entrada do cadastro manual de cilindro (produtos.services.cadastro_cilindro)."""
+    codigo_qr = serializers.CharField(max_length=100)
+    numero_serie_ogiva = serializers.CharField(max_length=100)
+    modelo = serializers.PrimaryKeyRelatedField(queryset=ModeloCilindro.unscoped.none())
+    gas_dedicado = serializers.PrimaryKeyRelatedField(queryset=GasQuimico.objects.all())
+    fabricante_catalogo = serializers.PrimaryKeyRelatedField(queryset=FabricanteCilindro.unscoped.none(), required=False, allow_null=True)
+    fabricante = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    ano_fabricacao = serializers.IntegerField(min_value=1950)
+    norma_fabricacao = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    pressao_servico_bar = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    pressao_teste_bar = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    tipo_valvula_rosca = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    tara_real_kg = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=0, required=False, allow_null=True)
+    data_ultimo_reteste = serializers.DateField(help_text='Para cilindro novo, a data do teste de fábrica.')
+    propriedade = serializers.ChoiceField(choices=Cilindro.PROPRIEDADE_CHOICES, default='PROPRIO')
+    cliente_proprietario = serializers.PrimaryKeyRelatedField(queryset=Cliente.unscoped.none(), required=False, allow_null=True)
+    numero_patrimonio = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    data_aquisicao = serializers.DateField(required=False, allow_null=True)
+    valor_aquisicao = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=0, required=False, allow_null=True)
+    chave_nfe_aquisicao = serializers.CharField(max_length=44, required=False, allow_blank=True)
+    fornecedor_aquisicao = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    classe_ativo = serializers.PrimaryKeyRelatedField(queryset=ClasseAtivo.unscoped.none(), required=False, allow_null=True)
+    observacao = serializers.CharField(required=False, allow_blank=True)
+
+    def __init__(self, *args, tenant=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Relacionados só da empresa da requisição (fail-closed: sem tenant, nada é aceito).
+        for campo, modelo in (('modelo', ModeloCilindro), ('fabricante_catalogo', FabricanteCilindro),
+                              ('cliente_proprietario', Cliente), ('classe_ativo', ClasseAtivo)):
+            self.fields[campo].queryset = modelo.unscoped.filter(tenant=tenant) if tenant else modelo.unscoped.none()
+
+    def validate(self, attrs):
+        if attrs.get('propriedade') == 'CLIENTE' and not attrs.get('cliente_proprietario'):
+            raise serializers.ValidationError({'cliente_proprietario': 'Informe o cliente dono do cilindro.'})
+        if not attrs.get('fabricante_catalogo') and not (attrs.get('fabricante') or '').strip():
+            raise serializers.ValidationError({'fabricante': 'Informe o fabricante (do catálogo ou por nome).'})
+        return attrs
 
 
 class LoteEnvaseSerializer(serializers.ModelSerializer):

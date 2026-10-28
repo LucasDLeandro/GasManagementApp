@@ -1,0 +1,83 @@
+    <!-- Modal: cadastro de cilindro (stepper) — produtos/js/cadastro_cilindro.js -->
+    <div class="modal-overlay" id="modal-cadastro-cilindro" role="dialog" aria-modal="true" aria-labelledby="modal-cadastro-cilindro-titulo">
+        <div class="modal-content ds-modal-lg">
+            <div class="modal-header">
+                <h3 id="modal-cadastro-cilindro-titulo">Cadastrar cilindro</h3>
+                <button type="button" class="close-modal" data-fechar-modal aria-label="Fechar">×</button>
+            </div>
+            <div id="stepper-cilindro">
+                {% include "components/_stepper.html" with etapas="Identificação|Modelo e gás|Propriedade|Revisão" %}
+                <form id="form-cadastro-cilindro" novalidate>
+                    <div class="ds-step-pane" data-step="1">
+                        <div class="form-grid">
+                            <div class="form-group"><label for="cil-qr">QR code *</label><input id="cil-qr" name="codigo_qr" required maxlength="100" class="font-mono" autocomplete="off" placeholder="Bipe ou digite"></div>
+                            <div class="form-group"><label for="cil-serie">Nº de série (ogiva) *</label><input id="cil-serie" name="numero_serie_ogiva" required maxlength="100" class="font-mono" autocomplete="off"></div>
+                            <div class="form-group">
+                                <label for="cil-fabricante-cat">Fabricante (catálogo)</label>
+                                <select id="cil-fabricante-cat" name="fabricante_catalogo"></select>
+                                <span class="ds-field-help">Se não estiver na lista, informe o nome ao lado.</span>
+                            </div>
+                            <div class="form-group"><label for="cil-fabricante">Fabricante (nome)</label><input id="cil-fabricante" name="fabricante" maxlength="100"></div>
+                            <div class="form-group"><label for="cil-ano">Ano de fabricação *</label><input id="cil-ano" name="ano_fabricacao" type="number" min="1950" max="2100" required></div>
+                            <div class="form-group"><label for="cil-norma">Norma de fabricação</label><input id="cil-norma" name="norma_fabricacao" maxlength="50" placeholder="Ex.: ISO 9809-1"></div>
+                        </div>
+                    </div>
+
+                    <div class="ds-step-pane" data-step="2">
+                        <div class="form-grid">
+                            <div class="form-group"><label for="cil-modelo">Modelo de cilindro *</label><select id="cil-modelo" name="modelo" required></select></div>
+                            <div class="form-group"><label for="cil-gas">Gás dedicado *</label><select id="cil-gas" name="gas_dedicado" required></select></div>
+                            <div class="form-group"><label for="cil-pressao-servico">Pressão de serviço (bar)</label><input id="cil-pressao-servico" name="pressao_servico_bar" type="number" min="1"><span class="ds-field-help">Vazio = a do modelo.</span></div>
+                            <div class="form-group"><label for="cil-pressao-teste">Pressão de teste (bar)</label><input id="cil-pressao-teste" name="pressao_teste_bar" type="number" min="1"><span class="ds-field-help">Deve ser ≥ a pressão de serviço.</span></div>
+                            <div class="form-group"><label for="cil-tara">Tara real (kg)</label><input id="cil-tara" name="tara_real_kg" type="number" min="0" step="0.01"></div>
+                            <div class="form-group"><label for="cil-valvula">Válvula / rosca</label><input id="cil-valvula" name="tipo_valvula_rosca" maxlength="50"></div>
+                            <div class="form-group"><label for="cil-reteste">Último reteste hidrostático *</label><input id="cil-reteste" name="data_ultimo_reteste" type="date" required><span class="ds-field-help">Cilindro novo: data do teste de fábrica. O próximo é calculado pela periodicidade do modelo.</span></div>
+                        </div>
+                    </div>
+
+                    <div class="ds-step-pane" data-step="3">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="cil-propriedade">Propriedade *</label>
+                                <select id="cil-propriedade" name="propriedade" required>{% for v, r in propriedades_cilindro %}<option value="{{ v }}">{{ r }}</option>{% endfor %}</select>
+                                <span class="ds-field-help">Cilindros do cliente não contam na cota do plano.</span>
+                            </div>
+                            <div class="form-group ds-hidden" id="grupo-cliente-proprietario">
+                                <label for="cil-cliente">Cliente dono *</label>
+                                <select id="cil-cliente" name="cliente_proprietario"></select>
+                            </div>
+                        </div>
+                        <div class="modal-section-card ds-mt" id="secao-patrimonio">
+                            <h4 class="modal-section-title">Patrimônio (opcional)</h4>
+                            <div class="form-grid">
+                                <div class="form-group"><label for="cil-patrimonio">Nº de patrimônio</label><input id="cil-patrimonio" name="numero_patrimonio" maxlength="50"></div>
+                                <div class="form-group"><label for="cil-classe">Classe de ativo</label><select id="cil-classe" name="classe_ativo"></select></div>
+                                <div class="form-group"><label for="cil-data-aq">Data de aquisição</label><input id="cil-data-aq" name="data_aquisicao" type="date"></div>
+                                <div class="form-group"><label for="cil-valor">Valor de aquisição (R$)</label><input id="cil-valor" name="valor_aquisicao" type="number" min="0" step="0.01" class="font-mono"></div>
+                                <div class="form-group"><label for="cil-fornecedor">Fornecedor</label><input id="cil-fornecedor" name="fornecedor_aquisicao" maxlength="150"></div>
+                                <div class="form-group"><label for="cil-nfe">Chave da NF-e de compra</label><input id="cil-nfe" name="chave_nfe_aquisicao" maxlength="44" pattern="\d{44}" inputmode="numeric" class="font-mono"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="cil-obs">Observação</label>
+                            <textarea id="cil-obs" name="observacao" rows="2" placeholder="Fica registrada na entrada do cilindro no histórico (ledger)."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="ds-step-pane" data-step="4">
+                        <dl class="ds-review" id="cilindro-revisao"></dl>
+                        <p class="ds-page-subtitle ds-mt">O cilindro entra como <strong>vazio em triagem</strong> e a entrada fica registrada no histórico.</p>
+                    </div>
+
+                    <div class="ds-stepper-footer">
+                        <button type="button" class="btn-outline" data-fechar-modal>Cancelar</button>
+                        <div class="ds-stepper-nav">
+                            <button type="button" class="btn-secondary" data-stepper-voltar>Voltar</button>
+                            <button type="button" class="btn-primary" data-stepper-proximo>Próximo</button>
+                            <button type="submit" class="btn-primary" data-stepper-confirmar>Cadastrar cilindro</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>

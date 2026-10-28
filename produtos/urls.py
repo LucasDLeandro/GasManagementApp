@@ -3,6 +3,9 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ProdutoViewSet,
     CilindroViewSet,
+    GasQuimicoViewSet,
+    ModeloCilindroViewSet,
+    SkuRecargaViewSet,
     EnvaseCilindroViewSet,
     InspecaoPreEnvaseViewSet,
     RecebimentoCilindroCheioViewSet,
@@ -44,6 +47,9 @@ from .views import (
 
 
 router = DefaultRouter()
+router.register(r'api/catalogo/gases', GasQuimicoViewSet, basename='catalogo-gases-api')
+router.register(r'api/catalogo/modelos', ModeloCilindroViewSet, basename='catalogo-modelos-api')
+router.register(r'api/catalogo/skus', SkuRecargaViewSet, basename='catalogo-skus-api')
 router.register(r'api/cilindros', CilindroViewSet, basename='cilindro-api')
 router.register(r'api/envases', EnvaseCilindroViewSet, basename='envase-api')
 router.register(r'api/inspecoes', InspecaoPreEnvaseViewSet, basename='inspecao-api')

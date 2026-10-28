@@ -23,6 +23,7 @@ from core.permissions import (
     IsMotoristaOrAdmin,
     RequiresModuleEnvase,
     RequiresModulePatrimonio,
+    IsTenantAdminOrGerente,
 )
 from core.models import ResponsavelTecnico
 
@@ -32,6 +33,8 @@ from .models import (
     EnvaseCilindro,
     Cilindro,
     GasQuimico,
+    ModeloCilindro,
+    SkuRecarga,
     InspecaoPreEnvase,
     RecebimentoCilindroCheio,
     ReclassificacaoCilindro,
@@ -58,6 +61,9 @@ from .models import (
     MovimentoEstoqueProduto,
 )
 from .serializers import (
+    GasQuimicoSerializer,
+    ModeloCilindroSerializer,
+    SkuRecargaSerializer,
     ProdutoSerializer,
     CilindroSerializer,
     EnvaseCilindroSerializer,
@@ -148,6 +154,74 @@ class ProdutoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         return super().paginate_queryset(queryset)
 
 
+PAPEIS_CADASTRO_CILINDRO = ('ADMIN', 'GERENTE', 'OPERADOR_PATIO')
+
+
+class SomenteGestaoAltera(IsTenantMember):
+    """Leitura para qualquer membro; criar/editar/excluir só ADMIN ou GERENTE."""
+    message = 'Somente Administrador ou Gerente podem alterar o catálogo.'
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return True
+        return IsTenantAdminOrGerente().has_permission(request, view)
+
+
+class GasQuimicoViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
+    """Gases são cadastro global (compartilhado entre empresas): somente leitura no app."""
+    queryset = GasQuimico.objects.all().order_by('nome')
+    serializer_class = GasQuimicoSerializer
+    permission_classes = [IsTenantMember]
+    pagination_class = None
+
+
+class CatalogoBaseViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    permission_classes = [SomenteGestaoAltera, RequiresModulePatrimonio]
+
+    def perform_create(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        serializer.save(tenant=self.request.tenant)
+
+    def perform_update(self, serializer):
+        assert_tenant_writable(self.request.tenant)
+        serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        from django.db.models import ProtectedError
+        assert_tenant_writable(request.tenant)
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {'detail': 'Não é possível excluir: o registro já está em uso (cilindros, SKUs ou vendas).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class ModeloCilindroViewSet(CatalogoBaseViewSet):
+    queryset = ModeloCilindro.unscoped.all().order_by('descricao')
+    serializer_class = ModeloCilindroSerializer
+
+
+class SkuRecargaViewSet(CatalogoBaseViewSet):
+    queryset = SkuRecarga.unscoped.all().select_related('gas', 'modelo_cilindro').order_by('nome_comercial')
+    serializer_class = SkuRecargaSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        if params.get('ativo') in ('1', 'true'):
+            qs = qs.filter(ativo=True)
+        if params.get('gas'):
+            qs = qs.filter(gas_id=params['gas'])
+        busca = (params.get('q') or '').strip()
+        if busca:
+            qs = qs.filter(Q(nome_comercial__icontains=busca) | Q(gas__nome__icontains=busca) | Q(gas__sigla__icontains=busca))
+        return qs
+
+
 class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
     """
     API endpoint para consulta, detalhe e reclassificação de Cilindros com isolamento de Tenant.
@@ -156,6 +230,27 @@ class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Cilindro.unscoped.all()
     serializer_class = CilindroSerializer
     permission_classes = [IsTenantMember]
+
+    def create(self, request, *args, **kwargs):
+        """Cadastro manual de cilindro (ADMIN, GERENTE ou OPERADOR_PATIO)."""
+        from core.permissions import resolve_request_membership
+        from .serializers import CadastroCilindroSerializer
+        from .services.cadastro_cilindro import cadastrar_cilindro
+
+        membership = resolve_request_membership(request)
+        if not request.user.is_superuser and not (membership and membership.papel in PAPEIS_CADASTRO_CILINDRO):
+            return Response({'detail': 'Seu papel não permite cadastrar cilindros.'}, status=status.HTTP_403_FORBIDDEN)
+
+        entrada = CadastroCilindroSerializer(data=request.data, tenant=request.tenant)
+        entrada.is_valid(raise_exception=True)
+        try:
+            cilindro = cadastrar_cilindro(tenant=request.tenant, usuario=request.user, dados=entrada.validated_data)
+        except ValidationError as exc:
+            erros = exc.message_dict if hasattr(exc, 'error_dict') else {'detail': exc.messages}
+            if '__all__' in erros:
+                erros['detail'] = ' '.join(erros.pop('__all__'))
+            return Response(erros, status=status.HTTP_400_BAD_REQUEST)
+        return Response(CilindroSerializer(cilindro).data, status=status.HTTP_201_CREATED)
 
     def get_queryset(self):
         qs = super().get_queryset().select_related(
@@ -957,6 +1052,21 @@ class ProdutoTemplateView(LoginRequiredMixin, TemplateView):
     View to render the Produto frontend page with modal.
     """
     template_name = 'produtos/index.html'
+
+    def get_context_data(self, **kwargs):
+        from core.permissions import resolve_request_membership
+        contexto = super().get_context_data(**kwargs)
+        membership = resolve_request_membership(self.request)
+        papel = membership.papel if membership else None
+        superuser = self.request.user.is_superuser
+        contexto.update({
+            'pode_editar_catalogo': superuser or papel in ('ADMIN', 'GERENTE'),
+            'pode_cadastrar_cilindro': superuser or papel in PAPEIS_CADASTRO_CILINDRO,
+            'unidades_sku': SkuRecarga.UNIDADE_CHOICES,
+            'materiais_modelo': ModeloCilindro.MATERIAL_CHOICES,
+            'propriedades_cilindro': [p for p in Cilindro.PROPRIEDADE_CHOICES if p[0] != 'DISTRIBUIDORA'],
+        })
+        return contexto
 
 
 class LotesAnvisaListAPIView(TenantViewSetMixin, APIView):

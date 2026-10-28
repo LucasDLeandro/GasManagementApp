@@ -17,6 +17,9 @@
                     <input type="text" id="input-busca-cilindros" placeholder="Buscar por QR, Nº Série Ogiva ou Fabricante...">
                 </div>
             </div>
+            {% if pode_cadastrar_cilindro %}
+            <button type="button" class="btn-primary" id="btn-novo-cilindro">Cadastrar cilindro</button>
+            {% endif %}
         </div>
 
         <!-- Barra de Pílulas de Filtros Rápidos -->
@@ -64,3 +67,5 @@
             </div>
         </div>
     </div>
+
+    {% if pode_cadastrar_cilindro %}{% include "produtos/index/_modal_cadastro_cilindro.html" %}{% endif %}
