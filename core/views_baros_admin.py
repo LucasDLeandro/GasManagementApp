@@ -2,8 +2,6 @@ import datetime
 import os
 from decimal import Decimal
 
-import django_otp
-from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -100,38 +98,113 @@ class BarosAdminLoginView(View):
                 return JsonResponse({'error': msg}, status=403)
             return render(request, 'baros_admin/login.html', {'error': msg})
 
-        # Validação do Token TOTP com django_otp
-        device = django_otp.devices_for_user(user)
-        has_device = any(d.confirmed for d in device)
+        # MFA TOTP é obrigatório: nunca autentica sem um token verificado.
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        dispositivos = TOTPDevice.objects.filter(user=user, confirmed=True)
 
-        # Se o usuário tem TOTP configurado, valida o token
-        if has_device:
-            from django_otp.plugins.otp_totp.models import TOTPDevice
-            verified = False
-            for dev in TOTPDevice.objects.filter(user=user, confirmed=True):
-                if dev.verify_token(otp_token):
-                    verified = True
-                    break
-            if not verified:
-                msg = "Código MFA TOTP inválido ou expirado."
-                if request.headers.get('accept') == 'application/json':
-                    return JsonResponse({'error': msg}, status=403)
-                return render(request, 'baros_admin/login.html', {'error': msg})
-        else:
-            # Em primeiro acesso de superadmin sem dispositivo, se não informou token ou ambiente de teste
-            # valida token '000000' ou criação de dispositivo
-            if not otp_token and not settings.DEBUG:
-                msg = "Dispositivo MFA TOTP não cadastrado para este superusuário."
-                if request.headers.get('accept') == 'application/json':
-                    return JsonResponse({'error': msg}, status=403)
-                return render(request, 'baros_admin/login.html', {'error': msg})
+        if not dispositivos.exists():
+            # Primeiro acesso: senha validada, mas o login só acontece após cadastrar o autenticador.
+            request.session[SESSAO_MFA_PENDENTE] = {
+                'user_id': str(user.pk),
+                'backend': user.backend,
+                'desde': timezone.now().timestamp(),
+            }
+            if request.headers.get('accept') == 'application/json':
+                return JsonResponse(
+                    {'error': 'Cadastro de MFA TOTP obrigatório.', 'redirect': '/baros-admin/mfa/cadastro/'},
+                    status=403,
+                )
+            return redirect('baros_admin_mfa_cadastro')
 
-        login(request, user)
-        request.session['baros_admin_auth_time'] = timezone.now().timestamp()
-        request.session['baros_admin_mfa_verified'] = True
+        if not otp_token or not any(dev.verify_token(otp_token) for dev in dispositivos):
+            msg = "Código MFA TOTP inválido ou expirado."
+            if request.headers.get('accept') == 'application/json':
+                return JsonResponse({'error': msg}, status=403)
+            return render(request, 'baros_admin/login.html', {'error': msg})
+
+        _concluir_login_baros_admin(request, user)
 
         if request.headers.get('accept') == 'application/json':
             return JsonResponse({'success': True, 'redirect': '/baros-admin/'})
+        return redirect('baros_admin_dashboard')
+
+
+SESSAO_MFA_PENDENTE = 'baros_admin_mfa_pendente'
+JANELA_CADASTRO_MFA_SEGUNDOS = 600
+
+
+def _concluir_login_baros_admin(request: HttpRequest, user, backend: str | None = None) -> None:
+    request.session.pop(SESSAO_MFA_PENDENTE, None)
+    login(request, user, backend=backend)
+    request.session['baros_admin_auth_time'] = timezone.now().timestamp()
+    request.session['baros_admin_mfa_verified'] = True
+
+
+class BarosAdminMfaCadastroView(View):
+    """
+    Cadastro obrigatório do autenticador TOTP no primeiro acesso do superusuário.
+    Só é acessível com a senha já validada no login (marcador na sessão, válido por 10 minutos).
+    """
+    def _usuario_pendente(self, request):
+        pendente = request.session.get(SESSAO_MFA_PENDENTE)
+        if not pendente:
+            return None, None
+        if timezone.now().timestamp() - pendente.get('desde', 0) > JANELA_CADASTRO_MFA_SEGUNDOS:
+            request.session.pop(SESSAO_MFA_PENDENTE, None)
+            return None, None
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.filter(pk=pendente['user_id'], is_superuser=True, is_active=True).first()
+        return user, pendente.get('backend')
+
+    def _dispositivo(self, user):
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        device = TOTPDevice.objects.filter(user=user, confirmed=False, name='Baros Admin').first()
+        if not device:
+            device = TOTPDevice.objects.create(user=user, name='Baros Admin', confirmed=False)
+        return device
+
+    def _render(self, request, device, error=None):
+        import base64
+        import io
+
+        import qrcode
+        import qrcode.image.svg
+
+        buffer = io.BytesIO()
+        qrcode.make(device.config_url, image_factory=qrcode.image.svg.SvgPathImage).save(buffer)
+        segredo = base64.b32encode(device.bin_key).decode().rstrip('=')
+        return render(request, 'baros_admin/mfa_cadastro.html', {
+            'qr_svg': buffer.getvalue().decode(),
+            'segredo': ' '.join(segredo[i:i + 4] for i in range(0, len(segredo), 4)),
+            'error': error,
+        })
+
+    def get(self, request):
+        user, _ = self._usuario_pendente(request)
+        if not user:
+            return redirect('baros_admin_login')
+        return self._render(request, self._dispositivo(user))
+
+    def post(self, request):
+        user, backend = self._usuario_pendente(request)
+        if not user:
+            return redirect('baros_admin_login')
+        device = self._dispositivo(user)
+        token = request.POST.get('otp_token', '').strip()
+        if not token or not device.verify_token(token):
+            return self._render(request, device, error="Código inválido. Confira o horário do celular e tente de novo.")
+
+        device.confirmed = True
+        device.save(update_fields=['confirmed'])
+        _concluir_login_baros_admin(request, user, backend=backend)
+        LogAuditoriaSaaS.objects.create(
+            usuario=user,
+            acao='MFA_CADASTRADO',
+            modulo='baros_admin',
+            detalhes_json={'dispositivo_id': device.pk},
+            ip=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:512],
+        )
         return redirect('baros_admin_dashboard')
 
 
