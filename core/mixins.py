@@ -73,6 +73,10 @@ class TenantViewSetMixin:
                     ).select_related('tenant').first()
                     if membership:
                         tenant = membership.tenant
+                    elif hasattr(user, 'usuarioclienteb2b'):
+                        b2b = getattr(user, 'usuarioclienteb2b', None)
+                        if b2b and getattr(b2b, 'ativo', False) and getattr(b2b, 'tenant', None):
+                            tenant = b2b.tenant
                     elif user.is_superuser:
                         tenant = Tenant.objects.filter(ativo=True).first()
 
@@ -81,6 +85,17 @@ class TenantViewSetMixin:
 
             request.tenant = tenant
             request.membership = membership
+
+            if tenant and request.method not in ('GET', 'HEAD', 'OPTIONS'):
+                status_ass = getattr(tenant, 'status_assinatura', 'TRIAL')
+                if status_ass in ('SUSPENSO', 'CANCELADO') or not getattr(tenant, 'ativo', True):
+                    if not (user and user.is_superuser):
+                        raise PermissionDenied({
+                            "code": "ASSINATURA_INATIVA",
+                            "detail": f"Operações de escrita bloqueadas. Status da assinatura: {status_ass}.",
+                            "status_assinatura": status_ass,
+                            "motivo": getattr(tenant, 'motivo_suspensao', '')
+                        })
 
             if get_current_tenant() != tenant:
                 self._view_tenant_token = set_current_tenant(tenant)

@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,7 +12,9 @@ from vendas.models import Venda
 from core.mixins import TenantViewSetMixin
 from clientes.models import Cliente
 from logistica.models import Veiculo
-from produtos.models import Produto, Cilindro
+from produtos.models import Produto, Cilindro, LoteEnvase, EnvaseCilindro
+from core.tenancy import get_current_tenant
+from core.permissions import resolve_request_membership
 from clientes.services import calcular_radar_comodato_tenant
 
 class DashboardStatsAPIView(TenantViewSetMixin, APIView):
@@ -22,72 +24,138 @@ class DashboardStatsAPIView(TenantViewSetMixin, APIView):
         hoje = timezone.now().date()
         inicio_mes = hoje.replace(day=1)
 
-        # 1. KPIs de Faturamento e Operação Legados
-        vendas_mes = Venda.objects.filter(data_venda__gte=inicio_mes).exclude(status='Cancelada')
-        faturamento_mes = vendas_mes.aggregate(total=Sum('valor_total'))['total'] or 0
-        entregas_pendentes = Venda.objects.filter(status__in=['Em Separação', 'Em Rota']).count()
-        clientes_ativos = Cliente.objects.count()
-        frota_manutencao = Veiculo.objects.filter(status='Em Manutenção').count()
-        estoque_baixo = Produto.objects.filter(estoque__lte=10).count()
+        tenant = getattr(request, 'tenant', None) or get_current_tenant()
+        if not tenant:
+            membership = resolve_request_membership(request)
+            tenant = membership.tenant if membership else None
 
-        # 2. Os 4 KPIs Matadores do Radar de Comodato & Pátio (Sprint 3)
-        radar = calcular_radar_comodato_tenant()
+        tem_distribuicao = getattr(tenant, 'tem_modulo_distribuicao', True) if tenant else True
+        tem_envase = getattr(tenant, 'tem_modulo_envase', False) if tenant else False
+        modo_operacao = getattr(tenant, 'modo_operacao', 'DISTRIBUIDORA') if tenant else 'DISTRIBUIDORA'
+
+        # 1. KPIs Universais de Patrimônio & Conformidade
         frota_total = Cilindro.objects.count()
-        cilindros_sem_giro = radar['cilindros_sem_giro_30_mais']
-        receita_locacao = radar['receita_locacao_acumulada']
-        risco_patrimonial = radar['risco_patrimonial_total']
-
-        # Alertas de Reteste INMETRO (Vencidos ou vencendo nos próximos 30 dias)
         alertas_reteste = Cilindro.objects.filter(
             data_proximo_reteste__lte=hoje + datetime.timedelta(days=30)
         ).count()
 
-        # 3. Distribuição da Frota de Cilindros por Status (ApexCharts Donut)
-        status_counts = dict(Cilindro.objects.values_list('status').annotate(total=Count('id')))
-        donut_labels = [
-            'Cheios no Pátio',
-            'Em Comodato (Clientes)',
-            'Em Rota',
-            'Vazios em Triagem',
-            'Em Reteste / Manutenção'
-        ]
-        donut_series = [
-            status_counts.get('CHEIO_DISPONIVEL', 0),
-            status_counts.get('EM_POSSE_CLIENTE', 0),
-            status_counts.get('RESERVADO_ROTA', 0),
-            status_counts.get('VAZIO_TRIAGEM', 0),
-            status_counts.get('EM_RETESTE', 0),
-        ]
+        # 2. Módulo Envase & Rampa
+        lotes_ativos = 0
+        volume_envasado_mes = 0
+        cilindros_em_triagem_rampa = 0
+        lotes_quarentena = 0
+        lotes_recentes = []
 
-        # 4. Gráfico de Vendas dos últimos 7 dias (Legado)
+        if tem_envase:
+            lotes_ativos = LoteEnvase.objects.filter(status_qualidade__in=['QUARENTENA', 'APROVADO']).count()
+            volume_envasado_mes = EnvaseCilindro.objects.filter(envasado_em__date__gte=inicio_mes).count()
+            cilindros_em_triagem_rampa = Cilindro.objects.filter(status='VAZIO_TRIAGEM').count()
+            lotes_quarentena = LoteEnvase.objects.filter(status_qualidade='QUARENTENA').count()
+            lotes_qs = LoteEnvase.objects.select_related('gas', 'responsavel_tecnico_fk').order_by('-data_envase')[:5]
+            for l in lotes_qs:
+                lotes_recentes.append({
+                    'id': l.id,
+                    'codigo_lote': l.codigo_lote,
+                    'gas_nome': l.gas.nome if l.gas else '-',
+                    'gas_sigla': l.gas.sigla if l.gas else '-',
+                    'data_envase': l.data_envase.strftime('%d/%m/%Y') if l.data_envase else '-',
+                    'pureza': float(l.pureza_percentual or 0),
+                    'status_qualidade': l.status_qualidade,
+                    'cilindros_count': l.cilindros_envasados.count(),
+                    'rt_nome': l.rt_nome_snapshot or (l.responsavel_tecnico_fk.nome_completo if l.responsavel_tecnico_fk else l.responsavel_tecnico)
+                })
+
+        # 3. Módulo Distribuição, Logística & Estadia
+        faturamento_mes = 0.0
+        entregas_pendentes = 0
+        clientes_ativos = 0
+        frota_manutencao = 0
+        estoque_baixo = 0
+        cilindros_sem_giro = 0
+        receita_locacao = 0.0
+        risco_patrimonial = 0.0
+        radar_faixas = {'dias_0_a_29': 0, 'dias_30_a_59': 0, 'dias_60_a_89': 0, 'dias_90_mais': 0}
+        radar_itens = []
         vendas_semana = []
         labels_semana = []
-        for i in range(6, -1, -1):
-            dia = hoje - datetime.timedelta(days=i)
-            labels_semana.append(dia.strftime('%d/%m'))
-            vendas_dia = Venda.objects.filter(data_venda__date=dia).exclude(status='Cancelada').aggregate(total=Sum('valor_total'))['total'] or 0
-            vendas_semana.append(float(vendas_dia))
+
+        if tem_distribuicao:
+            vendas_mes = Venda.objects.filter(data_venda__gte=inicio_mes).exclude(status='Cancelada')
+            faturamento_mes = float(vendas_mes.aggregate(total=Sum('valor_total'))['total'] or 0)
+            entregas_pendentes = Venda.objects.filter(status__in=['Em Separação', 'Em Rota']).count()
+            clientes_ativos = Cliente.objects.count()
+            frota_manutencao = Veiculo.objects.filter(status='Em Manutenção').count()
+            estoque_baixo = Produto.objects.filter(estoque__lte=10).count()
+
+            radar = calcular_radar_comodato_tenant()
+            cilindros_sem_giro = radar['cilindros_sem_giro_30_mais']
+            receita_locacao = radar['receita_locacao_acumulada']
+            risco_patrimonial = radar['risco_patrimonial_total']
+            radar_faixas = radar['faixas']
+            radar_itens = radar['itens']
+
+            for i in range(6, -1, -1):
+                dia = hoje - datetime.timedelta(days=i)
+                labels_semana.append(dia.strftime('%d/%m'))
+                vendas_dia = Venda.objects.filter(data_venda__date=dia).exclude(status='Cancelada').aggregate(total=Sum('valor_total'))['total'] or 0
+                vendas_semana.append(float(vendas_dia))
+
+        # 4. Gráfico Donut de Status
+        status_counts = dict(Cilindro.objects.values_list('status').annotate(total=Count('id')))
+        if tem_distribuicao:
+            donut_labels = [
+                'Cheios no Pátio',
+                'Em Comodato (Clientes)',
+                'Em Rota',
+                'Vazios em Triagem',
+                'Em Reteste / Manutenção'
+            ]
+            donut_series = [
+                status_counts.get('CHEIO_DISPONIVEL', 0),
+                status_counts.get('EM_POSSE_CLIENTE', 0),
+                status_counts.get('RESERVADO_ROTA', 0),
+                status_counts.get('VAZIO_TRIAGEM', 0),
+                status_counts.get('EM_RETESTE', 0),
+            ]
+        else:
+            donut_labels = [
+                'Cheios no Pátio',
+                'Vazios na Triagem / Rampa',
+                'Em Reteste / Manutenção'
+            ]
+            donut_series = [
+                status_counts.get('CHEIO_DISPONIVEL', 0),
+                status_counts.get('VAZIO_TRIAGEM', 0),
+                status_counts.get('EM_RETESTE', 0),
+            ]
 
         data = {
-            # KPIs Principais Sprint 3 & Sprint 5B.1 (Demurrage de Excedentes)
+            'tem_modulo_distribuicao': tem_distribuicao,
+            'tem_modulo_envase': tem_envase,
+            'modo_operacao': modo_operacao,
+
+            # KPIs Universais
             'frota_total': frota_total,
+            'alertas_reteste_inmetro': alertas_reteste,
+
+            # KPIs Módulo Envase
+            'lotes_ativos': lotes_ativos,
+            'volume_envasado_mes': volume_envasado_mes,
+            'cilindros_vazios_triagem': cilindros_em_triagem_rampa,
+            'lotes_quarentena': lotes_quarentena,
+            'lotes_recentes': lotes_recentes,
+
+            # KPIs Módulo Distribuição
             'cilindros_sem_giro_30_mais': cilindros_sem_giro,
             'receita_locacao_acumulada': receita_locacao,
             'taxa_estadia_estimativa': receita_locacao,
             'taxa_estadia_label': "Taxa de Estadia / Locação de Cilindros Excedentes",
-            'alertas_reteste_inmetro': alertas_reteste,
             'risco_patrimonial_total': risco_patrimonial,
-            
-            # Donut ApexCharts
             'donut_labels': donut_labels,
             'donut_series': donut_series,
-            'radar_faixas': radar['faixas'],
-            
-            # Tabela Detalhada Radar de Comodato
-            'radar_itens': radar['itens'],
-
-            # Métricas Gerais e Legadas
-            'faturamento_mes': float(faturamento_mes),
+            'radar_faixas': radar_faixas,
+            'radar_itens': radar_itens,
+            'faturamento_mes': faturamento_mes,
             'entregas_pendentes': entregas_pendentes,
             'clientes_ativos': clientes_ativos,
             'frota_manutencao': frota_manutencao,
@@ -948,6 +1016,18 @@ class HomeView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
         membership = getattr(self.request, 'membership', None)
+        tenant = getattr(self.request, 'tenant', None) or get_current_tenant()
+        if not tenant and membership:
+            tenant = membership.tenant
+
+        tem_distribuicao = getattr(tenant, 'tem_modulo_distribuicao', True) if tenant else True
+        tem_envase = getattr(tenant, 'tem_modulo_envase', False) if tenant else False
+        modo_operacao = getattr(tenant, 'modo_operacao', 'DISTRIBUIDORA') if tenant else 'DISTRIBUIDORA'
+
+        context['tem_modulo_distribuicao'] = tem_distribuicao
+        context['tem_modulo_envase'] = tem_envase
+        context['modo_operacao'] = modo_operacao
+
         papel = membership.papel if membership else ('ADMIN' if user.is_superuser else None)
         hoje = timezone.now().date()
 
@@ -955,24 +1035,25 @@ class HomeView(LoginRequiredMixin, TemplateView):
 
         # 1. ADMIN ou GERENTE
         if papel in ('ADMIN', 'GERENTE') or user.is_superuser:
-            # Extravios potenciais (> 180 dias retidos em clientes)
-            limite_extravio = timezone.now() - datetime.timedelta(days=180)
-            extravios_count = Cilindro.objects.filter(
-                status='EM_POSSE_CLIENTE',
-                posse_desde__lte=limite_extravio
-            ).count()
-            if extravios_count > 0:
-                fila_itens.append({
-                    'prioridade': 'danger',
-                    'badge': 'Risco Patrimonial',
-                    'count': extravios_count,
-                    'titulo': 'Cilindros com Retenção > 180 dias',
-                    'descricao': 'Ativos em clientes há mais de 6 meses sem giro. Candidatos à declaração de extravio e cobrança de reposição.',
-                    'link': '/produtos/?filtro=extravio_candidato',
-                    'botao_texto': 'Revisar Cascos'
-                })
+            # Extravios potenciais (> 180 dias retidos em clientes) - apenas módulo distribuição
+            if tem_distribuicao:
+                limite_extravio = timezone.now() - datetime.timedelta(days=180)
+                extravios_count = Cilindro.objects.filter(
+                    status='EM_POSSE_CLIENTE',
+                    posse_desde__lte=limite_extravio
+                ).count()
+                if extravios_count > 0:
+                    fila_itens.append({
+                        'prioridade': 'danger',
+                        'badge': 'Risco Patrimonial',
+                        'count': extravios_count,
+                        'titulo': 'Cilindros com Retenção > 180 dias',
+                        'descricao': 'Ativos em clientes há mais de 6 meses sem giro. Candidatos à declaração de extravio e cobrança de reposição.',
+                        'link': '/produtos/?filtro=extravio_candidato',
+                        'botao_texto': 'Revisar Cascos'
+                    })
 
-            # Alertas de Reteste INMETRO
+            # Alertas de Reteste INMETRO (Universal)
             reteste_vencidos = Cilindro.objects.filter(
                 data_proximo_reteste__lte=hoje + datetime.timedelta(days=30)
             ).count()
@@ -1043,8 +1124,8 @@ class HomeView(LoginRequiredMixin, TemplateView):
                     'botao_texto': 'Iniciar Triagem'
                 })
 
-        # 4. MOTORISTA
-        if papel in ('MOTORISTA', 'ADMIN') or user.is_superuser:
+        # 4. MOTORISTA (apenas módulo distribuição)
+        if tem_distribuicao and (papel in ('MOTORISTA', 'ADMIN') or user.is_superuser):
             # Entregas pendentes
             entregas_motorista = Entrega.objects.filter(status__in=['Em Separação', 'Em Rota'])
             if papel == 'MOTORISTA' and not user.is_superuser:
@@ -1061,8 +1142,8 @@ class HomeView(LoginRequiredMixin, TemplateView):
                     'botao_texto': 'Abrir App de Campo'
                 })
 
-        # 5. VENDEDOR
-        if papel in ('VENDEDOR', 'ADMIN') or user.is_superuser:
+        # 5. VENDEDOR (apenas módulo distribuição)
+        if tem_distribuicao and (papel in ('VENDEDOR', 'ADMIN') or user.is_superuser):
             vendas_pendentes = Venda.objects.filter(status__in=['Pendente', 'Em Separação']).count()
             if vendas_pendentes > 0:
                 fila_itens.append({
@@ -1077,5 +1158,81 @@ class HomeView(LoginRequiredMixin, TemplateView):
 
         context['fila_acao_imediata'] = fila_itens
         return context
+
+
+class ExportacaoDadosTenantView(View):
+    """
+    Exportação de dados do Tenant (Sprint 7B - v2.0 - Tarefa 17).
+    Permite que o Administrador da empresa exporte os dados operacionais em JSON ou CSV,
+    mesmo após o cancelamento, até a data_limite_exportacao (default 90 dias).
+    """
+    def get(self, request):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return HttpResponseForbidden("Autenticação obrigatória.")
+
+        tenant = getattr(request, 'tenant', None) or get_current_tenant()
+        if not tenant:
+            membership = resolve_request_membership(request)
+            tenant = membership.tenant if membership else None
+
+        if not tenant:
+            return HttpResponseForbidden("Tenant não identificado.")
+
+        # Verifica se é ADMIN ou superuser
+        membership = resolve_request_membership(request)
+        is_admin = bool(user.is_superuser or (membership and membership.ativo and membership.papel == 'ADMIN'))
+        if not is_admin:
+            return HttpResponseForbidden("Apenas o Administrador da empresa pode exportar dados.")
+
+        # Se cancelado, verifica prazo limite de exportação
+        if tenant.status_assinatura == 'CANCELADO':
+            hoje = timezone.localdate()
+            if tenant.data_limite_exportacao and hoje > tenant.data_limite_exportacao:
+                return HttpResponseForbidden("Prazo limite de exportação de dados pós-cancelamento expirado.")
+
+        formato = request.GET.get('formato', 'json').lower()
+
+        from core.models import Filial
+        from produtos.models import Cilindro
+        from clientes.models import Cliente
+        from vendas.models import Venda
+
+        dados = {
+            'tenant': {
+                'id': str(tenant.id),
+                'razao_social': tenant.razao_social,
+                'nome_fantasia': tenant.nome_fantasia,
+                'cnpj': tenant.cnpj,
+                'status_assinatura': tenant.status_assinatura,
+                'data_cancelamento': str(tenant.data_cancelamento) if tenant.data_cancelamento else None,
+                'data_limite_exportacao': str(tenant.data_limite_exportacao) if tenant.data_limite_exportacao else None,
+            },
+            'filiais': list(Filial.objects.filter(tenant=tenant).values('id', 'nome', 'cnpj', 'matriz')),
+            'cilindros': list(Cilindro.unscoped.filter(tenant=tenant).values('id', 'codigo_qr', 'numero_serie_ogiva', 'status', 'propriedade')[:500]),
+            'clientes': list(Cliente.unscoped.filter(tenant=tenant).values('id', 'nome', 'cnpj', 'tipo_cliente')[:500]),
+            'vendas': list(Venda.unscoped.filter(tenant=tenant).values('id', 'status', 'valor_total', 'data_venda')[:500]),
+        }
+
+        if formato == 'csv':
+            import csv
+            import io
+            buffer = io.StringIO()
+            writer = csv.writer(buffer)
+            writer.writerow(['Tipo', 'ID', 'Identificador/Nome', 'Status/Valor'])
+            for f in dados['filiais']:
+                writer.writerow(['Filial', str(f['id']), f['nome'], f['cnpj']])
+            for c in dados['cilindros']:
+                writer.writerow(['Cilindro', str(c['id']), c['numero_serie_ogiva'], c['status']])
+            for cl in dados['clientes']:
+                writer.writerow(['Cliente', str(cl['id']), cl['nome'], cl['tipo_cliente']])
+            for v in dados['vendas']:
+                writer.writerow(['Venda', str(v['id']), str(v['data_venda']), str(v['valor_total'])])
+
+            response = HttpResponse(buffer.getvalue(), content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="export_dados_{tenant.cnpj}.csv"'
+            return response
+
+        return JsonResponse(dados)
 
 

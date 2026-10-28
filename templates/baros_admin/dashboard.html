@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baros Admin | Dashboard Executivo SaaS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-page: #0b0f19;
+            --surface: #131b2e;
+            --surface-hover: #1a253e;
+            --primary: #38bdf8;
+            --accent: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-title: #f8fafc;
+            --text-body: #cbd5e1;
+            --text-sub: #64748b;
+            --border: rgba(148, 163, 184, 0.12);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg-page); color: var(--text-body); min-height: 100vh; padding: 24px; }
+        .container { max-width: 1300px; margin: 0 auto; }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .topbar h1 { color: var(--text-title); font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+        .badge-saas { background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; }
+        .nav-actions { display: flex; gap: 12px; align-items: center; }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            border: none;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: #0f172a; }
+        .btn-primary:hover { background: #0284c7; color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-body); }
+        .btn-outline:hover { background: var(--surface-hover); color: var(--text-title); }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .kpi-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .kpi-title { font-size: 0.8125rem; font-weight: 600; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
+        .kpi-value { font-size: 1.75rem; font-weight: 800; color: var(--text-title); }
+        .kpi-sub { font-size: 0.75rem; color: var(--text-sub); }
+        
+        .section-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .section-title { font-size: 1.125rem; font-weight: 700; color: var(--text-title); }
+        
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { font-size: 0.75rem; color: var(--text-sub); font-weight: 600; text-transform: uppercase; padding: 12px; border-bottom: 1px solid var(--border); }
+        td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+        tr:hover td { background: var(--surface-hover); }
+        
+        .badge-status {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-ATIVO { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .status-TRIAL { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+        .status-SUSPENSO { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .status-CANCELADO { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .progress-fill { height: 100%; background: var(--primary); border-radius: 999px; }
+        .progress-danger { background: var(--danger); }
+        .progress-warning { background: var(--warning); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="topbar">
+            <h1>Baros SaaS <span class="badge-saas">v2.0 PILAR I</span></h1>
+            <div class="nav-actions">
+                <a href="{% url 'baros_admin_tenants' %}" class="btn btn-outline">Empresas</a>
+                <a href="{% url 'baros_admin_logout' %}" class="btn btn-outline">Sair</a>
+            </div>
+        </header>
+
+        <!-- Grade de Indicadores Globais (MRR, Tenants, Cotas) -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <span class="kpi-title">Receita Recorrente (MRR)</span>
+                <span class="kpi-value">R$ {{ mrr }}</span>
+                <span class="kpi-sub">Soma de mensalidades ativas</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-title">Empresas Ativas</span>
+                <span class="kpi-value" style="color: #34d399;">{{ ativos_count }}</span>
+                <span class="kpi-sub">{{ trial_count }} em período TRIAL</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-title">Inadimplentes / Suspensos</span>
+                <span class="kpi-value" style="color: #f87171;">{{ inadimplentes_count }}</span>
+                <span class="kpi-sub">{{ suspensos_count }} suspensas | {{ cancelados_count }} canceladas</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-title">Cilindros na Plataforma</span>
+                <span class="kpi-value">{{ total_cilindros }}</span>
+                <span class="kpi-sub">Total de ativos gerenciados</span>
+            </div>
+        </div>
+
+        <!-- Tabela de Monitoramento de Cotas e Tenants -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Monitoramento de Cotas & Assinaturas por Tenant</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Empresa (Tenant)</th>
+                        <th>Plano</th>
+                        <th>Status</th>
+                        <th>Mensalidade</th>
+                        <th>Uso de Cilindros / Cota</th>
+                        <th>Alerta</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in tenants %}
+                    <tr>
+                        <td><strong>{{ t.nome }}</strong></td>
+                        <td>{{ t.plano }}</td>
+                        <td><span class="badge-status status-{{ t.status }}">{{ t.status }}</span></td>
+                        <td>R$ {{ t.mensalidade }}</td>
+                        <td style="min-width: 180px;">
+                            {{ t.cilindros_uso }} / {{ t.cilindros_limite }} ({{ t.cilindros_pct }}%)
+                            <div class="progress-bar">
+                                <div class="progress-fill {% if t.alerta_cota_90 %}progress-danger{% endif %}" style="width: {{ t.cilindros_pct }}%;"></div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if t.alerta_cota_90 %}
+                            <span style="color: var(--danger); font-weight: 700;">ALERTA &ge; 90%</span>
+                            {% else %}
+                            <span style="color: var(--success);">Normal</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/baros-admin/tenants/" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.75rem;">Gerenciar</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--text-sub);">Nenhuma empresa cadastrada.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

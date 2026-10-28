@@ -1,6 +1,27 @@
+from django.contrib.auth.backends import ModelBackend
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.http import Http404
 from core.models import Tenant, Membership
+
+
+class InternalModelBackend(ModelBackend):
+    """
+    Backend de autenticação do sistema INTERNO (Sprint 12B - identidade separada do Portal B2B).
+
+    Usuários do Portal B2B (que possuem UsuarioClienteB2B e nenhum Membership, não sendo
+    superusuários nem staff) jamais autenticam no sistema interno — nem por sessão web,
+    nem por JWT. Eles usam exclusivamente portal_b2b.auth.PortalB2BBackend.
+    """
+
+    def user_can_authenticate(self, user):
+        if not super().user_can_authenticate(user):
+            return False
+        if user.is_superuser or user.is_staff:
+            return True
+        if user.vinculo_b2b is not None and not Membership.objects.filter(user=user).exists():
+            return False
+        return True
+
 
 class TenantJWTAuthentication(JWTAuthentication):
     """

@@ -161,8 +161,16 @@
 
 {% block dashboard_content %}
 <div class="dashboard-header" style="margin-bottom: 25px;">
+    {% if not tem_modulo_distribuicao and tem_modulo_envase %}
+    <h2>Painel da Estação de Envase & Rampa (IN 129/2022)</h2>
+    <p>Monitoramento de bateladas na rampa, quarentena de lotes e controle de pureza e rastreabilidade ANVISA.</p>
+    {% elif tem_modulo_distribuicao and not tem_modulo_envase %}
     <h2>Painel Operacional & Radar de Comodato</h2>
     <p>Monitoramento patrimonial de ativos em posse de clientes, conformidade normativa INMETRO e ação imediata.</p>
+    {% else %}
+    <h2>Painel Operacional Integrado (Envase & Distribuição)</h2>
+    <p>Visão 360° de rampa de envase, logística de entregas e radar de comodato patrimonial.</p>
+    {% endif %}
 </div>
 
 <!-- FILA DE AÇÃO IMEDIATA POR PAPEL (FASE 1) -->
@@ -197,8 +205,84 @@
 </div>
 {% endif %}
 
-<!-- 4 KPIs MATADORES -->
-<div class="kpi-radar-grid">
+<!-- KPIS MÓDULO ENVASE (IN 129/2022) -->
+{% if tem_modulo_envase %}
+{% if tem_modulo_distribuicao %}
+<h3 style="font-size: 16px; font-weight: 600; margin: 0 0 14px 0; color: var(--color-text); display: flex; align-items: center; gap: 8px;">
+    <span>🏭</span> Operação da Rampa de Envase (IN 129/2022)
+</h3>
+{% endif %}
+<div class="kpi-radar-grid" id="grid-kpis-envase">
+    <div class="kpi-radar-card">
+        <div class="kpi-radar-icon bg-indigo">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+        </div>
+        <div class="kpi-radar-info">
+            <span class="kpi-label">Lotes Ativos (CQ)</span>
+            <h3 class="kpi-value" id="kpi-lotes-ativos">-</h3>
+            <span class="kpi-sub" style="color: #4f46e5;">Em quarentena ou aprovados</span>
+        </div>
+    </div>
+
+    <div class="kpi-radar-card">
+        <div class="kpi-radar-icon bg-emerald">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 14 14"></polyline>
+            </svg>
+        </div>
+        <div class="kpi-radar-info">
+            <span class="kpi-label">Volume Envasado (Mês)</span>
+            <h3 class="kpi-value" id="kpi-volume-envasado">-</h3>
+            <span class="kpi-sub" style="color: #059669;">Cilindros na rampa no mês</span>
+        </div>
+    </div>
+
+    <div class="kpi-radar-card">
+        <div class="kpi-radar-icon bg-amber">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+        </div>
+        <div class="kpi-radar-info">
+            <span class="kpi-label">Cilindros na Triagem</span>
+            <h3 class="kpi-value" id="kpi-vazios-rampa">-</h3>
+            <span class="kpi-sub" style="color: #d97706;">Vazios aguardando inspeção</span>
+        </div>
+    </div>
+
+    <div class="kpi-radar-card">
+        <div class="kpi-radar-icon bg-rose">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        </div>
+        <div class="kpi-radar-info">
+            <span class="kpi-label">Alertas de Reteste INMETRO</span>
+            <h3 class="kpi-value" id="kpi-alertas-reteste-envase">-</h3>
+            <span class="kpi-sub" style="color: #dc2626;">Vencidos ou em até 30 dias</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- KPIS MÓDULO DISTRIBUIÇÃO & COMODATO -->
+{% if tem_modulo_distribuicao %}
+{% if tem_modulo_envase %}
+<h3 style="font-size: 16px; font-weight: 600; margin: 25px 0 14px 0; color: var(--color-text); display: flex; align-items: center; gap: 8px;">
+    <span>🚚</span> Gestão de Comodato, Estadia & Distribuição
+</h3>
+{% endif %}
+<div class="kpi-radar-grid" id="grid-kpis-distribuicao">
     <div class="kpi-radar-card">
         <div class="kpi-radar-icon bg-indigo">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -256,7 +340,10 @@
         </div>
     </div>
 </div>
+{% endif %}
 
+<!-- GRÁFICOS E TABELAS ADAPTATIVOS -->
+{% if tem_modulo_distribuicao %}
 <!-- GRÁFICOS: APEXCHARTS DONUT & FAIXAS DE RETENÇÃO -->
 <div class="radar-charts-grid">
     <div class="radar-card-box">
@@ -347,6 +434,74 @@
         </table>
     </div>
 </div>
+{% else %}
+<!-- VARIANTE LIMPA DO DASHBOARD PARA ENVASE PURO -->
+<div class="radar-charts-grid">
+    <div class="radar-card-box">
+        <h3>
+            <span>Distribuição dos Ativos no Pátio</span>
+            <small style="font-size: 12px; color: #64748b;">Tempo Real</small>
+        </h3>
+        <div id="frotaStatusDonutChart" style="min-height: 290px;"></div>
+    </div>
+
+    <div class="radar-card-box">
+        <h3>
+            <span>Acesso Rápido à Estação de Envase</span>
+            <span style="font-size: 12px; background: rgba(14, 165, 233, 0.15); color: #0284c7; padding: 3px 8px; border-radius: 6px; font-weight: 600;">
+                IN 129/2022
+            </span>
+        </h3>
+        <div style="padding-top: 10px; display: flex; flex-direction: column; gap: 14px;">
+            <p style="margin: 0; font-size: 13px; color: var(--color-text-muted);">
+                Acesse diretamente a rampa para acoplamento contínuo com leitor óptico, validação de segurança e checklist pré-envase.
+            </p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="{% url 'produtos:index' %}?aba=rampa" class="action-queue-btn" style="background: var(--color-primary); color: #fff;">
+                    Abrir Rampa em Batelada &rarr;
+                </a>
+                <a href="{% url 'produtos:index' %}?aba=lotes" class="action-queue-btn" style="background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);">
+                    Central de Lotes & Qualidade CQ
+                </a>
+            </div>
+            <div style="margin-top: 10px; padding: 14px; background: var(--color-bg); border-radius: 8px; border: 1px solid var(--color-border);">
+                <span style="font-size: 12px; font-weight: 600; color: var(--color-text); display: block; margin-bottom: 4px;">Rastreabilidade Sanitária Rigorosa</span>
+                <span style="font-size: 12px; color: var(--color-text-muted);">Todos os cilindros envasados recebem selo imutável com número de lote, data de validade, pureza aferida e snapshot do RT.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TABELA DE LOTES QUÍMICOS RECENTES -->
+<div class="radar-card-box" style="margin-bottom: 30px;">
+    <h3>
+        <span>Lotes de Envase Recentes & Quarentena CQ</span>
+        <a href="{% url 'produtos:index' %}?aba=lotes" style="font-size: 13px; color: var(--color-primary); text-decoration: none; font-weight: 500;">
+            Ver todos os lotes &rarr;
+        </a>
+    </h3>
+    <div class="radar-table-container">
+        <table class="radar-table" id="tabela-lotes-envase">
+            <thead>
+                <tr>
+                    <th>Código do Lote</th>
+                    <th>Gás Químico</th>
+                    <th>Data Envase</th>
+                    <th>Pureza (%)</th>
+                    <th>Cilindros</th>
+                    <th>Responsável Técnico</th>
+                    <th>Status CQ</th>
+                </tr>
+            </thead>
+            <tbody id="lotes-envase-tbody">
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #94a3b8; padding: 25px;">Carregando lotes químicos...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -369,48 +524,83 @@ document.addEventListener('DOMContentLoaded', () => {
     let donutChart = null;
     let todosItensRadar = [];
 
-    async function carregarRadarComodato() {
+    async function carregarDashboardMetamorfico() {
         try {
             const res = await fetch('/inicio/api/stats/', { headers: getAuthHeaders() });
             if (!res.ok) throw new Error("Erro ao carregar métricas");
             const data = await res.json();
 
-            // Atualiza os 4 KPIs Principais
-            document.getElementById('kpi-frota-total').textContent = data.frota_total || 0;
-            document.getElementById('kpi-sem-giro').textContent = data.cilindros_sem_giro_30_mais || 0;
-            document.getElementById('kpi-receita-locacao').textContent = formatCurrency(data.receita_locacao_acumulada);
-            document.getElementById('kpi-alertas-reteste').textContent = data.alertas_reteste_inmetro || 0;
-            document.getElementById('badge-risco-total').textContent = "Risco Cascos: " + formatCurrency(data.risco_patrimonial_total);
+            // 1. Atualiza KPIs Universais
+            const elFrota = document.getElementById('kpi-frota-total');
+            if (elFrota) elFrota.textContent = data.frota_total || 0;
 
-            // Atualiza Barras de Faixas de Retenção
-            const faixas = data.radar_faixas || {};
-            const totalEmPosse = (faixas.dias_0_a_29 || 0) + (faixas.dias_30_a_59 || 0) + (faixas.dias_60_a_89 || 0) + (faixas.dias_90_mais || 0);
+            const elReteste = document.getElementById('kpi-alertas-reteste');
+            if (elReteste) elReteste.textContent = data.alertas_reteste_inmetro || 0;
 
-            function calcPerc(val) {
-                return totalEmPosse > 0 ? Math.round((val / totalEmPosse) * 100) : 0;
+            const elRetesteEnv = document.getElementById('kpi-alertas-reteste-envase');
+            if (elRetesteEnv) elRetesteEnv.textContent = data.alertas_reteste_inmetro || 0;
+
+            // 2. Atualiza KPIs de Envase
+            if (data.tem_modulo_envase) {
+                const elLotes = document.getElementById('kpi-lotes-ativos');
+                if (elLotes) elLotes.textContent = data.lotes_ativos || 0;
+
+                const elVol = document.getElementById('kpi-volume-envasado');
+                if (elVol) elVol.textContent = data.volume_envasado_mes || 0;
+
+                const elVazios = document.getElementById('kpi-vazios-rampa');
+                if (elVazios) elVazios.textContent = data.cilindros_vazios_triagem || 0;
+
+                // Tabela de Lotes Recentes (variante limpa)
+                renderTabelaLotesRecentes(data.lotes_recentes || []);
             }
 
-            document.getElementById('faixa-0-29-count').textContent = `${faixas.dias_0_a_29 || 0} (${calcPerc(faixas.dias_0_a_29)}%)`;
-            document.getElementById('faixa-0-29-bar').style.width = calcPerc(faixas.dias_0_a_29) + '%';
+            // 3. Atualiza KPIs e Radar de Distribuição
+            if (data.tem_modulo_distribuicao) {
+                const elSemGiro = document.getElementById('kpi-sem-giro');
+                if (elSemGiro) elSemGiro.textContent = data.cilindros_sem_giro_30_mais || 0;
 
-            document.getElementById('faixa-30-59-count').textContent = `${faixas.dias_30_a_59 || 0} (${calcPerc(faixas.dias_30_a_59)}%)`;
-            document.getElementById('faixa-30-59-bar').style.width = calcPerc(faixas.dias_30_a_59) + '%';
+                const elReceita = document.getElementById('kpi-receita-locacao');
+                if (elReceita) elReceita.textContent = formatCurrency(data.receita_locacao_acumulada);
 
-            document.getElementById('faixa-60-89-count').textContent = `${faixas.dias_60_a_89 || 0} (${calcPerc(faixas.dias_60_a_89)}%)`;
-            document.getElementById('faixa-60-89-bar').style.width = calcPerc(faixas.dias_60_a_89) + '%';
+                const elBadgeRisco = document.getElementById('badge-risco-total');
+                if (elBadgeRisco) elBadgeRisco.textContent = "Risco Cascos: " + formatCurrency(data.risco_patrimonial_total);
 
-            document.getElementById('faixa-90-count').textContent = `${faixas.dias_90_mais || 0} (${calcPerc(faixas.dias_90_mais)}%)`;
-            document.getElementById('faixa-90-bar').style.width = calcPerc(faixas.dias_90_mais) + '%';
+                // Atualiza Barras de Faixas de Retenção
+                const faixas = data.radar_faixas || {};
+                const totalEmPosse = (faixas.dias_0_a_29 || 0) + (faixas.dias_30_a_59 || 0) + (faixas.dias_60_a_89 || 0) + (faixas.dias_90_mais || 0);
 
-            // Donut Chart ApexCharts
-            renderDonutChart(data.donut_labels, data.donut_series);
+                function calcPerc(val) {
+                    return totalEmPosse > 0 ? Math.round((val / totalEmPosse) * 100) : 0;
+                }
 
-            // DataTable Radar
-            todosItensRadar = data.radar_itens || [];
-            renderTabelaRadar(todosItensRadar);
+                if (document.getElementById('faixa-0-29-count')) {
+                    document.getElementById('faixa-0-29-count').textContent = `${faixas.dias_0_a_29 || 0} (${calcPerc(faixas.dias_0_a_29)}%)`;
+                    document.getElementById('faixa-0-29-bar').style.width = calcPerc(faixas.dias_0_a_29) + '%';
+
+                    document.getElementById('faixa-30-59-count').textContent = `${faixas.dias_30_a_59 || 0} (${calcPerc(faixas.dias_30_a_59)}%)`;
+                    document.getElementById('faixa-30-59-bar').style.width = calcPerc(faixas.dias_30_a_59) + '%';
+
+                    document.getElementById('faixa-60-89-count').textContent = `${faixas.dias_60_a_89 || 0} (${calcPerc(faixas.dias_60_a_89)}%)`;
+                    document.getElementById('faixa-60-89-bar').style.width = calcPerc(faixas.dias_60_a_89) + '%';
+
+                    document.getElementById('faixa-90-count').textContent = `${faixas.dias_90_mais || 0} (${calcPerc(faixas.dias_90_mais)}%)`;
+                    document.getElementById('faixa-90-bar').style.width = calcPerc(faixas.dias_90_mais) + '%';
+                }
+
+                // DataTable Radar
+                todosItensRadar = data.radar_itens || [];
+                renderTabelaRadar(todosItensRadar);
+            }
+
+            // 4. Donut Chart ApexCharts (adaptativo para ambos os modos)
+            const donutContainer = document.querySelector("#frotaStatusDonutChart");
+            if (donutContainer) {
+                renderDonutChart(data.donut_labels, data.donut_series);
+            }
 
         } catch (err) {
-            console.error("Erro no radar:", err);
+            console.error("Erro no carregamento do dashboard:", err);
         }
     }
 
@@ -434,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             show: true,
                             total: {
                                 show: true,
-                                label: 'Frota Total',
+                                label: 'Ativos',
                                 formatter: function(w) {
                                     return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
                                 }
@@ -455,6 +645,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTabelaRadar(itens) {
         const tbody = document.getElementById('radar-tbody');
+        if (!tbody) return;
         if (!itens || itens.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 25px;">Nenhum cilindro retido em cliente no momento.</td></tr>';
             return;
@@ -490,19 +681,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
-    // Filtro da tabela
-    document.getElementById('filtro-radar').addEventListener('input', (e) => {
-        const termo = e.target.value.toLowerCase();
-        const filtrados = todosItensRadar.filter(i => 
-            i.numero_serie.toLowerCase().includes(termo) ||
-            i.codigo_qr.toLowerCase().includes(termo) ||
-            i.cliente_nome.toLowerCase().includes(termo) ||
-            i.gas.toLowerCase().includes(termo)
-        );
-        renderTabelaRadar(filtrados);
-    });
+    function renderTabelaLotesRecentes(lotes) {
+        const tbody = document.getElementById('lotes-envase-tbody');
+        if (!tbody) return;
+        if (!lotes || lotes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 25px;">Nenhum lote químico registrado recentemente.</td></tr>';
+            return;
+        }
 
-    carregarRadarComodato();
+        tbody.innerHTML = lotes.map(l => {
+            let badgeClass = 'badge-normal';
+            if (l.status_qualidade === 'QUARENTENA') badgeClass = 'badge-alerta';
+            else if (l.status_qualidade === 'REPROVADO') badgeClass = 'badge-critico';
+
+            return `
+                <tr>
+                    <td><strong>${l.codigo_lote}</strong></td>
+                    <td>${l.gas_nome} (${l.gas_sigla})</td>
+                    <td>${l.data_envase}</td>
+                    <td><strong>${l.pureza.toFixed(1)}%</strong></td>
+                    <td><span class="badge" style="background: rgba(14, 165, 233, 0.12); color: #0284c7; padding: 2px 8px; border-radius: 6px; font-weight: 600;">${l.cilindros_count} cilindros</span></td>
+                    <td><small style="color: var(--color-text-muted);">${l.rt_nome || 'N/A'}</small></td>
+                    <td><span class="badge-status ${badgeClass}">${l.status_qualidade}</span></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Filtro da tabela de radar
+    const filtroInput = document.getElementById('filtro-radar');
+    if (filtroInput) {
+        filtroInput.addEventListener('input', (e) => {
+            const termo = e.target.value.toLowerCase();
+            const filtrados = todosItensRadar.filter(i => 
+                i.numero_serie.toLowerCase().includes(termo) ||
+                i.codigo_qr.toLowerCase().includes(termo) ||
+                i.cliente_nome.toLowerCase().includes(termo) ||
+                i.gas.toLowerCase().includes(termo)
+            );
+            renderTabelaRadar(filtrados);
+        });
+    }
+
+    carregarDashboardMetamorfico();
 });
 </script>
 {% endblock %}

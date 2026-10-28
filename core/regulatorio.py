@@ -88,3 +88,12 @@ def validar_aptidao_medicinal(tenant, exigir_envase=False):
             )
 
     return True
+
+
+def regras_sanitarias(tenant, exigir_envase: bool = False):
+    """
+    Regras sanitárias e regulatórias da ANVISA (RDC 887/2024, IN 129/2022, CBPF, assinatura de RT).
+    Único ponto canônico do sistema onde PerfilRegulatorioTenant.modo_operacao é avaliado (Sprint 7B).
+    """
+    return validar_aptidao_medicinal(tenant, exigir_envase=exigir_envase)
+

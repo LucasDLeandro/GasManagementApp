@@ -1,6 +1,15 @@
+import uuid
 from django.http import Http404
 from core.models import Tenant, Membership
 from core.tenancy import set_current_tenant, reset_current_tenant
+from core.context import (
+    set_current_request_id,
+    reset_current_request_id,
+    set_current_ip,
+    reset_current_ip,
+    set_current_user,
+    reset_current_user,
+)
 
 class TenantMiddleware:
     """
@@ -83,8 +92,51 @@ class TenantMiddleware:
         request.tenant = tenant
         request.membership = membership
         token = set_current_tenant(tenant)
+        user_token = set_current_user(user) if (user and user.is_authenticated) else None
         try:
             response = self.get_response(request)
             return response
         finally:
             reset_current_tenant(token)
+            if user_token:
+                reset_current_user(user_token)
+
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
+
+class RequestIdMiddleware:
+    """
+    Injeta e propaga um UUID único de rastreamento (X-Request-ID) em toda a requisição (Sprint 7A).
+    Alimenta o contexto de auditoria de dados e os logs estruturados JSON.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request_id = (
+            request.headers.get('X-Request-ID') or
+            request.META.get('HTTP_X_REQUEST_ID') or
+            str(uuid.uuid4())
+        )
+        request.request_id = request_id
+
+        token_req = set_current_request_id(request_id)
+        token_ip = set_current_ip(get_client_ip(request))
+        token_user = None
+        if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
+            token_user = set_current_user(request.user)
+
+        try:
+            response = self.get_response(request)
+            response['X-Request-ID'] = request_id
+            return response
+        finally:
+            reset_current_request_id(token_req)
+            reset_current_ip(token_ip)
+            if token_user is not None:
+                reset_current_user(token_user)

@@ -7,6 +7,7 @@ from .views import (
     TrocarTenantView,
     IntegracoesView,
     PerfilRegulatorioView,
+    ExportacaoDadosTenantView,
 )
 
 app_name = 'core'
@@ -17,4 +18,5 @@ urlpatterns = [
     path('perfil-regulatorio/', PerfilRegulatorioView.as_view(), name='perfil_regulatorio'),
     path('trocar-tenant/', TrocarTenantView.as_view(), name='trocar_tenant'),
     path('api/stats/', DashboardStatsAPIView.as_view(), name='api_stats'),
+    path('exportar-dados/', ExportacaoDadosTenantView.as_view(), name='exportar_dados'),
 ]

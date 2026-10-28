@@ -1,8 +1,10 @@
 import uuid
+from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-from core.tenancy import TenantAwareModel
+from core.tenancy import TenantAwareModel, TenantQuerySet, TenantManager
+from core.validators import validar_cnpj
 
 class Tenant(models.Model):
     PLANO_CHOICES = [
@@ -11,12 +13,132 @@ class Tenant(models.Model):
         ('ENTERPRISE', 'Enterprise'),
     ]
 
+    STATUS_ASSINATURA_CHOICES = [
+        ('TRIAL', 'Trial'),
+        ('ATIVO', 'Ativo'),
+        ('SUSPENSO', 'Suspenso'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     razao_social = models.CharField(max_length=255, verbose_name="Razão Social")
     nome_fantasia = models.CharField(max_length=255, verbose_name="Nome Fantasia")
     cnpj = models.CharField(max_length=18, unique=True, verbose_name="CNPJ")
     plano = models.CharField(max_length=20, choices=PLANO_CHOICES, default='STARTER', verbose_name="Plano")
-    limite_cilindros = models.PositiveIntegerField(default=500, verbose_name="Limite de Cilindros")
+
+    # Gestão de Assinatura e Cotas (Sprint 7B - v2.0)
+    status_assinatura = models.CharField(
+        max_length=20,
+        choices=STATUS_ASSINATURA_CHOICES,
+        default='TRIAL',
+        db_index=True,
+        verbose_name="Status da Assinatura"
+    )
+    data_vencimento_licenca = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Vencimento da Licença"
+    )
+    limite_usuarios = models.PositiveIntegerField(
+        default=5,
+        verbose_name="Limite de Usuários"
+    )
+    limite_cilindros = models.PositiveIntegerField(
+        default=500,
+        verbose_name="Limite de Cilindros"
+    )
+    valor_mensalidade_saas = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Valor da Mensalidade SaaS"
+    )
+
+    # 9 Flags Granulares de Módulos (Sprint 7B)
+    modulo_patrimonio_ativo = models.BooleanField(
+        default=True,
+        verbose_name="Módulo Patrimônio Ativo"
+    )
+    modulo_comercial_ativo = models.BooleanField(
+        default=True,
+        verbose_name="Módulo Comercial Ativo"
+    )
+    modulo_vendas_ativo = models.BooleanField(
+        default=True,
+        verbose_name="Módulo Vendas Ativo"
+    )
+    modulo_envase_ativo = models.BooleanField(
+        default=False,
+        verbose_name="Módulo Envase Ativo"
+    )
+    modulo_logistica_ativo = models.BooleanField(
+        default=True,
+        verbose_name="Módulo Logística Ativo"
+    )
+    modulo_fiscal_ativo = models.BooleanField(
+        default=False,
+        verbose_name="Módulo Fiscal Ativo"
+    )
+    modulo_b2b_ativo = models.BooleanField(
+        default=False,
+        verbose_name="Módulo B2B Ativo"
+    )
+    modulo_financeiro_ativo = models.BooleanField(
+        default=True,
+        verbose_name="Módulo Financeiro Ativo"
+    )
+    modulo_analytics_ativo = models.BooleanField(
+        default=False,
+        verbose_name="Módulo Analytics Ativo"
+    )
+
+    # Lacunas F-29 e F-30
+    dias_carencia = models.PositiveIntegerField(
+        default=5,
+        verbose_name="Dias de Carência"
+    )
+    motivo_suspensao = models.TextField(
+        blank=True,
+        default='',
+        verbose_name="Motivo da Suspensão"
+    )
+    data_cancelamento = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Cancelamento"
+    )
+    data_limite_exportacao = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Data Limite de Exportação"
+    )
+
+    # Parâmetros Fiscais (Sprint 11B - Tarefas 4 e 7)
+    presta_servico_transporte = models.BooleanField(
+        default=False,
+        verbose_name="Presta Serviço de Transporte a Terceiros (Emite CT-e)"
+    )
+    tratamento_locacao = models.CharField(
+        max_length=40,
+        choices=[
+            ('FATURA_SEM_DOCUMENTO_FISCAL', 'Fatura de Locação sem Documento Fiscal (Não Tributada)'),
+            ('NFSE_MUNICIPAL', 'NFS-e Municipal via Gateway'),
+        ],
+        default='FATURA_SEM_DOCUMENTO_FISCAL',
+        verbose_name="Tratamento Fiscal da Fatura de Locação"
+    )
+
+    # Sprint 13 - Rollout Controlado & Tenant Piloto (Tarefa 1)
+    is_piloto = models.BooleanField(
+        default=False,
+        verbose_name="Tenant Piloto (Early Access / Beta)"
+    )
+    flags_piloto = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Feature Flags de Rollout Piloto"
+    )
+
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
 
@@ -31,6 +153,39 @@ class Tenant(models.Model):
     @property
     def nome(self):
         return self.nome_fantasia or self.razao_social
+
+    @property
+    def perfil_regulatorio_obj(self):
+        perfil = getattr(self, 'perfil_regulatorio', None)
+        if not perfil:
+            from core.models import PerfilRegulatorioTenant
+            perfil = PerfilRegulatorioTenant.objects.filter(tenant=self).first()
+        return perfil
+
+    @property
+    def modo_operacao(self):
+        perfil = self.perfil_regulatorio_obj
+        return perfil.modo_operacao if perfil else 'MISTO'
+
+    @property
+    def tem_modulo_envase(self):
+        """Desacoplado comercialmente: depende exclusivamente do flag do módulo no SaaS."""
+        return bool(self.modulo_envase_ativo)
+
+    @property
+    def tem_modulo_distribuicao(self):
+        """Desacoplado comercialmente: depende do módulo de logística e vendas."""
+        return bool(self.modulo_logistica_ativo)
+
+    @property
+    def is_subscription_active(self):
+        """Verifica se a assinatura está apta para uso (TRIAL ou ATIVO)."""
+        return self.status_assinatura in ('TRIAL', 'ATIVO')
+
+    @property
+    def is_tenant_writable(self):
+        """Verifica se o tenant está ativo e com assinatura apta a operações de escrita."""
+        return self.ativo and self.is_subscription_active
 
     def validar_aptidao_medicinal(self, exigir_envase=False):
         """Valida a conformidade sanitária do Tenant perante a ANVISA."""
@@ -169,6 +324,14 @@ class PerfilRegulatorioTenant(models.Model):
     def __str__(self):
         return f"Perfil Regulatório - {self.tenant.nome_fantasia} [{self.get_modo_operacao_display()}]"
 
+    @property
+    def tem_modulo_envase(self):
+        return self.modo_operacao in ['ENVASADORA', 'MISTO']
+
+    @property
+    def tem_modulo_distribuicao(self):
+        return self.modo_operacao in ['DISTRIBUIDORA', 'MISTO']
+
 
 # ==============================================================================
 # WEBHOOKS & INTEGRAÇÃO ERP CANÔNICA (SPRINT 6)
@@ -285,4 +448,431 @@ class WebhookDeliveryLog(TenantAwareModel):
     def __str__(self):
         status_txt = "OK" if self.sucesso else f"{self.status} ({self.status_code})"
         return f"WebhookLog {self.evento} -> {self.endpoint.url} [{status_txt}]"
+
+
+# ==============================================================================
+# SPRINT 7A: FUNDAÇÃO TRANSVERSAL (FILIAIS, AUDITORIA, IDEMPOTÊNCIA, JOBS)
+# ==============================================================================
+
+from core.audit import AuditedModelMixin
+
+
+class Filial(AuditedModelMixin, TenantAwareModel):
+    """
+    Filial ou unidade operacional do Tenant (Sprint 7A - Lacuna F-14).
+    Cada tenant possui exatamente uma Matriz (matriz=True).
+    """
+    nome = models.CharField(max_length=255, verbose_name="Nome da Filial / Unidade")
+    cnpj = models.CharField(max_length=18, validators=[validar_cnpj], verbose_name="CNPJ da Filial")
+    inscricao_estadual = models.CharField(max_length=30, blank=True, default='ISENTO', verbose_name="Inscrição Estadual")
+    uf = models.CharField(max_length=2, verbose_name="UF")
+    municipio_ibge = models.CharField(max_length=7, blank=True, null=True, verbose_name="Código IBGE do Município")
+    matriz = models.BooleanField(default=False, verbose_name="É Matriz?")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        verbose_name = "Filial / Unidade"
+        verbose_name_plural = "Filiais / Unidades"
+        ordering = ['-matriz', 'nome']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant'],
+                condition=models.Q(matriz=True),
+                name='unique_matriz_por_tenant'
+            ),
+            models.UniqueConstraint(
+                fields=['tenant', 'cnpj'],
+                name='unique_tenant_filial_cnpj'
+            )
+        ]
+
+    def __str__(self):
+        tipo = "Matriz" if self.matriz else "Filial"
+        return f"{self.nome} ({self.cnpj}) [{tipo}]"
+
+
+class LogAuditoriaQuerySet(TenantQuerySet):
+    def update(self, *args, **kwargs):
+        raise PermissionError("LogAuditoriaDados é estritamente append-only: atualizações são proibidas.")
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("LogAuditoriaDados é estritamente append-only: exclusões são proibidas.")
+
+
+class LogAuditoriaManager(TenantManager.from_queryset(LogAuditoriaQuerySet)):
+    pass
+
+
+class UnscopedLogAuditoriaQuerySet(models.QuerySet):
+    def update(self, *args, **kwargs):
+        raise PermissionError("LogAuditoriaDados é estritamente append-only: atualizações são proibidas.")
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("LogAuditoriaDados é estritamente append-only: exclusões são proibidas.")
+
+
+class UnscopedLogAuditoriaManager(models.Manager.from_queryset(UnscopedLogAuditoriaQuerySet)):
+    pass
+
+
+class LogAuditoriaDados(TenantAwareModel):
+    """
+    Trilha de auditoria profunda e imutável para dados (Sprint 7A - Lacuna F-33).
+    Registra toda criação, alteração, exclusão e estorno com diff serializado em JSON.
+    Estritamente append-only: bloqueia UPDATE e DELETE a nível de ORM e de model.
+    """
+    ACAO_CHOICES = [
+        ('CRIACAO', 'Criação'),
+        ('ALTERACAO', 'Alteração'),
+        ('EXCLUSAO', 'Exclusão'),
+        ('ESTORNO', 'Estorno'),
+    ]
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='logs_auditoria_dados',
+        verbose_name="Usuário Responsável"
+    )
+    content_type = models.ForeignKey(
+        'contenttypes.ContentType',
+        on_delete=models.PROTECT,
+        verbose_name="Tipo de Conteúdo"
+    )
+    object_id = models.CharField(max_length=255, verbose_name="ID do Objeto")
+    acao = models.CharField(max_length=20, choices=ACAO_CHOICES, verbose_name="Ação")
+    diff_json = models.JSONField(default=dict, blank=True, verbose_name="Diff das Alterações (JSON)")
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="Endereço IP")
+    request_id = models.CharField(max_length=64, null=True, blank=True, db_index=True, verbose_name="Request ID")
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True, verbose_name="Data/Hora do Evento")
+
+    objects = LogAuditoriaManager()
+    unscoped = UnscopedLogAuditoriaManager()
+
+    class Meta:
+        verbose_name = "Log de Auditoria de Dados"
+        verbose_name_plural = "Logs de Auditoria de Dados"
+        ordering = ['-timestamp']
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise PermissionError("LogAuditoriaDados é somente inserção (append-only): alterações são proibidas.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("LogAuditoriaDados é somente inserção (append-only): exclusões são proibidas.")
+
+    def __str__(self):
+        usr = self.usuario.username if self.usuario else "Sistema"
+        return f"[{self.acao}] {self.content_type.model}#{self.object_id} por {usr} em {self.timestamp.strftime('%d/%m/%Y %H:%M:%S')}"
+
+
+class IdempotencyKey(TenantAwareModel):
+    """
+    Controle transacional de idempotência para APIs e Jobs (Sprint 7A).
+    Garante que re-execuções de operações não gerem efeitos colaterais duplicados.
+    """
+    escopo = models.CharField(max_length=100, db_index=True, verbose_name="Escopo da Operação")
+    chave = models.CharField(max_length=255, db_index=True, verbose_name="Chave de Idempotência")
+    resultado_ref = models.CharField(max_length=255, null=True, blank=True, verbose_name="Referência do Resultado")
+    resultado_json = models.JSONField(null=True, blank=True, verbose_name="Payload do Resultado (JSON)")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+
+    class Meta:
+        verbose_name = "Chave de Idempotência"
+        verbose_name_plural = "Chaves de Idempotência"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'escopo', 'chave'],
+                name='unique_tenant_escopo_chave_idempotency'
+            )
+        ]
+
+    def __str__(self):
+        return f"Idempotency [{self.escopo}] {self.chave} ({self.tenant.nome_fantasia})"
+
+
+class JobExecucao(TenantAwareModel):
+    """
+    Registro e observabilidade de tarefas assíncronas periódicas e pontuais (Sprint 7A - Correção F-38).
+    Permite rastrear status, tempo de execução, retentativas e mensagens de erro por Tenant.
+    """
+    STATUS_CHOICES = [
+        ('INICIADO', 'Iniciado'),
+        ('SUCESSO', 'Sucesso'),
+        ('FALHA', 'Falha'),
+        ('RETRY', 'Em Retry'),
+    ]
+
+    nome = models.CharField(max_length=255, db_index=True, verbose_name="Nome do Job / Tarefa")
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='INICIADO', verbose_name="Status")
+    inicio = models.DateTimeField(default=timezone.now, verbose_name="Início da Execução")
+    fim = models.DateTimeField(null=True, blank=True, verbose_name="Fim da Execução")
+    duracao_ms = models.IntegerField(null=True, blank=True, verbose_name="Duração (ms)")
+    erro = models.TextField(null=True, blank=True, verbose_name="Erro / Stacktrace")
+    payload_json = models.JSONField(default=dict, blank=True, verbose_name="Payload / Parâmetros (JSON)")
+
+    class Meta:
+        verbose_name = "Execução de Job Assíncrono"
+        verbose_name_plural = "Execuções de Jobs Assíncronos"
+        ordering = ['-inicio']
+
+    def __str__(self):
+        return f"Job {self.nome} [{self.status}] - Tenant {self.tenant.nome_fantasia}"
+
+
+# ==============================================================================
+# 5. GOVERNANÇA SAAS, AUDITORIA SAAS E BREAK-GLASS (Sprint 7B - v2.0)
+# ==============================================================================
+
+class LogAuditoriaSaaSQuerySet(models.QuerySet):
+    def update(self, *args, **kwargs):
+        raise PermissionError("LogAuditoriaSaaS é estritamente append-only: atualizações são proibidas.")
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("LogAuditoriaSaaS é estritamente append-only: exclusões são proibidas.")
+
+
+class LogAuditoriaSaaSManager(models.Manager.from_queryset(LogAuditoriaSaaSQuerySet)):
+    pass
+
+
+class LogAuditoriaSaaS(models.Model):
+    """
+    Trilha de auditoria exclusiva para governança do SaaS v2.0 (somente inserção).
+    Registra alterações de status de assinatura, toggles de módulos, cotas e acessos de suporte.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='logs_auditoria_saas',
+        verbose_name="Tenant"
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='logs_auditoria_saas_executados',
+        verbose_name="Usuário Executor"
+    )
+    acao = models.CharField(max_length=64, verbose_name="Ação Executada")
+    modulo = models.CharField(max_length=64, blank=True, default='', verbose_name="Módulo")
+    detalhes_json = models.JSONField(default=dict, blank=True, verbose_name="Detalhes da Operação")
+    ip = models.CharField(max_length=64, null=True, blank=True, verbose_name="Endereço IP")
+    user_agent = models.CharField(max_length=512, blank=True, default='', verbose_name="User-Agent")
+    request_id = models.CharField(max_length=64, null=True, blank=True, verbose_name="Request ID")
+    timestamp = models.DateTimeField(default=timezone.now, editable=False, db_index=True, verbose_name="Data/Hora")
+
+    objects = LogAuditoriaSaaSManager()
+
+    class Meta:
+        verbose_name = "Log de Auditoria SaaS"
+        verbose_name_plural = "Logs de Auditoria SaaS"
+        ordering = ['-timestamp']
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        instance._is_persisted = True
+        return instance
+
+    def save(self, *args, **kwargs):
+        if getattr(self, '_is_persisted', False) or (not self._state.adding and self.pk):
+            raise PermissionError("LogAuditoriaSaaS é estritamente append-only: atualizações são proibidas.")
+        super().save(*args, **kwargs)
+        self._is_persisted = True
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("LogAuditoriaSaaS é estritamente append-only: exclusões são proibidas.")
+
+    def __str__(self):
+        tenant_str = self.tenant.nome_fantasia if self.tenant else "Global"
+        return f"LogSaaS [{self.acao}] {self.modulo} - {tenant_str} ({self.timestamp:%d/%m/%Y %H:%M})"
+
+
+class AcessoSuporte(models.Model):
+    """
+    Registro de Break-Glass para suporte técnico de superusuários em tenants específicos.
+    Sessão temporária estrita com expiração em no máximo 30 minutos (Sprint 7B - F-32).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    superadmin = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='acessos_suporte_realizados',
+        verbose_name="Superusuário"
+    )
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name='acessos_suporte_recebidos',
+        verbose_name="Tenant Acessado"
+    )
+    motivo = models.TextField(verbose_name="Motivo Justificado do Acesso")
+    inicio = models.DateTimeField(default=timezone.now, verbose_name="Início do Acesso")
+    expira_em = models.DateTimeField(verbose_name="Expiração do Acesso (máx 30min)")
+    encerrado_em = models.DateTimeField(null=True, blank=True, verbose_name="Encerrado em")
+
+    class Meta:
+        verbose_name = "Acesso de Suporte (Break-Glass)"
+        verbose_name_plural = "Acessos de Suporte (Break-Glass)"
+        ordering = ['-inicio']
+
+    @property
+    def is_valido(self):
+        agora = timezone.now()
+        return self.encerrado_em is None and self.inicio <= agora <= self.expira_em
+
+    def __str__(self):
+        return f"BreakGlass {self.superadmin} -> {self.tenant.nome_fantasia} (Ativo: {self.is_valido})"
+
+
+class PlanoSaaS(models.Model):
+    """
+    Catálogo de Planos Globais do SaaS Baros (Sprint 7B - Lacuna F-29).
+    Define preços bases e defaults de módulos habilitados.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nome = models.CharField(max_length=100, unique=True, verbose_name="Nome do Plano")
+    preco_base = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Preço Base (R$)"
+    )
+    limite_usuarios = models.PositiveIntegerField(default=5, verbose_name="Limite de Usuários Padrão")
+    limite_cilindros = models.PositiveIntegerField(default=500, verbose_name="Limite de Cilindros Padrão")
+
+    # Módulos ativos por padrão no plano
+    modulo_patrimonio_ativo = models.BooleanField(default=True)
+    modulo_comercial_ativo = models.BooleanField(default=True)
+    modulo_vendas_ativo = models.BooleanField(default=True)
+    modulo_envase_ativo = models.BooleanField(default=False)
+    modulo_logistica_ativo = models.BooleanField(default=True)
+    modulo_fiscal_ativo = models.BooleanField(default=False)
+    modulo_b2b_ativo = models.BooleanField(default=False)
+    modulo_financeiro_ativo = models.BooleanField(default=True)
+    modulo_analytics_ativo = models.BooleanField(default=False)
+
+    ativo = models.BooleanField(default=True, verbose_name="Plano Ativo")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+
+    class Meta:
+        verbose_name = "Plano SaaS"
+        verbose_name_plural = "Planos SaaS"
+        ordering = ['preco_base']
+
+    def __str__(self):
+        return f"{self.nome} - R$ {self.preco_base}"
+
+
+class FaturaSaaS(TenantAwareModel):
+    """
+    Faturas de mensalidade geradas para os tenants (Sprint 7B - Lacuna F-29).
+    Cobrança manual no backoffice v2.0 (sem gateway nesta sprint).
+    """
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente'),
+        ('PAGO', 'Pago'),
+        ('VENCIDO', 'Vencido'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    plano = models.ForeignKey(
+        PlanoSaaS,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='faturas',
+        verbose_name="Plano Referência"
+    )
+    competencia = models.DateField(verbose_name="Competência (Mês/Ano)")
+    valor = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Valor da Fatura (R$)"
+    )
+    vencimento = models.DateField(verbose_name="Data de Vencimento")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PENDENTE',
+        db_index=True,
+        verbose_name="Status do Pagamento"
+    )
+    pago_em = models.DateField(null=True, blank=True, verbose_name="Pago em")
+    comprovante_ref = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name="Referência / Comprovante"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+
+    class Meta:
+        verbose_name = "Fatura SaaS"
+        verbose_name_plural = "Faturas SaaS"
+        ordering = ['-vencimento']
+
+    def __str__(self):
+        return f"Fatura {self.competencia:%m/%Y} - {self.tenant.nome_fantasia} - R$ {self.valor} [{self.status}]"
+
+
+class SolicitacaoTitularLGPD(TenantAwareModel):
+    """
+    Registro e controle auditável de solicitações dos titulares de dados pessoais (Sprint 13 - Tarefa 4).
+    Em conformidade estrita com os Artigos 16, 18 e 19 da Lei 13.709/2018 (LGPD).
+    """
+    TIPO_CHOICES = [
+        ('ACESSO_EXPORTACAO', 'Acesso e Exportação de Dados Pessoais (Art. 19)'),
+        ('ELIMINACAO_ANONIMIZACAO', 'Eliminação / Anonimização de Dados (Art. 16)'),
+        ('REVOGACAO_CONSENTIMENTO', 'Revogação de Consentimento (Art. 8º)'),
+        ('CONFIRMACAO_TRATAMENTO', 'Confirmação da Existência de Tratamento (Art. 18)'),
+    ]
+
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente de Análise'),
+        ('EM_PROCESSAMENTO', 'Em Processamento'),
+        ('CONCLUIDO', 'Concluído'),
+        ('NEGADO_REQUISITO_LEGAL', 'Negado por Obrigação Legal/Regulatória (Art. 16, I)'),
+    ]
+
+    protocolo = models.CharField(max_length=64, db_index=True, verbose_name="Número de Protocolo")
+    tipo = models.CharField(max_length=35, choices=TIPO_CHOICES, verbose_name="Tipo de Solicitação")
+    identificador_titular = models.CharField(max_length=150, db_index=True, verbose_name="Identificador do Titular (CPF ou E-mail)")
+    nome_titular = models.CharField(max_length=255, blank=True, default='', verbose_name="Nome do Titular")
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='PENDENTE', verbose_name="Status da Solicitação")
+    justificativa = models.TextField(blank=True, default='', verbose_name="Justificativa da Solicitação / Decisão")
+    resultado_json = models.JSONField(default=dict, blank=True, verbose_name="Resultado Estruturado")
+    solicitado_em = models.DateTimeField(auto_now_add=True, verbose_name="Solicitado em")
+    concluido_em = models.DateTimeField(null=True, blank=True, verbose_name="Concluído em")
+    operador_responsavel = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='solicitacoes_lgpd_atendidas',
+        verbose_name="Operador Responsável"
+    )
+
+    class Meta:
+        verbose_name = "Solicitação de Titular (LGPD)"
+        verbose_name_plural = "Solicitações de Titulares (LGPD)"
+        ordering = ['-solicitado_em']
+        constraints = [
+            models.UniqueConstraint(fields=['tenant', 'protocolo'], name='unique_tenant_solicitacao_lgpd_protocolo')
+        ]
+
+    def __str__(self):
+        return f"Protocolo LGPD #{self.protocolo} - {self.identificador_titular} [{self.get_status_display()}]"
+
 
