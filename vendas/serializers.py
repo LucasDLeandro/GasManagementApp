@@ -1,7 +1,7 @@
 from decimal import Decimal
 from rest_framework import serializers
 from django.db import transaction
-from .models import Venda, ItemVenda
+from .models import Venda, ItemVenda, AlertaComercial
 from clientes.serializers import ClienteSerializer
 from produtos.models import Produto, SkuRecarga
 
@@ -75,6 +75,17 @@ class VendaSerializer(serializers.ModelSerializer):
             ItemVenda.objects.create(venda=venda, **item_data)
             
         venda.calcular_total()
+
+        # Avaliação de crédito comercial (Sprint 11C - Tarefas 3 e 4)
+        try:
+            from financeiro.services.credito_service import avaliar_credito
+            res_cred = avaliar_credito(venda.cliente, valor_pedido=venda.valor_total, itens=list(venda.itens.all()))
+            if res_cred.status == 'BLOQUEADO_FINANCEIRO':
+                venda.status = 'BLOQUEADO_FINANCEIRO'
+                venda.save(update_fields=['status', 'data_atualizacao'])
+        except Exception:
+            pass
+
         return venda
 
     @transaction.atomic
@@ -97,3 +108,37 @@ class VendaSerializer(serializers.ModelSerializer):
         if itens_data is not None:
             instance.calcular_total()
         return instance
+
+
+class AlertaComercialSerializer(serializers.ModelSerializer):
+    cliente_nome = serializers.ReadOnlyField(source='cliente.nome')
+    cliente_cnpj = serializers.ReadOnlyField(source='cliente.cnpj')
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    resolvido_por_nome = serializers.ReadOnlyField(source='resolvido_por.username')
+
+    class Meta:
+        model = AlertaComercial
+        fields = [
+            'id', 'cliente', 'cliente_nome', 'cliente_cnpj',
+            'tipo', 'tipo_display', 'dias_sem_comprar',
+            'media_historica_dias', 'percentual_atraso',
+            'descricao', 'resolvido', 'data_resolucao',
+            'resolvido_por', 'resolvido_por_nome', 'observacao_resolucao',
+            'criado_em', 'atualizado_em'
+        ]
+        read_only_fields = ['criado_em', 'atualizado_em', 'data_resolucao', 'resolvido_por']
+
+
+class LiberacaoBloqueioSerializer(serializers.ModelSerializer):
+    usuario_nome = serializers.ReadOnlyField(source='usuario.username')
+
+    class Meta:
+        from .models import LiberacaoBloqueio
+        model = LiberacaoBloqueio
+        fields = [
+            'id', 'venda', 'usuario', 'usuario_nome',
+            'motivo', 'valor', 'data'
+        ]
+        read_only_fields = ['id', 'data', 'usuario', 'usuario_nome']
+
+

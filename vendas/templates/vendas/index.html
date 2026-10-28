@@ -235,12 +235,14 @@
                     <label for="prazo_entrega">Previsão / Prazo de Entrega</label>
                     <input type="date" id="prazo_entrega" name="prazo_entrega">
                 </div>
+                {% if modulos_ativos.logistica %}
                 <div class="form-group span-2" style="justify-content: flex-end;">
                     <label class="checkbox-label">
                         <input type="checkbox" id="gerar_entrega_logistica" checked>
                         <span><strong>🚚 Enviar automaticamente para fila de Logística/Expedição</strong> (cria agendamento de rota)</span>
                     </label>
                 </div>
+                {% endif %}
             </div>
 
             <!-- Seção 2: Grade de Itens da Venda -->

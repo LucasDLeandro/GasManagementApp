@@ -12,13 +12,14 @@ from django.utils import timezone
 
 from core.mixins import TenantViewSetMixin
 from core.tenancy import get_current_tenant
-from .models import Venda, ItemVenda
-from .serializers import VendaSerializer
+from core.permissions import RequiresModuleVendas
+from .models import Venda, ItemVenda, AlertaComercial
+from .serializers import VendaSerializer, AlertaComercialSerializer
 
 class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = Venda.unscoped.all()
     serializer_class = VendaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresModuleVendas]
 
     def paginate_queryset(self, queryset):
         if self.request.query_params.get('sem_paginacao') in ('1', 'true', 'True'):
@@ -60,6 +61,27 @@ class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
             )
 
         return queryset.select_related('cliente', 'vendedor', 'entrega').prefetch_related('itens__produto', 'itens__sku')
+
+    @action(detail=True, methods=['post'], url_path='liberar-bloqueio')
+    def liberar_bloqueio(self, request, pk=None):
+        """Libera venda com BLOQUEADO_FINANCEIRO exigindo permissão vendas.liberar_bloqueio_financeiro e motivo."""
+        venda = self.get_object()
+        motivo = request.data.get('motivo', '')
+        from vendas.services.liberacao_service import liberar_bloqueio_venda
+        from django.core.exceptions import ValidationError as DjangoValidationError, PermissionDenied as DjangoPermissionDenied
+        try:
+            liberacao = liberar_bloqueio_venda(venda=venda, usuario=request.user, motivo=motivo)
+            return Response({
+                'mensagem': 'Venda liberada com sucesso.',
+                'venda_id': venda.id,
+                'status': venda.status,
+                'liberacao_id': liberacao.id
+            }, status=status.HTTP_200_OK)
+        except DjangoPermissionDenied as e:
+            return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except DjangoValidationError as e:
+            msg = e.message if hasattr(e, 'message') else str(e)
+            return Response({'detail': msg}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get'])
     def dashboard_metrics(self, request):
@@ -120,6 +142,9 @@ class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def alterar_status(self, request, pk=None):
         venda = self.get_object()
+        from core.guards import assert_modulo, assert_tenant_writable
+        from core.eventos import publicar
+        assert_tenant_writable(venda.tenant)
         novo_status = request.data.get('status')
         if novo_status not in dict(Venda.STATUS_CHOICES):
             return Response({'error': 'Status inválido.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -128,11 +153,34 @@ class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
 
         # Se solicitar criação de entrega ou se estiver iniciando separação
         if request.data.get('gerar_entrega_logistica') and not venda.entrega:
+            assert_modulo(venda.tenant, 'logistica')
             from logistica.models import Entrega
             nova_entrega = Entrega.objects.create(tenant=venda.tenant, status='Agendada')
             venda.entrega = nova_entrega
 
         venda.save()
+
+        # Publica evento de domínio quando faturada/finalizada (Sprint 8C / Sprint 11A - Tarefa 9)
+        if novo_status in ('Faturada', 'Finalizada'):
+            custo_total_cpv = Decimal('0.00')
+            try:
+                from produtos.services.estoque_produto import baixar_estoque_venda_faturada
+                custo_total_cpv = baixar_estoque_venda_faturada(venda)
+            except Exception:
+                pass
+
+            # Sprint 11A - Tarefa 9: com modulo_fiscal_ativo, a venda só publica
+            # venda_faturada quando a NF-e estiver AUTORIZADA, com os tributos reais.
+            from core.modulos import is_modulo_ativo
+            if not is_modulo_ativo(venda.tenant, 'fiscal'):
+                publicar('venda_faturada', {
+                    'tenant': venda.tenant,
+                    'venda_id': str(venda.id),
+                    'cliente_id': str(venda.cliente_id) if venda.cliente else None,
+                    'valor_total': venda.valor_total,
+                    'custo_total': custo_total_cpv,
+                })
+
         return Response({
             'status': 'sucesso',
             'novo_status': venda.status,
@@ -142,6 +190,9 @@ class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def enviar_para_logistica(self, request, pk=None):
         venda = self.get_object()
+        from core.guards import assert_modulo, assert_tenant_writable
+        assert_tenant_writable(venda.tenant)
+        assert_modulo(venda.tenant, 'logistica')
         if not venda.entrega:
             from logistica.models import Entrega
             nova_entrega = Entrega.objects.create(tenant=venda.tenant, status='Agendada')
@@ -156,5 +207,38 @@ class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         })
 
 
+from django.core.exceptions import PermissionDenied
+
 class VendaTemplateView(LoginRequiredMixin, TemplateView):
     template_name = 'vendas/index.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        tenant = getattr(request, 'tenant', None) or get_current_tenant()
+        if not (request.user.is_superuser or (tenant and tenant.modulo_vendas_ativo)):
+            raise PermissionDenied("Acesso negado: Seu plano não contempla o Módulo de Vendas.")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class AlertaComercialViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    Visualização e gestão de Alertas Comerciais Preditivos (Risco de Churn).
+    O painel de vendas consome AlertaComercial.objects.filter(resolvido=False).
+    """
+    queryset = AlertaComercial.unscoped.all()
+    serializer_class = AlertaComercialSerializer
+    permission_classes = [IsAuthenticated, RequiresModuleVendas]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        apenas_pendentes = self.request.query_params.get('pendentes', 'true').lower() in ('1', 'true')
+        if apenas_pendentes:
+            queryset = queryset.filter(resolvido=False)
+        return queryset.select_related('cliente', 'resolvido_por').order_by('-dias_sem_comprar', '-criado_em')
+
+    @action(detail=True, methods=['post'], url_path='resolver')
+    def resolver(self, request, pk=None):
+        alerta = self.get_object()
+        observacao = request.data.get('observacao', '')
+        alerta.marcar_como_resolvido(usuario=request.user, observacao=observacao)
+        return Response(AlertaComercialSerializer(alerta).data, status=status.HTTP_200_OK)
+

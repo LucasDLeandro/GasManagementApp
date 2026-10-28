@@ -8,6 +8,8 @@ from core.tenancy import TenantAwareModel, get_current_tenant
 class Venda(TenantAwareModel):
     STATUS_CHOICES = [
         ('Pendente', 'Pendente (Em Produção/Envase)'),
+        ('BLOQUEADO_FINANCEIRO', 'Bloqueado por Inadimplência / Crédito'),
+        ('Faturada', 'Faturada / Retirada no Balcão (FOB)'),
         ('Em Separação', 'Em Separação'),
         ('Em Rota', 'Em Rota de Entrega'),
         ('Entregue', 'Entregue'),
@@ -32,6 +34,7 @@ class Venda(TenantAwareModel):
 
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='vendas', verbose_name="Cliente")
     vendedor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='vendas', verbose_name="Vendedor")
+    filial = models.ForeignKey('core.Filial', on_delete=models.PROTECT, null=True, blank=True, related_name='vendas', verbose_name="Filial")
     entrega = models.ForeignKey('logistica.Entrega', on_delete=models.SET_NULL, null=True, blank=True, related_name='vendas', verbose_name="Entrega Associada")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pendente', verbose_name="Status")
     tipo_operacao = models.CharField(max_length=30, choices=TIPO_OPERACAO_CHOICES, default='RECARGA_TROCA', verbose_name="Tipo de Operação")
@@ -122,3 +125,131 @@ class ItemVenda(TenantAwareModel):
                 self.valor_total = self.quantidade * val_un
 
         super().save(*args, **kwargs)
+
+
+class AlertaComercial(TenantAwareModel):
+    """
+    Alerta comercial preditivo de inteligência de vendas (Sprint 10 - IA Preditiva).
+    Identifica risco de churn por quebra de frequência de giro de cilindros em comodato.
+    """
+    TIPO_CHOICES = [
+        ('RISCO_CHURN', 'Risco de Churn (Atraso no Giro de Cilindros)'),
+        ('RETENCAO_PREVENTIVA', 'Retenção Preventiva'),
+        ('INADIMPLENCIA', 'Risco de Inadimplência'),
+    ]
+
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='alertas_comerciais',
+        verbose_name="Cliente"
+    )
+    tipo = models.CharField(
+        max_length=50,
+        choices=TIPO_CHOICES,
+        default='RISCO_CHURN',
+        db_index=True,
+        verbose_name="Tipo de Alerta"
+    )
+    dias_sem_comprar = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Dias sem Comprar"
+    )
+    media_historica_dias = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Média Histórica de Giro (Dias)"
+    )
+    percentual_atraso = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Percentual de Atraso (%)"
+    )
+    descricao = models.TextField(
+        verbose_name="Descrição / Diagnóstico do Alerta"
+    )
+    resolvido = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name="Alerta Resolvido"
+    )
+    data_resolucao = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Resolução"
+    )
+    resolvido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='alertas_comerciais_resolvidos',
+        verbose_name="Resolvido por"
+    )
+    observacao_resolucao = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Observações do Contato Comercial"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Alerta Comercial"
+        verbose_name_plural = "Alertas Comerciais"
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f"[{self.get_tipo_display()}] {self.cliente.nome} ({self.dias_sem_comprar}d sem pedido)"
+
+    def marcar_como_resolvido(self, usuario, observacao=None):
+        from django.utils import timezone
+        self.resolvido = True
+        self.resolvido_por = usuario
+        self.data_resolucao = timezone.now()
+        if observacao:
+            self.observacao_resolucao = observacao
+        self.save()
+
+
+class LiberacaoBloqueio(TenantAwareModel):
+    """
+    Registro auditado de liberação excepcional de venda bloqueada por crédito/inadimplência (Sprint 11C - Tarefa 4).
+    A liberação exige a permissão vendas.liberar_bloqueio_financeiro e motivo obrigatório.
+    Liberar não altera a dívida do cliente no contas a receber.
+    """
+    venda = models.ForeignKey(
+        Venda,
+        on_delete=models.CASCADE,
+        related_name='liberacoes_bloqueio',
+        verbose_name="Venda Liberada"
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='liberacoes_bloqueio_realizadas',
+        verbose_name="Usuário Aprovador"
+    )
+    motivo = models.TextField(verbose_name="Motivo Obrigatório da Liberação")
+    valor = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Valor da Venda na Liberação (R$)"
+    )
+    data = models.DateTimeField(auto_now_add=True, verbose_name="Data/Hora da Liberação")
+
+    class Meta:
+        verbose_name = "Liberação de Bloqueio Financeiro"
+        verbose_name_plural = "Liberações de Bloqueio Financeiro"
+        ordering = ['-data']
+        permissions = [
+            ("liberar_bloqueio_financeiro", "Pode liberar venda com bloqueio financeiro"),
+        ]
+
+    def __str__(self):
+        return f"Liberação Venda #{self.venda_id} por {self.usuario} em {self.data.strftime('%d/%m/%Y %H:%M')}"
+
+
