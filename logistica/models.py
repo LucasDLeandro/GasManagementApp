@@ -163,6 +163,7 @@ class Veiculo(TenantAwareModel):
     class Meta:
         verbose_name = "Veículo"
         verbose_name_plural = "Veículos"
+        ordering = ['placa']
         constraints = [
             models.UniqueConstraint(fields=['tenant', 'placa'], name='unique_tenant_veiculo_placa'),
             models.UniqueConstraint(
