@@ -81,6 +81,10 @@ def migrar_fabricantes_e_classes(apps, schema_editor):
             c.save(update_fields=['classe_ativo', 'vida_util_meses', 'valor_residual'])
 
     # 4. Grava relatório de inconsistências em docs/migracao_fabricantes.csv
+    # Sem pendências não há o que relatar (evita sobrescrever o relatório com um arquivo
+    # vazio, por exemplo ao criar o banco de testes).
+    if not linhas_relatorio:
+        return
     try:
         from django.conf import settings
         docs_dir = os.path.join(settings.BASE_DIR, 'docs')

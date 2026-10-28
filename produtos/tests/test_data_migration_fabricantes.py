@@ -1,5 +1,7 @@
 import os
 import csv
+import shutil
+import tempfile
 import datetime
 from decimal import Decimal
 from django.test import TestCase
@@ -23,6 +25,12 @@ class DataMigrationFabricantesTests(TestCase):
     """
 
     def setUp(self):
+        # O relatório da migração vai para uma pasta temporária: sem isso os testes
+        # reescrevem docs/migracao_fabricantes.csv (arquivo versionado) a cada execução.
+        base_tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, base_tmp, ignore_errors=True)
+        self.enterContext(self.settings(BASE_DIR=base_tmp))
+
         self.tenant = Tenant.objects.create(
             cnpj='88.999.000/0001-11',
             razao_social='Usina Migração Ltda',
