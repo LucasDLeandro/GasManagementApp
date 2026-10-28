@@ -9,7 +9,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from clientes.models import Cliente
-from core.models import Membership, Tenant
+from core.models import Membership, ResponsavelTecnico, Tenant
 from core.tenancy import tenant_context
 from produtos.models import Cilindro, GasQuimico, ModeloCilindro, MovimentacaoCilindro, SkuRecarga
 
@@ -175,3 +175,39 @@ class CatalogoECadastroCilindroTests(TestCase):
         self.assertIn('id="btn-novo-sku"', html)
         self.assertIn('produtos/js/catalogo.js', html)
         self.assertNotIn('id="modal-produto"', html)
+
+    # ------------------------------------------------------------ 2.2: formulários redesenhados
+    def test_recebimento_lista_rts_reais_e_nao_lotes(self):
+        with tenant_context(self.tenant):
+            rt = ResponsavelTecnico.objects.create(
+                nome_completo='Dra. Ana Lima', conselho_classe='CRF', numero_registro='12345', uf_conselho='DF',
+                vigencia_inicio=datetime.date(2026, 1, 1),
+            )
+            ResponsavelTecnico.objects.create(
+                nome_completo='RT Inativo', conselho_classe='CRQ', numero_registro='999', uf_conselho='DF',
+                vigencia_inicio=datetime.date(2020, 1, 1), ativo=False,
+            )
+        self.client.force_login(self.gerente)
+
+        html = self.client.get('/produtos/').content.decode()
+
+        self.assertIn(f'<option value="{rt.id}">Dra. Ana Lima (CRF 12345/DF)</option>', html)
+        self.assertNotIn('RT Inativo', html)
+        self.assertIn('id="stepper-recebimento"', html)
+
+    def test_pagina_sem_dialogos_nativos_e_modais_novos(self):
+        self.client.force_login(self.gerente)
+
+        html = self.client.get('/produtos/').content.decode()
+
+        for dialogo in ('modal-bloqueio-sanitario', 'modal-retorno-reteste', 'modal-reclassificar-gas', 'modal-estorno-ledger'):
+            self.assertIn(f'id="{dialogo}" class="action-modal ds-dialog"', html)
+        self.assertIn('id="reteste-variacao-tara"', html)
+
+    def test_scripts_de_produtos_sem_alert_confirm_prompt(self):
+        from pathlib import Path
+        base = Path(__file__).resolve().parents[1] / 'static' / 'produtos' / 'js'
+        for nome in ('cilindros_drawer.js', 'fase3_rampa_recebimento_lotes.js', 'catalogo.js', 'cadastro_cilindro.js'):
+            codigo = (base / nome).read_text(encoding='utf-8')
+            for proibido in ('alert(', 'confirm(', 'prompt('):
+                self.assertNotIn(proibido, codigo.replace('Baros.confirmar(', ''), f'{proibido} em {nome}')

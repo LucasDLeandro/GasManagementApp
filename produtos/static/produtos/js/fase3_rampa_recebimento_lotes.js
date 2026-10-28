@@ -279,9 +279,10 @@ const RampaEnvase = {
         this.renderizarGrid();
     },
 
-    limparRampa() {
+    async limparRampa() {
         if (this.cilindrosBatelada.length === 0) return;
-        if (!confirm('Deseja realmente limpar todos os cilindros da rampa atual?')) return;
+        const ok = await Baros.confirmar({ titulo: 'Limpar a rampa?', texto: 'Todos os cilindros bipados nesta batelada saem da lista.', botao: 'Limpar', perigo: true });
+        if (!ok) return;
         this.cilindrosBatelada = [];
         this.renderizarGrid();
         this.mostrarFeedback('Rampa limpa.', true);
@@ -371,19 +372,19 @@ const RampaEnvase = {
 
     async concluirBatelada() {
         if (!this.loteSelecionado) {
-            alert("Selecione o Lote de Envase no topo da rampa.");
+            Baros.aviso('Selecione o lote de envase no topo da rampa.');
             return;
         }
 
         const pressaoInput = document.getElementById('rampa-pressao-final');
         const pressao = parseInt(pressaoInput ? pressaoInput.value : '200', 10);
         if (!pressao || pressao <= 0) {
-            alert("Informe uma pressão final válida da rampa (ex: 200 bar).");
+            Baros.aviso('Informe uma pressão final válida (ex.: 200 bar).');
             return;
         }
 
         if (this.cilindrosBatelada.length === 0) {
-            alert("A rampa está vazia. Bipe ao menos um cilindro.");
+            Baros.aviso('A rampa está vazia. Bipe ao menos um cilindro.');
             return;
         }
 
@@ -393,11 +394,16 @@ const RampaEnvase = {
         );
 
         if (naoConformes.length > 0) {
-            alert(`Atenção: Existem ${naoConformes.length} cilindro(s) com não conformidades no Checklist IN 129. Remova-os da rampa ou corrija a inspeção antes de concluir a batelada.`);
+            Swal.fire({ icon: 'warning', title: 'Há cilindros não conformes', text: `${naoConformes.length} cilindro(s) reprovaram no checklist da IN 129. Remova-os da rampa ou corrija a inspeção antes de concluir.` });
             return;
         }
 
-        if (!confirm(`Deseja concluir o envase atômico de ${this.cilindrosBatelada.length} cilindros a ${pressao} bar com o Lote ${this.loteSelecionado.codigo_lote}?`)) {
+        const confirmado = await Baros.confirmar({
+            titulo: 'Concluir o envase?',
+            texto: `${this.cilindrosBatelada.length} cilindro(s) a ${pressao} bar no lote ${this.loteSelecionado.codigo_lote}.`,
+            botao: 'Concluir envase',
+        });
+        if (!confirmado) {
             return;
         }
 
@@ -428,12 +434,12 @@ const RampaEnvase = {
             const data = await res.json();
 
             if (!res.ok) {
-                alert(data.error || "Erro ao concluir batelada.");
+                Baros.erro(data.error || 'Não foi possível concluir a batelada.');
                 return;
             }
 
             AudioFeedback.success();
-            alert(`Batelada Concluída com Sucesso! ${data.total_envasados} cilindros envasados com o Lote ${data.lote_codigo}.`);
+            Baros.sucesso(`Batelada concluída: ${data.total_envasados} cilindro(s) envasado(s) no lote ${data.lote_codigo}.`);
             
             // Abre Modal de Etiquetas de Colarinho do Lote
             const envaseIds = (data.envases || []).map(e => e.id).join(',');
@@ -445,7 +451,7 @@ const RampaEnvase = {
             }
         } catch (e) {
             console.error("Erro ao concluir batelada:", e);
-            alert("Falha na comunicação com o servidor ao registrar batelada.");
+            Baros.erro('Sem comunicação com o servidor. A batelada não foi registrada.');
         } finally {
             btn.disabled = false;
             btn.innerHTML = `
@@ -531,60 +537,72 @@ async function abrirModalEtiquetasColarinho(envaseIds) {
 
 const RecebimentoFornecedor = {
     cilindrosRecebidos: [],
+    stepper: null,
 
     async inicializar() {
-        await this.carregarRTs();
-        await this.carregarHistorico();
+        const raiz = document.getElementById('stepper-recebimento');
+        if (!raiz) return;
+        this.form = document.getElementById('form-recebimento-fornecedor');
+        this.btnVoltar = raiz.querySelector('[data-stepper-voltar]');
+        this.btnProximo = raiz.querySelector('[data-stepper-proximo]');
+        this.btnConfirmar = raiz.querySelector('[data-stepper-confirmar]');
+
+        this.stepper = Baros.Stepper(raiz, {
+            validar: (n) => this.validarEtapa(n),
+            aoMudar: (atual, total) => {
+                this.btnVoltar.hidden = atual === 1;
+                this.btnProximo.hidden = atual === total;
+                this.btnConfirmar.hidden = atual !== total;
+                if (atual === 2) document.getElementById('input-rec-scanner').focus();
+                if (atual === total) this.montarRevisao();
+            },
+        });
+        this.btnProximo.addEventListener('click', () => this.stepper.proxima());
+        this.btnVoltar.addEventListener('click', () => this.stepper.anterior());
+        document.getElementById('btn-rec-limpar').addEventListener('click', () => this.limpar(true));
+        this.form.addEventListener('submit', (e) => this.submeterRecebimento(e));
         this.configurarLeitor();
+        this.renderizarListaCilindros();
+        await this.carregarHistorico();
     },
 
-    async carregarRTs() {
-        try {
-            const sel = document.getElementById('rec-select-rt');
-            if (!sel) return;
-            // Carrega lotes para pegar RTs ou lista de responsáveis técnicos
-            const res = await fetch('/produtos/api/lotes-anvisa/', { headers: getAuthHeaders() });
-            if (!res.ok) return;
-            const data = await res.json();
-            
-            const rtsVistos = new Set();
-            sel.innerHTML = '<option value="">-- Selecione o RT Conferente --</option>';
-
-            data.forEach(l => {
-                if (l.responsavel_tecnico && !rtsVistos.has(l.responsavel_tecnico)) {
-                    rtsVistos.add(l.responsavel_tecnico);
-                    const opt = document.createElement('option');
-                    opt.value = l.id; // fallback reference
-                    opt.textContent = `${l.responsavel_tecnico} (${l.rt_registro_snapshot || 'CRQ/CRF'})`;
-                    sel.appendChild(opt);
-                }
-            });
-        } catch (e) {
-            console.error("Erro ao carregar RTs:", e);
+    validarEtapa(n) {
+        if (n === 1) {
+            if (!Baros.validarCampos('#stepper-recebimento .ds-step-pane[data-step="1"]')) return false;
+            const envase = this.form.data_envase_origem.value;
+            const validade = this.form.data_validade.value;
+            if (envase && validade && validade <= envase) {
+                Baros.mostrarErrosApi(this.form, { campos: { data_validade: 'A validade deve ser posterior à data de envase.' } });
+                return false;
+            }
+            return true;
         }
+        if (n === 2 && this.cilindrosRecebidos.length === 0) {
+            Baros.aviso('Bipe ao menos um cilindro desta nota.');
+            return false;
+        }
+        return true;
     },
 
     configurarLeitor() {
         const input = document.getElementById('input-rec-scanner');
-        if (!input) return;
-
+        const adicionar = () => {
+            const termo = input.value.trim();
+            if (termo) this.adicionarCilindro(termo);
+            input.value = '';
+            input.focus();
+        };
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const termo = input.value.trim();
-                if (termo) {
-                    this.adicionarCilindro(termo);
-                    input.value = '';
-                }
-            }
+            if (e.key === 'Enter') { e.preventDefault(); adicionar(); }
         });
+        document.getElementById('btn-rec-adicionar').addEventListener('click', adicionar);
     },
 
     adicionarCilindro(codigo) {
         const c = codigo.trim().toUpperCase();
         if (this.cilindrosRecebidos.includes(c)) {
             AudioFeedback.error();
-            alert(`Cilindro '${codigo}' já incluído na lista de recebimento.`);
+            Baros.aviso(`O cilindro ${c} já está na lista.`);
             return;
         }
         this.cilindrosRecebidos.push(c);
@@ -599,107 +617,137 @@ const RecebimentoFornecedor = {
 
     renderizarListaCilindros() {
         const container = document.getElementById('rec-cilindros-chips');
-        const contador = document.getElementById('rec-contador-cilindros');
-        if (contador) contador.textContent = `${this.cilindrosRecebidos.length} casco(s) bipado(s)`;
-        if (!container) return;
-
+        const total = this.cilindrosRecebidos.length;
+        document.getElementById('rec-contador-cilindros').textContent = `${total} cilindro${total === 1 ? '' : 's'}`;
         container.innerHTML = '';
-        if (this.cilindrosRecebidos.length === 0) {
-            container.innerHTML = '<span style="color: var(--color-text-muted); font-size: 12px;">Nenhum cilindro bipado para esta nota fiscal.</span>';
+        if (total === 0) {
+            const vazio = document.createElement('span');
+            vazio.className = 'ds-muted';
+            vazio.textContent = 'Nenhum cilindro bipado ainda.';
+            container.appendChild(vazio);
             return;
         }
-
         this.cilindrosRecebidos.forEach((c, idx) => {
             const chip = document.createElement('span');
-            chip.className = 'pill-filter-btn font-mono';
-            chip.style.padding = '4px 8px';
-            chip.innerHTML = `${c} <button type="button" onclick="RecebimentoFornecedor.removerCilindro(${idx})" style="background:none; border:none; color:#dc2626; cursor:pointer; font-weight:bold; margin-left:4px;">&times;</button>`;
+            chip.className = 'ds-chip font-mono';
+            chip.textContent = c;
+            const remover = document.createElement('button');
+            remover.type = 'button';
+            remover.setAttribute('aria-label', `Remover ${c}`);
+            remover.textContent = '×';
+            remover.addEventListener('click', () => this.removerCilindro(idx));
+            chip.appendChild(remover);
             container.appendChild(chip);
         });
     },
 
-    async submeterRecebimento(e) {
-        e.preventDefault();
-        if (this.cilindrosRecebidos.length === 0) {
-            alert("Bipe ao menos um cilindro para registrar o recebimento da nota fiscal.");
-            return;
-        }
+    montarRevisao() {
+        const f = this.form;
+        const rt = f.responsavel_tecnico_id.value ? f.responsavel_tecnico_id.selectedOptions[0].text : 'Não informado';
+        const laudo = f.laudo_pdf.files[0] ? f.laudo_pdf.files[0].name : 'Sem laudo';
+        const linhas = [
+            ['Fornecedor', `${f.fornecedor_nome.value} · CNPJ ${f.fornecedor_cnpj.value}`],
+            ['Nota fiscal', f.nota_fiscal.value],
+            ['Lote do fornecedor', f.lote_fornecedor.value],
+            ['Envase / validade', `${Baros.data(f.data_envase_origem.value)} → ${Baros.data(f.data_validade.value)}`],
+            ['Pressão', `${f.pressao_recebimento_bar.value} bar`],
+            ['RT conferente', rt],
+            ['Laudo', laudo],
+            ['Cilindros', `${this.cilindrosRecebidos.length}: ${this.cilindrosRecebidos.join(', ')}`],
+        ];
+        const dl = document.getElementById('rec-revisao');
+        dl.innerHTML = '';
+        linhas.forEach(([r, v]) => {
+            const dt = document.createElement('dt'); dt.textContent = r;
+            const dd = document.createElement('dd'); dd.textContent = v;
+            dl.append(dt, dd);
+        });
+    },
 
-        const form = document.getElementById('form-recebimento-fornecedor');
-        const formData = new FormData(form);
-        formData.append('cilindros', JSON.stringify(this.cilindrosRecebidos));
-
-        const btn = document.getElementById('btn-submit-recebimento');
-        btn.disabled = true;
-        btn.textContent = 'Registrando Entrada...';
-
-        try {
-            const res = await fetch('/produtos/api/recebimentos-fornecedor/registrar/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCsrfToken(),
-                    'Authorization': 'Bearer ' + (localStorage.getItem('access_token') || '')
-                },
-                body: formData
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                alert(data.error || "Erro ao registrar recebimento.");
-                return;
-            }
-
-            AudioFeedback.success();
-            alert(`Recebimento Concluído com Sucesso! ${data.total_recebidos || 1} cilindro(s) cheios incorporados ao estoque.`);
-            form.reset();
+    limpar(perguntar) {
+        const executar = () => {
+            this.form.reset();
             this.cilindrosRecebidos = [];
             this.renderizarListaCilindros();
+            this.form.querySelectorAll('.ds-field-error').forEach(el => el.remove());
+            this.form.querySelectorAll('.ds-invalid').forEach(el => el.classList.remove('ds-invalid'));
+            this.stepper.reiniciar();
+        };
+        if (!perguntar || (!this.cilindrosRecebidos.length && !this.form.nota_fiscal.value)) return executar();
+        Baros.confirmar({ titulo: 'Limpar o recebimento?', texto: 'Os dados da nota e os cilindros bipados serão descartados.', botao: 'Limpar', perigo: true })
+            .then(ok => { if (ok) executar(); });
+    },
+
+    async submeterRecebimento(e) {
+        e.preventDefault();
+        const formData = new FormData(this.form);
+        formData.append('cilindros', JSON.stringify(this.cilindrosRecebidos));
+        const restaurar = Baros.carregando(this.btnConfirmar, 'Registrando...');
+        try {
+            const data = await Baros.api('/produtos/api/recebimentos-fornecedor/registrar/', { method: 'POST', body: formData });
+            AudioFeedback.success();
+            Baros.sucesso(`Entrada registrada: ${data.total_recebidos || this.cilindrosRecebidos.length} cilindro(s) cheio(s) no estoque.`);
+            this.limpar(false);
             await this.carregarHistorico();
         } catch (err) {
-            console.error("Erro no recebimento:", err);
-            alert("Falha de comunicação ao registrar recebimento.");
+            AudioFeedback.error();
+            Baros.mostrarErrosApi(this.form, err);
         } finally {
-            btn.disabled = false;
-            btn.textContent = 'Registrar Entrada de Fornecedor (RDC 887/2024)';
+            restaurar();
         }
     },
 
     async carregarHistorico() {
         const tbody = document.getElementById('tbody-historico-recebimentos');
         if (!tbody) return;
-
-        try {
-            const res = await fetch('/produtos/api/recebimentos-fornecedor/', { headers: getAuthHeaders() });
-            if (!res.ok) return;
-            const data = await res.json();
-            const itens = Array.isArray(data) ? data : (data.results || []);
-
+        const linhaUnica = (texto, erro) => {
             tbody.innerHTML = '';
-            if (itens.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Nenhum recebimento externo de fornecedor registrado.</td></tr>';
-                return;
-            }
-
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 7;
+            const caixa = document.createElement('div');
+            caixa.className = 'ds-empty' + (erro ? ' ds-empty--danger' : '');
+            const p = document.createElement('p');
+            p.className = 'ds-empty-title';
+            p.textContent = texto;
+            caixa.appendChild(p);
+            td.appendChild(caixa);
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+        };
+        tbody.innerHTML = '<tr><td colspan="7"><span class="ds-skeleton"></span><span class="ds-skeleton"></span></td></tr>';
+        try {
+            const data = await Baros.api('/produtos/api/recebimentos-fornecedor/');
+            const itens = Array.isArray(data) ? data : (data.results || []);
+            if (itens.length === 0) return linhaUnica('Nenhum recebimento registrado ainda.');
+            tbody.innerHTML = '';
             itens.forEach(r => {
                 const tr = document.createElement('tr');
-                const laudoBtn = r.laudo_pdf 
-                    ? `<a href="/produtos/api/recebimentos-fornecedor/${r.id}/laudo/" target="_blank" class="action-queue-btn" style="padding: 3px 8px; font-size: 11px;">PDF Laudo</a>`
-                    : '<span style="color: var(--color-text-muted); font-size: 11px;">Sem laudo</span>';
-
-                tr.innerHTML = `
-                    <td><strong>${r.fornecedor_nome}</strong><br><small class="text-muted">CNPJ: ${r.fornecedor_cnpj}</small></td>
-                    <td><code>NF ${r.nota_fiscal}</code></td>
-                    <td><strong>${r.lote_fornecedor}</strong></td>
-                    <td><span class="font-mono">${r.cilindro_qr}</span></td>
-                    <td>${r.data_validade}</td>
-                    <td>${r.rt_nome_snapshot || 'RT Conforme'}</td>
-                    <td style="text-align: right;">${laudoBtn}</td>
-                `;
+                const celula = (texto, classe) => { const td = document.createElement('td'); td.textContent = texto; if (classe) td.className = classe; return td; };
+                const forn = celula(r.fornecedor_nome);
+                const sub = document.createElement('span');
+                sub.className = 'ds-cell-sub font-mono';
+                sub.textContent = r.fornecedor_cnpj;
+                forn.appendChild(sub);
+                const laudo = document.createElement('td');
+                laudo.className = 'ds-num';
+                if (r.laudo_pdf) {
+                    const a = document.createElement('a');
+                    a.href = `/produtos/api/recebimentos-fornecedor/${r.id}/laudo/`;
+                    a.target = '_blank';
+                    a.rel = 'noopener';
+                    a.className = 'btn-outline btn-sm';
+                    a.textContent = 'PDF';
+                    laudo.appendChild(a);
+                } else {
+                    laudo.textContent = '—';
+                }
+                tr.append(forn, celula('NF ' + r.nota_fiscal, 'font-mono'), celula(r.lote_fornecedor, 'font-mono'),
+                    celula(r.cilindro_qr, 'font-mono'), celula(Baros.data(r.data_validade)), celula(r.rt_nome_snapshot || '—'), laudo);
                 tbody.appendChild(tr);
             });
         } catch (e) {
-            console.error("Erro ao carregar histórico de recebimentos:", e);
+            linhaUnica('Não foi possível carregar o histórico.', true);
         }
     }
 };
@@ -783,28 +831,31 @@ const CentralLotesCQ = {
 
             const data = await res.json();
             if (!res.ok) {
-                alert(data.error || "Erro ao atualizar qualidade do lote.");
+                Baros.erro(data.error || 'Não foi possível atualizar a qualidade do lote.');
                 return;
             }
 
             AudioFeedback.success();
-            alert(`Status de qualidade atualizado com sucesso para [${novoStatus}].`);
+            Baros.sucesso(`Qualidade do lote atualizada: ${novoStatus}.`);
             await this.carregar();
             await RampaEnvase.carregarLotes();
         } catch (e) {
             console.error("Erro ao atualizar qualidade:", e);
-            alert("Falha na comunicação com o servidor.");
+            Baros.erro('Sem comunicação com o servidor.');
         }
     },
 
-    reprovarLoteComJustificativa(loteId, codigoLote) {
-        const justificativa = prompt(`ATENÇÃO: A reprovação do lote ${codigoLote} disparará BLOQUEIO SANITÁRIO IMEDIATO em todos os cilindros cheios ativos no pátio!\n\nInforme a justificativa técnica obrigatória:`);
-        if (!justificativa || !justificativa.trim()) {
-            alert("A justificativa técnica do Responsável Técnico é obrigatória para reprovar o lote.");
-            return;
-        }
+    async reprovarLoteComJustificativa(loteId, codigoLote) {
+        const justificativa = await Baros.confirmar({
+            titulo: `Reprovar o lote ${codigoLote}?`,
+            texto: 'Todos os cilindros cheios deste lote no pátio entram em bloqueio sanitário imediato.',
+            botao: 'Reprovar lote',
+            perigo: true,
+            motivo: 10,
+        });
+        if (!justificativa) return;
 
-        this.alterarQualidade(loteId, 'REPROVADO', justificativa.trim());
+        this.alterarQualidade(loteId, 'REPROVADO', justificativa);
     }
 };
 

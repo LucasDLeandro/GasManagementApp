@@ -1,123 +1,87 @@
     <!-- ============================================================================== -->
-    <!-- ABA 3: RECEBIMENTO DE FORNECEDOR (RDC 887/2024 - DISTRIBUIDORAS)               -->
+    <!-- ABA 3: RECEBIMENTO DE CILINDROS CHEIOS DE FORNECEDOR (RDC 887/2024)             -->
+    <!-- Design System v1 — produtos/js/fase3_rampa_recebimento_lotes.js                 -->
     <!-- ============================================================================== -->
     {% if tem_modulo_distribuicao %}
-    <div id="aba-conteudo-recebimento" style="display: none;">
-        <div style="margin-bottom: 20px;">
-            <h2 style="font-size: 22px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                Central de Recebimento de Cilindros Cheios de Fornecedor
-                <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #16a34a; border: 1px solid #16a34a;">RDC nº 887/2024 - ANVISA</span>
-            </h2>
-            <p style="margin: 0; color: var(--color-text-muted); font-size: 13px;">
-                Entrada formal e rastreável de notas fiscais de envasadoras externas para distribuidoras sem planta de envase própria.
-            </p>
-        </div>
+    <div id="aba-conteudo-recebimento" class="ds-hidden">
+        <header class="ds-page-header">
+            <div>
+                <h1 class="ds-page-title">Recebimento de fornecedor</h1>
+                <p class="ds-page-subtitle">Entrada rastreável de cilindros cheios comprados de envasadoras (RDC 887/2024), por nota fiscal.</p>
+            </div>
+        </header>
 
-        <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 22px; margin-bottom: 24px;">
-            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0; color: var(--color-text);">Registro de Entrada por Nota Fiscal</h3>
-            
-            <form id="form-recebimento-fornecedor" onsubmit="RecebimentoFornecedor.submeterRecebimento(event)">
-                <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
-                    <div class="form-group">
-                        <label for="rec-fornecedor-nome">Fornecedor / Envasadora *</label>
-                        <input type="text" id="rec-fornecedor-nome" name="fornecedor_nome" placeholder="Ex: White Martins Gases Industriais" required>
+        <section class="ds-card ds-mb" id="stepper-recebimento">
+            {% include "components/_stepper.html" with etapas="Nota fiscal|Cilindros|Revisão" %}
+            <form id="form-recebimento-fornecedor" novalidate>
+                <div class="ds-step-pane" data-step="1">
+                    <div class="modal-section-card">
+                        <h4 class="modal-section-title">Fornecedor e nota</h4>
+                        <div class="form-grid">
+                            <div class="form-group"><label for="rec-fornecedor-nome">Fornecedor / envasadora *</label><input type="text" id="rec-fornecedor-nome" name="fornecedor_nome" required maxlength="150" placeholder="Ex.: White Martins"></div>
+                            <div class="form-group"><label for="rec-fornecedor-cnpj">CNPJ do fornecedor *</label><input type="text" id="rec-fornecedor-cnpj" name="fornecedor_cnpj" required class="mask-cnpj" placeholder="00.000.000/0000-00" pattern="\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}"></div>
+                            <div class="form-group"><label for="rec-nota-fiscal">Nº da NF-e de entrada *</label><input type="text" id="rec-nota-fiscal" name="nota_fiscal" required maxlength="60" class="font-mono"></div>
+                            <div class="form-group"><label for="rec-lote-fornecedor">Lote do fornecedor *</label><input type="text" id="rec-lote-fornecedor" name="lote_fornecedor" required maxlength="100" class="font-mono"></div>
+                        </div>
                     </div>
-
-                    <div class="form-group">
-                        <label for="rec-fornecedor-cnpj">CNPJ do Fornecedor *</label>
-                        <input type="text" id="rec-fornecedor-cnpj" name="fornecedor_cnpj" placeholder="00.000.000/0000-00" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="rec-nota-fiscal">Nota Fiscal de Entrada (NF-e) *</label>
-                        <input type="text" id="rec-nota-fiscal" name="nota_fiscal" placeholder="Ex: 001.234.567" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="rec-lote-fornecedor">Lote de Origem do Fornecedor *</label>
-                        <input type="text" id="rec-lote-fornecedor" name="lote_fornecedor" placeholder="Ex: LOT-WM-2026-99" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="rec-data-envase">Data de Envase na Origem *</label>
-                        <input type="date" id="rec-data-envase" name="data_envase_origem" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="rec-data-validade">Data de Validade do Gás *</label>
-                        <input type="date" id="rec-data-validade" name="data_validade" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="rec-pressao">Pressão de Recebimento (bar)</label>
-                        <input type="number" id="rec-pressao" name="pressao_recebimento_bar" value="200" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="rec-select-rt">Responsável Técnico (RT Conferente)</label>
-                        <select id="rec-select-rt" name="responsavel_tecnico_id">
-                            <option value="">Carregando RTs...</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label for="rec-laudo-pdf">Laudo / Certificado de Análise do Lote (PDF) *</label>
-                        <input type="file" id="rec-laudo-pdf" name="laudo_pdf" accept="application/pdf">
+                    <div class="modal-section-card">
+                        <h4 class="modal-section-title">Qualidade do lote</h4>
+                        <div class="form-grid">
+                            <div class="form-group"><label for="rec-data-envase">Data de envase na origem *</label><input type="date" id="rec-data-envase" name="data_envase_origem" required></div>
+                            <div class="form-group"><label for="rec-data-validade">Validade do gás *</label><input type="date" id="rec-data-validade" name="data_validade" required></div>
+                            <div class="form-group"><label for="rec-pressao">Pressão de recebimento (bar) *</label><input type="number" id="rec-pressao" name="pressao_recebimento_bar" value="200" min="1" required></div>
+                            <div class="form-group">
+                                <label for="rec-select-rt">RT conferente</label>
+                                <select id="rec-select-rt" name="responsavel_tecnico_id">
+                                    <option value="">Selecione o RT</option>
+                                    {% for rt in responsaveis_tecnicos %}<option value="{{ rt.id }}">{{ rt.nome_completo }} ({{ rt.conselho_classe }} {{ rt.numero_registro }}/{{ rt.uf_conselho }})</option>{% endfor %}
+                                </select>
+                                {% if not responsaveis_tecnicos %}<span class="ds-field-help">Nenhum RT ativo. Cadastre em Perfil Regulatório.</span>{% endif %}
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="rec-laudo-pdf">Laudo / certificado de análise do lote (PDF)</label>
+                                <input type="file" id="rec-laudo-pdf" name="laudo_pdf" accept="application/pdf">
+                                <span class="ds-field-help">Obrigatório para gás medicinal.</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Bipagem de Cilindros Recebidos -->
-                <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--color-border);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <label style="font-weight: 600; font-size: 13px; color: var(--color-text);">Bipar Cilindros Desta Nota Fiscal</label>
-                        <span id="rec-contador-cilindros" style="font-size: 12px; font-weight: 700; color: var(--color-primary);">0 casco(s) bipado(s)</span>
+                <div class="ds-step-pane" data-step="2">
+                    <div class="form-group">
+                        <label for="input-rec-scanner">Bipe ou digite o QR code / nº de série e tecle Enter</label>
+                        <div class="ds-scanner">
+                            <input type="text" id="input-rec-scanner" class="font-mono" autocomplete="off">
+                            <button type="button" class="btn-secondary" id="btn-rec-adicionar">Adicionar</button>
+                        </div>
                     </div>
-
-                    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-                        <input type="text" id="input-rec-scanner" placeholder="Bipe ou digite o QR Code / Nº Série do cilindro e pressione Enter..." style="flex: 1; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; font-family: var(--font-family-mono, monospace); font-size: 13px; background: var(--color-bg); color: var(--color-text);">
-                        <button type="button" class="btn-auth" style="padding: 10px 16px; background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" onclick="const val = document.getElementById('input-rec-scanner').value.trim(); if (val) { RecebimentoFornecedor.adicionarCilindro(val); document.getElementById('input-rec-scanner').value = ''; }">
-                            Adicionar
-                        </button>
-                    </div>
-
-                    <div id="rec-cilindros-chips" style="display: flex; flex-wrap: wrap; gap: 8px; min-height: 38px; padding: 8px; background: var(--color-bg); border-radius: 8px; border: 1px solid var(--color-border);">
-                        <span style="color: var(--color-text-muted); font-size: 12px;">Nenhum cilindro bipado para esta nota fiscal.</span>
-                    </div>
+                    <p class="ds-page-subtitle"><strong id="rec-contador-cilindros">0 cilindros</strong> nesta nota</p>
+                    <div id="rec-cilindros-chips" class="ds-chips" aria-live="polite"></div>
                 </div>
 
-                <div class="form-actions" style="margin-top: 20px;">
-                    <button type="submit" id="btn-submit-recebimento" class="action-queue-btn" style="background: var(--color-primary); color: #fff; padding: 10px 22px; font-size: 14px; font-weight: 700;">
-                        Registrar Entrada de Fornecedor (RDC 887/2024)
-                    </button>
+                <div class="ds-step-pane" data-step="3">
+                    <dl class="ds-review" id="rec-revisao"></dl>
+                    <p class="ds-page-subtitle ds-mt">Os cilindros entram como <strong>cheios disponíveis</strong>, vinculados a este lote e nota.</p>
+                </div>
+
+                <div class="ds-stepper-footer">
+                    <button type="button" class="btn-outline" id="btn-rec-limpar">Limpar</button>
+                    <div class="ds-stepper-nav">
+                        <button type="button" class="btn-secondary" data-stepper-voltar>Voltar</button>
+                        <button type="button" class="btn-primary" data-stepper-proximo>Próximo</button>
+                        <button type="submit" class="btn-primary" id="btn-submit-recebimento" data-stepper-confirmar>Registrar entrada</button>
+                    </div>
                 </div>
             </form>
-        </div>
+        </section>
 
-        <!-- Tabela de Histórico de Recebimentos -->
-        <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 12px 0; color: var(--color-text);">Histórico de Entradas de Fornecedores</h3>
-        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <h2 class="ds-section-title">Histórico de recebimentos</h2>
+        <div class="table-container">
+            <table>
                 <thead>
-                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
-                        <th style="padding: 12px 16px;">Fornecedor</th>
-                        <th style="padding: 12px 16px;">Nota Fiscal</th>
-                        <th style="padding: 12px 16px;">Lote Fornecedor</th>
-                        <th style="padding: 12px 16px;">Cilindro QR</th>
-                        <th style="padding: 12px 16px;">Validade</th>
-                        <th style="padding: 12px 16px;">RT Conferente</th>
-                        <th style="padding: 12px 16px; text-align: right;">Laudo PDF</th>
-                    </tr>
+                    <tr><th>Fornecedor</th><th>Nota fiscal</th><th>Lote</th><th>Cilindro</th><th>Validade</th><th>RT conferente</th><th class="ds-num">Laudo</th></tr>
                 </thead>
-                <tbody id="tbody-historico-recebimentos">
-                    <tr>
-                        <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Carregando histórico...</td>
-                    </tr>
-                </tbody>
+                <tbody id="tbody-historico-recebimentos"></tbody>
             </table>
         </div>
     </div>

@@ -172,6 +172,12 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 | 2.2.8 | Rampa de envase (batelada) | Tela "estação": bipar → inspeção pré-envase → lote → concluir, com teclas grandes (uso no pátio) | G |
 | 2.2.9 | **Recall ANVISA** (`recall_anvisa.html`, 1.211 linhas, 17 `alert`) | Quebrar em: lista de campanhas → detalhe (linha do tempo ABERTO → HOMOLOGADO_RT → EM_NOTIFICACAO → CONCLUIDO) → clientes afetados → dossiê Notivisa | G |
 
+> **Status do 2.2 (28/10/2026), parcial:** 2.2.1 e 2.2.2 entraram no bloco 2.0. **Concluídos agora**:
+> - **2.2.3 Recebimento de fornecedor** em 3 etapas (Nota fiscal → Cilindros → Revisão), com bipagem e chips sem duplicidade e validade posterior ao envase. **Bug corrigido:** o campo "RT conferente" era montado a partir dos lotes e enviava o **ID do lote** como RT. Agora lista os RTs ativos reais da empresa.
+> - **2.2.4 a 2.2.7**: modais do painel do cilindro no padrão (bloqueio com motivo e **confirmação dupla**; reteste com **variação de tara ao vivo** e alerta acima de 5%; reclassificação com aviso de RT para gás medicinal; estorno com prévia do lançamento). Todos usam `Baros.api` e mostram o erro real do backend.
+> - **Zero `alert`/`confirm`/`prompt`** nos scripts de Produtos (eram 18), garantido por teste.
+> - **Faltam:** 2.2.8 (rampa como "estação") e 2.2.9 (Recall ANVISA). As etiquetas (layout de impressão) ainda têm estilos inline.
+
 ### 2.3 Telas novas (backend já pronto)
 | ID | Tela | API | Tam. |
 |---|---|---|:---:|

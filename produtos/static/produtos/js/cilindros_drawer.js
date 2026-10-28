@@ -430,76 +430,124 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. AÇÕES CONTEXTUAIS E MODAIS
     // ==============================================================================
 
-    // 3.1 Bloqueio / Liberação Sanitária (RT)
+    // 3.1 Bloqueio / Liberação Sanitária (RT) — Design System v1
+    function ligarFechar(dialogo) {
+        dialogo.querySelectorAll('[data-fechar-dialogo]').forEach(b => b.addEventListener('click', () => dialogo.close()));
+    }
+    function limparErros(form) {
+        form.querySelectorAll('.ds-field-error').forEach(el => el.remove());
+        form.querySelectorAll('.ds-invalid').forEach(el => el.classList.remove('ds-invalid'));
+    }
+    function rotuloCilindro() {
+        return activeCilindroData ? `${activeCilindroData.codigo_qr} · ${activeCilindroData.gas_sigla} · série ${activeCilindroData.numero_serie_ogiva}` : '';
+    }
+    function aposAcao(mensagem) {
+        Baros.sucesso(mensagem);
+        abrirDrawerAtivo(activeCilindroId);
+        carregarCilindros(currentPage);
+    }
+
     const btnDrawerBloqueio = document.getElementById('drawer-btn-bloqueio');
     if (btnDrawerBloqueio && modalBloqueio) {
+        const formBloqueio = document.getElementById('form-bloqueio-sanitario');
+        ligarFechar(modalBloqueio);
+
         btnDrawerBloqueio.addEventListener('click', () => {
             const acao = btnDrawerBloqueio.getAttribute('data-action') || 'BLOQUEIO';
-            document.getElementById('modal-bloqueio-acao-title').textContent = acao === 'BLOQUEIO' ? 'Acionar Bloqueio Sanitário' : 'Liberar Bloqueio Sanitário';
+            const bloquear = acao === 'BLOQUEIO';
+            limparErros(formBloqueio);
+            document.getElementById('modal-bloqueio-acao-title').textContent = bloquear ? 'Bloquear cilindro (sanitário)' : 'Liberar bloqueio sanitário';
             document.getElementById('bloqueio-acao-input').value = acao;
             document.getElementById('bloqueio-justificativa').value = '';
+            document.getElementById('bloqueio-alvo').textContent = rotuloCilindro();
+            const confirmar = document.getElementById('btn-confirmar-bloqueio');
+            confirmar.textContent = bloquear ? 'Bloquear cilindro' : 'Liberar cilindro';
+            confirmar.className = bloquear ? 'btn-danger' : 'btn-primary';
             modalBloqueio.showModal();
         });
 
         document.getElementById('btn-cancelar-bloqueio').addEventListener('click', () => modalBloqueio.close());
 
-        document.getElementById('form-bloqueio-sanitario').addEventListener('submit', async (e) => {
+        formBloqueio.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!Baros.validarCampos(formBloqueio)) return;
             const acao = document.getElementById('bloqueio-acao-input').value;
-            const motivo = document.getElementById('bloqueio-justificativa').value;
-
+            const bloquear = acao === 'BLOQUEIO';
+            // Confirmação dupla: a intervenção sanitária é registrada para sempre
+            modalBloqueio.close();
+            const ok = await Baros.confirmar({
+                titulo: bloquear ? 'Confirmar o bloqueio?' : 'Confirmar a liberação?',
+                texto: rotuloCilindro() + (bloquear ? '. O cilindro não poderá ser expedido até ser liberado.' : '. O cilindro volta a poder ser expedido.'),
+                botao: bloquear ? 'Bloquear' : 'Liberar',
+                perigo: bloquear,
+            });
+            if (!ok) { modalBloqueio.showModal(); return; }
             try {
-                const res = await fetch(`/produtos/api/cilindros/${activeCilindroId}/bloqueio-sanitario/`, {
+                await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/bloqueio-sanitario/`, {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ acao, motivo })
+                    body: { acao, motivo: document.getElementById('bloqueio-justificativa').value.trim() },
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "Erro ao processar bloqueio sanitário");
-
-                modalBloqueio.close();
-                Swal.fire("Sucesso!", `Bloqueio sanitário ${acao === 'BLOQUEIO' ? 'acionado' : 'liberado'} com sucesso.`, "success");
-                abrirDrawerAtivo(activeCilindroId);
-                carregarCilindros(currentPage);
+                aposAcao(bloquear ? 'Cilindro bloqueado.' : 'Bloqueio liberado.');
             } catch (err) {
-                Swal.fire("Erro!", err.message, "error");
+                Baros.erro(err.mensagem);
             }
         });
     }
 
-    // 3.2 Retorno de Reteste
+    // 3.2 Retorno de Reteste (variação de tara ao vivo; tolerância de 5% — DECISOES 8B.3)
     const btnDrawerReteste = document.getElementById('drawer-btn-reteste');
     if (btnDrawerReteste && modalReteste) {
+        const formReteste = document.getElementById('form-retorno-reteste');
+        const campoTara = document.getElementById('reteste-nova-tara');
+        const avisoTara = document.getElementById('reteste-variacao-tara');
+        const TOLERANCIA_TARA_PCT = 5;
+        const fmt = (v) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        ligarFechar(modalReteste);
+
+        function atualizarVariacaoTara() {
+            const atual = activeCilindroData ? Number(activeCilindroData.tara_real_kg) : 0;
+            const nova = Number(campoTara.value);
+            avisoTara.classList.remove('ds-alerta-texto');
+            if (!atual) { avisoTara.textContent = 'Sem tara registrada para comparar.'; return; }
+            if (!campoTara.value) { avisoTara.textContent = `Tara atual: ${fmt(atual)} kg`; return; }
+            const pct = ((nova - atual) / atual) * 100;
+            const texto = `Atual ${fmt(atual)} kg · variação ${pct >= 0 ? '+' : ''}${fmt(pct)}%`;
+            if (Math.abs(pct) > TOLERANCIA_TARA_PCT) {
+                avisoTara.textContent = texto + ` (acima da tolerância de ${TOLERANCIA_TARA_PCT}%: registre no laudo)`;
+                avisoTara.classList.add('ds-alerta-texto');
+            } else {
+                avisoTara.textContent = texto;
+            }
+        }
+        campoTara.addEventListener('input', atualizarVariacaoTara);
+
         btnDrawerReteste.addEventListener('click', () => {
+            limparErros(formReteste);
             document.getElementById('reteste-data-realizado').valueAsDate = new Date();
-            document.getElementById('reteste-nova-tara').value = activeCilindroData && activeCilindroData.tara_real_kg ? activeCilindroData.tara_real_kg : '';
+            campoTara.value = activeCilindroData && activeCilindroData.tara_real_kg ? activeCilindroData.tara_real_kg : '';
             document.getElementById('reteste-obs').value = '';
+            atualizarVariacaoTara();
             modalReteste.showModal();
         });
 
         document.getElementById('btn-cancelar-reteste').addEventListener('click', () => modalReteste.close());
 
-        document.getElementById('form-retorno-reteste').addEventListener('submit', async (e) => {
+        formReteste.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const nova_data_reteste = document.getElementById('reteste-data-realizado').value;
-            const nova_tara_kg = document.getElementById('reteste-nova-tara').value;
-            const observacao = document.getElementById('reteste-obs').value;
-
+            if (!Baros.validarCampos(formReteste)) return;
             try {
-                const res = await fetch(`/produtos/api/cilindros/${activeCilindroId}/retorno-reteste/`, {
+                await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/retorno-reteste/`, {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ nova_data_reteste, nova_tara_kg, observacao })
+                    body: {
+                        nova_data_reteste: document.getElementById('reteste-data-realizado').value,
+                        nova_tara_kg: campoTara.value,
+                        observacao: document.getElementById('reteste-obs').value.trim(),
+                    },
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "Erro ao registrar retorno de reteste");
-
                 modalReteste.close();
-                Swal.fire("Aprovado!", "Reteste hidrostático registrado e validade renovada com sucesso.", "success");
-                abrirDrawerAtivo(activeCilindroId);
-                carregarCilindros(currentPage);
+                aposAcao('Reteste registrado e validade renovada.');
             } catch (err) {
-                Swal.fire("Erro no Reteste!", err.message, "error");
+                Baros.mostrarErrosApi(formReteste, err);
             }
         });
     }
@@ -507,17 +555,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3.3 Reclassificar Gás
     const btnDrawerReclassificar = document.getElementById('drawer-btn-reclassificar');
     if (btnDrawerReclassificar && modalReclassificar) {
-        btnDrawerReclassificar.addEventListener('click', async () => {
-            // Carrega lista de gases químicos
-            const selectGas = document.getElementById('reclassificar-novo-gas');
-            selectGas.innerHTML = '<option value="">Carregando gases...</option>';
-            modalReclassificar.showModal();
+        const formReclassificar = document.getElementById('form-reclassificar-gas');
+        ligarFechar(modalReclassificar);
 
+        btnDrawerReclassificar.addEventListener('click', async () => {
+            const selectGas = document.getElementById('reclassificar-novo-gas');
+            formReclassificar.reset();
+            limparErros(formReclassificar);
+            selectGas.innerHTML = '';
+            selectGas.appendChild(new Option('Carregando gases...', ''));
+            modalReclassificar.showModal();
             try {
                 // Gases reais do cadastro global (antes a lista era fixa no código, com IDs presumidos).
-                const resGases = await fetch('/produtos/api/catalogo/gases/', { headers: getAuthHeaders() });
-                if (!resGases.ok) throw new Error('HTTP ' + resGases.status);
-                const gases = await resGases.json();
+                const gases = await Baros.api('/produtos/api/catalogo/gases/');
                 const gasAtual = activeCilindroData ? activeCilindroData.gas_dedicado : null;
                 selectGas.innerHTML = '';
                 selectGas.appendChild(new Option('Selecione o novo gás...', ''));
@@ -526,46 +576,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     selectGas.appendChild(new Option(`${g.nome} (${g.sigla})${cor}`, g.id));
                 });
             } catch (err) {
-                selectGas.innerHTML = '<option value="">Erro ao carregar lista de gases</option>';
+                selectGas.innerHTML = '';
+                selectGas.appendChild(new Option('Erro ao carregar a lista de gases', ''));
             }
         });
 
         document.getElementById('btn-cancelar-reclassificar').addEventListener('click', () => modalReclassificar.close());
 
-        document.getElementById('form-reclassificar-gas').addEventListener('submit', async (e) => {
+        formReclassificar.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const novo_gas_id = document.getElementById('reclassificar-novo-gas').value;
-            const purga = document.getElementById('check-purga').checked;
-            const valvula = document.getElementById('check-valvula').checked;
-            const pintura = document.getElementById('check-pintura').checked;
-            const observacoes = document.getElementById('reclassificar-obs').value;
-
-            if (!novo_gas_id) {
-                Swal.fire("Atenção", "Selecione o gás de destino.", "warning");
-                return;
-            }
-
+            if (!Baros.validarCampos(formReclassificar)) return;
             try {
-                const res = await fetch(`/produtos/api/cilindros/${activeCilindroId}/reclassificar/`, {
+                await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/reclassificar/`, {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        novo_gas_id,
-                        descontaminacao_purga_executada: purga,
-                        troca_valvula_executada: valvula,
-                        adequacao_pintura_executada: pintura,
-                        observacoes
-                    })
+                    body: {
+                        novo_gas_id: document.getElementById('reclassificar-novo-gas').value,
+                        descontaminacao_purga_executada: document.getElementById('check-purga').checked,
+                        troca_valvula_executada: document.getElementById('check-valvula').checked,
+                        adequacao_pintura_executada: document.getElementById('check-pintura').checked,
+                        observacoes: document.getElementById('reclassificar-obs').value.trim(),
+                    },
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "Erro ao reclassificar gás");
-
                 modalReclassificar.close();
-                Swal.fire("Reclassificado!", "Cilindro reclassificado com conformidade ABNT e registro de auditoria.", "success");
-                abrirDrawerAtivo(activeCilindroId);
-                carregarCilindros(currentPage);
+                aposAcao('Cilindro reclassificado.');
             } catch (err) {
-                Swal.fire("Erro na Reclassificação", err.message, "error");
+                Baros.mostrarErrosApi(formReclassificar, err);
             }
         });
     }
@@ -573,35 +608,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3.4 Estorno Auditado do Ledger
     function iniciarModalEstorno(movId, tipo) {
         if (!modalEstorno) return;
+        const formEstorno = document.getElementById('form-estorno-ledger');
+        limparErros(formEstorno);
         document.getElementById('estorno-mov-id').value = movId;
-        document.getElementById('estorno-mov-desc').textContent = `Movimentação #${movId} (${tipo})`;
+        document.getElementById('estorno-mov-desc').textContent = `Lançamento #${movId} · ${tipo} · ${rotuloCilindro()}`;
         document.getElementById('estorno-justificativa').value = '';
         modalEstorno.showModal();
     }
 
     if (modalEstorno) {
+        const formEstorno = document.getElementById('form-estorno-ledger');
+        ligarFechar(modalEstorno);
         document.getElementById('btn-cancelar-estorno').addEventListener('click', () => modalEstorno.close());
 
-        document.getElementById('form-estorno-ledger').addEventListener('submit', async (e) => {
+        formEstorno.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const movimentacao_id = document.getElementById('estorno-mov-id').value;
-            const justificativa = document.getElementById('estorno-justificativa').value;
-
+            if (!Baros.validarCampos(formEstorno)) return;
             try {
-                const res = await fetch(`/produtos/api/cilindros/${activeCilindroId}/estorno/`, {
+                await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/estorno/`, {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ movimentacao_id, justificativa })
+                    body: {
+                        movimentacao_id: document.getElementById('estorno-mov-id').value,
+                        justificativa: document.getElementById('estorno-justificativa').value.trim(),
+                    },
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "Erro ao estornar movimentação");
-
                 modalEstorno.close();
-                Swal.fire("Estorno Concluído!", "Movimentação revertida com contra-partida no Ledger imutável.", "success");
-                abrirDrawerAtivo(activeCilindroId);
-                carregarCilindros(currentPage);
+                aposAcao('Lançamento estornado.');
             } catch (err) {
-                Swal.fire("Erro no Estorno", err.message, "error");
+                Baros.mostrarErrosApi(formEstorno, err);
             }
         });
     }

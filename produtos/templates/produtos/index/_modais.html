@@ -1,110 +1,110 @@
 
     <!-- ============================================================================== -->
-    <!-- MODAL 1: BLOQUEIO / LIBERAÇÃO SANITÁRIA (RT)                                   -->
+    <!-- MODAIS DE AÇÃO DO CILINDRO (Design System v1) — produtos/js/cilindros_drawer.js -->
     <!-- ============================================================================== -->
-    <dialog id="modal-bloqueio-sanitario" class="action-modal">
-        <h3 id="modal-bloqueio-acao-title" style="margin-top:0; color:var(--color-text);">Bloqueio Sanitário ANVISA</h3>
-        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
-            Ação exclusiva do Responsável Técnico (CRF/CRQ). Toda intervenção é gravada de forma perpétua na trilha de auditoria regulatória.
-        </p>
-        <form id="form-bloqueio-sanitario">
+
+    <!-- 1. Bloqueio / liberação sanitária (RT) -->
+    <dialog id="modal-bloqueio-sanitario" class="action-modal ds-dialog" aria-labelledby="modal-bloqueio-acao-title">
+        <form id="form-bloqueio-sanitario" novalidate>
+            <div class="modal-header">
+                <h3 id="modal-bloqueio-acao-title">Bloqueio sanitário</h3>
+                <button type="button" class="close-modal" id="btn-cancelar-bloqueio" aria-label="Fechar">×</button>
+            </div>
+            <p class="ds-page-subtitle ds-mb">Ação do Responsável Técnico (CRF/CRQ). Fica registrada para sempre na trilha de auditoria sanitária.</p>
             <input type="hidden" id="bloqueio-acao-input" value="BLOQUEIO">
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Justificativa Técnica / Motivo *</label>
-                <textarea id="bloqueio-justificativa" rows="3" required style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; font-size: 13px; background: var(--color-bg); color: var(--color-text);" placeholder="Ex: Cilindro com suspeita de óleo/particulado na válvula ou quarentena por recolhimento suspeito..."></textarea>
+            <div class="ds-dialog-alvo" id="bloqueio-alvo"></div>
+            <div class="form-group">
+                <label for="bloqueio-justificativa">Justificativa técnica *</label>
+                <textarea id="bloqueio-justificativa" name="motivo" rows="3" required minlength="10"
+                          placeholder="Ex.: suspeita de óleo ou particulado na válvula; quarentena por recolhimento suspeito."></textarea>
+                <span class="ds-field-help">Mínimo de 10 caracteres.</span>
             </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" id="btn-cancelar-bloqueio" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Cancelar</button>
-                <button type="submit" class="action-queue-btn" style="background: var(--status-danger);">Confirmar Intervenção</button>
-            </div>
-        </form>
-    </dialog>
-
-    <!-- ============================================================================== -->
-    <!-- MODAL 2: REGISTRAR RETORNO DE RETESTE HIDROSTÁTICO                             -->
-    <!-- ============================================================================== -->
-    <dialog id="modal-retorno-reteste" class="action-modal">
-        <h3 style="margin-top:0; color:var(--color-text);">Registrar Retorno de Reteste Hidrostático</h3>
-        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
-            Atualização das datas normativas ABNT e aferição de nova tara após requalificação em oficina credenciada INMETRO.
-        </p>
-        <form id="form-retorno-reteste">
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Data do Teste Hidrostático *</label>
-                <input type="date" id="reteste-data-realizado" required style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);">
-            </div>
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Nova Tara Real Aferida (kg)</label>
-                <input type="number" step="0.01" id="reteste-nova-tara" placeholder="Ex: 54.20" style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);">
-            </div>
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Observações / Nº Laudo Requalificadora</label>
-                <input type="text" id="reteste-obs" placeholder="Ex: Laudo Hidrostático nº 4921/2026 - Aprovado" style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);">
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" id="btn-cancelar-reteste" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Cancelar</button>
-                <button type="submit" class="action-queue-btn" style="background: var(--status-approved);">Homologar Reteste</button>
+            <div class="form-actions">
+                <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
+                <button type="submit" class="btn-danger" id="btn-confirmar-bloqueio">Bloquear cilindro</button>
             </div>
         </form>
     </dialog>
 
-    <!-- ============================================================================== -->
-    <!-- MODAL 3: RECLASSIFICAR GÁS                                                     -->
-    <!-- ============================================================================== -->
-    <dialog id="modal-reclassificar-gas" class="action-modal">
-        <h3 style="margin-top:0; color:var(--color-text);">Reclassificação de Gás Dedicado</h3>
-        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
-            Processo auditado de conversão de gás (ex: Industrial &rarr; Medicinal). Exige cumprimento das 3 etapas físicas ABNT.
-        </p>
-        <form id="form-reclassificar-gas">
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Gás de Destino *</label>
-                <select id="reclassificar-novo-gas" required style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);"></select>
+    <!-- 2. Retorno de reteste hidrostático -->
+    <dialog id="modal-retorno-reteste" class="action-modal ds-dialog" aria-labelledby="titulo-reteste">
+        <form id="form-retorno-reteste" novalidate>
+            <div class="modal-header">
+                <h3 id="titulo-reteste">Registrar retorno de reteste</h3>
+                <button type="button" class="close-modal" id="btn-cancelar-reteste" aria-label="Fechar">×</button>
             </div>
-            <div style="background: var(--color-bg); padding: 12px; border-radius: 8px; margin-bottom: 14px; border: 1px solid var(--color-border);">
-                <strong style="font-size: 12px; text-transform: uppercase; color: var(--color-text-muted); display: block; margin-bottom: 8px;">Checklist Obrigatório ABNT NBR 12176:</strong>
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; cursor: pointer;">
-                    <input type="checkbox" id="check-purga" required> Descontaminação e Purga a Vácuo / Térmica executada
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; cursor: pointer;">
-                    <input type="checkbox" id="check-valvula" required> Substituição e torqueamento de válvula padrão para o novo gás
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
-                    <input type="checkbox" id="check-pintura" required> Adequação de pintura de corpo e ogiva normativa ABNT
-                </label>
+            <p class="ds-page-subtitle ds-mb">Renova a validade normativa e registra a tara aferida na requalificadora (INMETRO).</p>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="reteste-data-realizado">Data do teste *</label>
+                    <input type="date" id="reteste-data-realizado" name="nova_data_reteste" required>
+                </div>
+                <div class="form-group">
+                    <label for="reteste-nova-tara">Tara aferida (kg)</label>
+                    <input type="number" step="0.01" min="0" id="reteste-nova-tara" name="nova_tara_kg" class="font-mono">
+                    <span class="ds-field-help" id="reteste-variacao-tara">Tara atual: —</span>
+                </div>
+                <div class="form-group full-width">
+                    <label for="reteste-obs">Nº do laudo / observações</label>
+                    <input type="text" id="reteste-obs" name="observacao" maxlength="255" placeholder="Ex.: Laudo 4921/2026 · aprovado">
+                </div>
             </div>
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Observações da Reclassificação</label>
-                <textarea id="reclassificar-obs" rows="2" style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; font-size: 13px; background: var(--color-bg); color: var(--color-text);" placeholder="Detalhes do laudo de descontaminação e testes efetuados..."></textarea>
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" id="btn-cancelar-reclassificar" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Cancelar</button>
-                <button type="submit" class="action-queue-btn" style="background: var(--color-primary);">Homologar Reclassificação</button>
+            <div class="form-actions">
+                <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
+                <button type="submit" class="btn-primary">Registrar reteste</button>
             </div>
         </form>
     </dialog>
 
-    <!-- ============================================================================== -->
-    <!-- MODAL 4: LANÇAR ESTORNO AUDITADO NO LEDGER                                     -->
-    <!-- ============================================================================== -->
-    <dialog id="modal-estorno-ledger" class="action-modal">
-        <h3 style="margin-top:0; color:#dc2626;">Lançar Estorno Auditado no Ledger</h3>
-        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 14px;">
-            O Ledger imutável não permite exclusão ou alteração de dados históricos. O estorno cria uma contra-partida que reverte o estado do cilindro de forma 100% auditável.
-        </p>
-        <form id="form-estorno-ledger">
+    <!-- 3. Reclassificação de gás dedicado -->
+    <dialog id="modal-reclassificar-gas" class="action-modal ds-dialog" aria-labelledby="titulo-reclassificar">
+        <form id="form-reclassificar-gas" novalidate>
+            <div class="modal-header">
+                <h3 id="titulo-reclassificar">Reclassificar gás dedicado</h3>
+                <button type="button" class="close-modal" id="btn-cancelar-reclassificar" aria-label="Fechar">×</button>
+            </div>
+            <p class="ds-page-subtitle ds-mb">Conversão auditada do gás do cilindro. Para gás <strong>medicinal</strong>, a homologação exige o Responsável Técnico: faça a operação com o usuário do RT.</p>
+            <div class="form-group">
+                <label for="reclassificar-novo-gas">Gás de destino *</label>
+                <select id="reclassificar-novo-gas" name="novo_gas_id" required></select>
+            </div>
+            <div class="modal-section-card ds-mt">
+                <h4 class="modal-section-title">Checklist obrigatório (ABNT NBR 12176)</h4>
+                <div class="ds-checklist">
+                    <label class="ds-check"><input type="checkbox" id="check-purga" required> Descontaminação e purga (vácuo/térmica) executada</label>
+                    <label class="ds-check"><input type="checkbox" id="check-valvula" required> Válvula do novo gás instalada e torqueada</label>
+                    <label class="ds-check"><input type="checkbox" id="check-pintura" required> Pintura de corpo e ogiva adequada ao novo gás</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="reclassificar-obs">Observações</label>
+                <textarea id="reclassificar-obs" name="observacoes" rows="2" placeholder="Laudo de descontaminação e testes efetuados."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
+                <button type="submit" class="btn-primary">Reclassificar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- 4. Estorno auditado no ledger -->
+    <dialog id="modal-estorno-ledger" class="action-modal ds-dialog" aria-labelledby="titulo-estorno">
+        <form id="form-estorno-ledger" novalidate>
+            <div class="modal-header">
+                <h3 id="titulo-estorno">Estornar lançamento</h3>
+                <button type="button" class="close-modal" id="btn-cancelar-estorno" aria-label="Fechar">×</button>
+            </div>
+            <p class="ds-page-subtitle ds-mb">O histórico do cilindro não é apagado: o estorno cria um lançamento contrário que desfaz o efeito, com seu nome e o motivo.</p>
             <input type="hidden" id="estorno-mov-id">
-            <div style="background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; margin-bottom: 14px;">
-                <span style="font-size: 11px; text-transform: uppercase; color: var(--color-text-muted); font-weight: 600;">Lançamento Alvo:</span>
-                <div id="estorno-mov-desc" style="font-size: 13px; font-weight: 700; color: var(--color-text); margin-top: 2px;"></div>
+            <div class="ds-dialog-alvo" id="estorno-mov-desc"></div>
+            <div class="form-group">
+                <label for="estorno-justificativa">Motivo do estorno *</label>
+                <textarea id="estorno-justificativa" name="justificativa" rows="3" required minlength="10"
+                          placeholder="Ex.: bipagem por engano no romaneio 104; o cilindro ficou no pátio."></textarea>
             </div>
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--color-text);">Justificativa Obrigatória do Estorno *</label>
-                <textarea id="estorno-justificativa" rows="3" required style="width: 100%; border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; font-size: 13px; background: var(--color-bg); color: var(--color-text);" placeholder="Ex: Bipagem executada por equívoco no romaneio 104; o cilindro físico permaneceu no pátio..."></textarea>
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" id="btn-cancelar-estorno" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Cancelar</button>
-                <button type="submit" class="action-queue-btn" style="background: #dc2626;">Efetivar Estorno</button>
+            <div class="form-actions">
+                <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
+                <button type="submit" class="btn-danger">Estornar</button>
             </div>
         </form>
     </dialog>

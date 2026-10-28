@@ -1065,6 +1065,10 @@ class ProdutoTemplateView(LoginRequiredMixin, TemplateView):
             'unidades_sku': SkuRecarga.UNIDADE_CHOICES,
             'materiais_modelo': ModeloCilindro.MATERIAL_CHOICES,
             'propriedades_cilindro': [p for p in Cilindro.PROPRIEDADE_CHOICES if p[0] != 'DISTRIBUIDORA'],
+            # RTs reais da empresa (o recebimento enviava o ID de um lote como RT).
+            'responsaveis_tecnicos': ResponsavelTecnico.objects.filter(
+                tenant=getattr(self.request, 'tenant', None), ativo=True
+            ).order_by('nome_completo') if getattr(self.request, 'tenant', None) else [],
         })
         return contexto
 
