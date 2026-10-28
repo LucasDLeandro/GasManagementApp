@@ -11,6 +11,59 @@ document.addEventListener('DOMContentLoaded', async () => {
   let vaziosParada = [];
   let gpsCoords = { latitude: null, longitude: null };
 
+  // ---- Rastreamento Dinâmico GPS em Segundo Plano (Sprint 8) ----
+  let ultimoGpsSalvo = 0;
+  let watchGpsId = null;
+
+  function iniciarTrackingGPS() {
+    if (!('geolocation' in navigator)) {
+      console.warn('[PWA Tracking] Geolocalização não suportada no navegador.');
+      return;
+    }
+
+    watchGpsId = navigator.geolocation.watchPosition(
+      async (pos) => {
+        if (!pos || !pos.coords) return;
+        const { latitude, longitude } = pos.coords;
+        gpsCoords = { latitude, longitude };
+
+        const agora = Date.now();
+        // A cada 30 segundos, salva a coordenada na fila local
+        if (agora - ultimoGpsSalvo >= 30000) {
+          const entregaId = (rotaPacote && rotaPacote.entrega_id) || window.__CURRENT_ENTREGA_ID__ || null;
+          if (entregaId && window.GasAppOffline) {
+            try {
+              await window.GasAppOffline.enfileirarCoordenadaGPS({
+                lat: latitude,
+                lng: longitude,
+                timestamp: new Date(pos.timestamp || agora).toISOString(),
+                entrega_id: entregaId
+              });
+              ultimoGpsSalvo = agora;
+              console.log(`[PWA Tracking] Coordenada salva no IndexedDB: [${latitude.toFixed(5)}, ${longitude.toFixed(5)}] para Entrega #${entregaId}`);
+
+              if (navigator.onLine) {
+                window.GasAppOffline.sincronizarTrackingGPS();
+              }
+            } catch (err) {
+              console.warn('[PWA Tracking] Erro ao salvar coordenada GPS:', err);
+            }
+          }
+        }
+      },
+      (err) => {
+        console.warn('[PWA Tracking] Erro ao monitorar GPS:', err.message);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 27000
+      }
+    );
+  }
+
+  iniciarTrackingGPS();
+
   // ---- Funções Utilitárias Centralizadas de Modal (Isolamento Estrito) ----
   function abrirModalCampo(modalEl) {
     if (!modalEl) return;

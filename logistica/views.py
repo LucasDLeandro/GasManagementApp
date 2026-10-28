@@ -1,6 +1,9 @@
 import uuid
+import logging
 from decimal import Decimal
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
+
+logger = logging.getLogger(__name__)
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, BasePermission
@@ -8,20 +11,23 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from PIL import Image
 
+from django.views import View
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
-from django.http import HttpResponse, FileResponse, Http404
+from django.http import HttpResponse, FileResponse, Http404, JsonResponse
 from django.core.files.base import ContentFile
 from django.db import models
 import base64
 
+from django.core.exceptions import PermissionDenied
 from core.mixins import TenantViewSetMixin
 from core.tenancy import get_current_tenant
 from core.permissions import (
     resolve_request_membership,
     IsTenantMember,
-    IsTenantAdminOrGerente
+    IsTenantAdminOrGerente,
+    RequiresModuleLogistica
 )
 
 def validar_upload_imagem(file, max_mb=5):
@@ -99,7 +105,17 @@ from .models import (
     SinistroItemCarga,
     ConfiguracaoRentabilidade,
     CustoViagem,
-    CustoViagemItem
+    CustoViagemItem,
+    TabelaFreteInterno,
+    AlocacaoMotoristaVeiculo,
+    CapacidadeVeiculoTipoCilindro,
+    Motorista,
+    RegraIncompatibilidadeCarga,
+    LiberacaoCarga,
+    ParadaEntrega,
+    TokenRastreio,
+    TrajetoEntrega,
+    CoordenadaRastreamento,
 )
 from .serializers import (
     VeiculoSerializer,
@@ -136,7 +152,18 @@ from .serializers import (
     SinistroItemCargaSerializer,
     ConfiguracaoRentabilidadeSerializer,
     CustoViagemSerializer,
-    CustoViagemItemSerializer
+    CustoViagemItemSerializer,
+    TabelaFreteInternoSerializer,
+    AlocacaoMotoristaVeiculoSerializer,
+    MargemVeiculoInputSerializer,
+    TCOVeiculoInputSerializer,
+    CapacidadeVeiculoTipoCilindroSerializer,
+    MotoristaSerializer,
+    RegraIncompatibilidadeCargaSerializer,
+    LiberacaoCargaSerializer,
+    ParadaEntregaSerializer,
+    TokenRastreioSerializer,
+    TrajetoEntregaSerializer,
 )
 from vendas.models import ItemVenda
 from produtos.models import Cilindro
@@ -184,6 +211,12 @@ from .services.manutencao import (
 class LogisticaTemplateView(LoginRequiredMixin, TemplateView):
     template_name = 'logistica/index.html'
 
+    def dispatch(self, request, *args, **kwargs):
+        tenant = getattr(request, 'tenant', None) or get_current_tenant()
+        if not (request.user.is_superuser or (tenant and tenant.tem_modulo_distribuicao)):
+            raise PermissionDenied("Acesso negado: Seu plano não contempla os Módulos de Distribuição e Logística.")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         from django.contrib.auth import get_user_model
@@ -207,6 +240,12 @@ class AppCampoView(LoginRequiredMixin, TemplateView):
     """
     template_name = 'logistica/app_campo.html'
 
+    def dispatch(self, request, *args, **kwargs):
+        tenant = getattr(request, 'tenant', None) or get_current_tenant()
+        if not (request.user.is_superuser or (tenant and tenant.tem_modulo_distribuicao)):
+            raise PermissionDenied("Acesso negado: Seu plano não contempla os Módulos de Distribuição e Logística.")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
@@ -227,7 +266,7 @@ class AppCampoView(LoginRequiredMixin, TemplateView):
 class VeiculoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = Veiculo.unscoped.all()
     serializer_class = VeiculoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresModuleLogistica]
 
     def paginate_queryset(self, queryset):
         if self.request.query_params.get('sem_paginacao') in ('1', 'true', 'True'):
@@ -444,7 +483,7 @@ class VeiculoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
 class RotaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = Rota.unscoped.all()
     serializer_class = RotaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresModuleLogistica]
 
     def paginate_queryset(self, queryset):
         if self.request.query_params.get('sem_paginacao') in ('1', 'true', 'True'):
@@ -715,7 +754,7 @@ from core.permissions import IsMotoristaOrAdmin
 class EntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = Entrega.unscoped.all()
     serializer_class = EntregaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RequiresModuleLogistica]
 
     def paginate_queryset(self, queryset):
         if self.request.query_params.get('sem_paginacao') in ('1', 'true', 'True'):
@@ -724,7 +763,7 @@ class EntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['concluir_romaneio', 'comprovante_assinatura', 'pacote_rota', 'minha_rota_ativa']:
-            return [IsMotoristaOrAdmin()]
+            return [IsMotoristaOrAdmin(), RequiresModuleLogistica()]
         return [permission() for permission in self.permission_classes]
 
     def _validar_aptidao_veiculo(self, veiculo, request_data, entrega=None):
@@ -795,6 +834,82 @@ class EntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
             statuses = status_param.split(',')
             qs = qs.filter(status__in=statuses)
         return qs
+
+    @action(detail=True, methods=['get', 'post'], url_path='validar-carga')
+    def validar_carga_action(self, request, pk=None):
+        """Validação técnica de peso, tipo de cilindro, incompatibilidade química e documentos (Sprint 12A - Tarefa 2)."""
+        entrega = self.get_object()
+        from logistica.services.carga import validar_carga
+        res = validar_carga(entrega)
+        return Response({
+            'valido': res.valido,
+            'bloqueado': res.bloqueado,
+            'erros_bloqueantes': res.erros_bloqueantes,
+            'avisos': res.avisos,
+            'peso_total_kg': float(res.peso_total_kg),
+            'capacidade_veiculo_kg': float(res.capacidade_veiculo_kg),
+            'percentual_peso': float(res.percentual_peso),
+            'contagem_por_tipo': res.contagem_por_tipo,
+            'classes_risco_presentes': res.classes_risco_presentes,
+            'detalhes': res.detalhes,
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='liberar-carga')
+    def liberar_carga_action(self, request, pk=None):
+        """Liberação formal e auditada de saída com pendências de validação (Sprint 12A - Tarefa 2)."""
+        entrega = self.get_object()
+        motivo = request.data.get('motivo', '')
+        from logistica.services.carga import liberar_carga_bloqueada
+        from django.core.exceptions import ValidationError as DjangoValidationError, PermissionDenied as DjangoPermissionDenied
+        try:
+            lib = liberar_carga_bloqueada(entrega=entrega, responsavel=request.user, motivo=motivo)
+            return Response({
+                'mensagem': 'Carga liberada com sucesso e saída para rota autorizada.',
+                'liberacao_id': lib.id,
+                'status_entrega': entrega.status,
+            }, status=status.HTTP_200_OK)
+        except DjangoPermissionDenied as e:
+            return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except DjangoValidationError as e:
+            msg = e.message if hasattr(e, 'message') else str(e)
+            return Response({'detail': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='despachar-rota')
+    def despachar_rota_action(self, request, pk=None):
+        """Transiciona a entrega para 'Em Rota' após verificar validação ou liberação prévia (Sprint 12A - Tarefa 2)."""
+        entrega = self.get_object()
+        from logistica.services.carga import despachar_entrega_para_rota
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            despachar_entrega_para_rota(entrega=entrega, usuario=request.user)
+            return Response({
+                'mensagem': 'Entrega despachada para rota com sucesso.',
+                'entrega_id': entrega.id,
+                'status': entrega.status,
+            }, status=status.HTTP_200_OK)
+        except DjangoValidationError as e:
+            msg = e.message if hasattr(e, 'message') else str(e)
+            return Response({'detail': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='notificar-saida')
+    def notificar_saida_action(self, request, pk=None):
+        """Dispara link de rastreio aos clientes por canais com consentimento (Sprint 12A - Tarefa 8)."""
+        entrega = self.get_object()
+        from logistica.services.rastreio_publico_service import notificar_saida_entrega_com_consentimento
+        notifs = notificar_saida_entrega_com_consentimento(entrega)
+        return Response({
+            'total_notificacoes': len(notifs),
+            'notificacoes': notifs
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='trajeto')
+    def trajeto_action(self, request, pk=None):
+        """Retorna o trajeto simplificado em menos de 300 ms (Sprint 12A - Tarefa 6)."""
+        entrega = self.get_object()
+        from logistica.services.rastreamento_service import consolidar_trajeto_simplificado
+        trajeto = consolidar_trajeto_simplificado(entrega.id)
+        from .serializers import TrajetoEntregaSerializer
+        return Response(TrajetoEntregaSerializer(trajeto).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get', 'post'], url_path='romaneio-bilateral')
     def romaneio_bilateral(self, request, pk=None):
@@ -3095,3 +3210,369 @@ class CustoViagemItemComprovanteDownloadView(APIView):
             return response
         except Exception:
             raise Http404("Arquivo físico do comprovante não encontrado.")
+
+
+class TrackingPublicoView(View):
+    """
+    View Pública de Rastreio em Tempo Real para clientes finais (Sem Autenticação DRF).
+    Fail-Closed: Acessível exclusivamente via UUID (token de rastreio).
+    Exibe dados estritamente mínimos (placa mascarada, status da entrega e posição sob janela de privacidade).
+    LGPD / Segurança: NUNCA serializa o nome do motorista, valores fiscais ou dados de outros clientes.
+    Segurança de Busca: Adiciona cabeçalho X-Robots-Tag: noindex, nofollow e rate limit por IP.
+    """
+    def get(self, request, token, *args, **kwargs):
+        from django.http import JsonResponse, Http404
+        from django.shortcuts import render
+        from django.core.cache import cache
+        from .services.rastreio_publico_service import consultar_rastreio_publico
+
+        # 1. Rate limiting por IP (Sprint 12A - Tarefa 7)
+        ip = _obter_ip_cliente(request)
+        cache_key = f"rl_rastreio_{ip}"
+        try:
+            req_count = cache.get(cache_key, 0)
+            if req_count is not None and int(req_count) >= 60:
+                resp = JsonResponse({"erro": "Limite de requisições excedido. Tente novamente em instantes."}, status=429)
+                resp['X-Robots-Tag'] = 'noindex, nofollow'
+                return resp
+            cache.set(cache_key, int(req_count or 0) + 1, timeout=60)
+        except Exception:
+            pass
+
+        # 2. Consulta segura com validação de token e janela de privacidade (Correção F-34)
+        try:
+            dados = consultar_rastreio_publico(token)
+        except Exception as e:
+            if request.headers.get('Accept') == 'application/json' or request.GET.get('format') == 'json':
+                resp = JsonResponse({"erro": "Entrega não encontrada ou link expirado/revogado."}, status=404)
+                resp['X-Robots-Tag'] = 'noindex, nofollow'
+                return resp
+            raise Http404("Entrega não encontrada ou link expirado/revogado.")
+
+        if request.headers.get('Accept') == 'application/json' or request.GET.get('format') == 'json':
+            resp = JsonResponse(dados)
+            resp['X-Robots-Tag'] = 'noindex, nofollow'
+            return resp
+
+        context = {
+            **dados,
+            "token": str(token),
+            "emissor": "Baros Logística",
+        }
+        resp = render(request, 'logistica/rastreio_publico.html', context)
+        resp['X-Robots-Tag'] = 'noindex, nofollow'
+        return resp
+
+
+class SincronizarTrackingGPSAPIView(APIView):
+    """
+    Recepção em lote de telemetria GPS transmitida pelo PWA de Campo (offline-first).
+    Sincronização em lotes de até 200 pontos, descartando precisão > 100m e idempotente por chave composta (Sprint 12A - Tarefa 5).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        from .services.rastreamento_service import sincronizar_lote_gps
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        payload = request.data
+        if isinstance(payload, dict):
+            entrega_id = payload.get('entrega_id')
+            veiculo_id = payload.get('veiculo_id')
+            coordenadas = payload.get('coordenadas') or payload.get('pontos') or []
+        elif isinstance(payload, list):
+            coordenadas = payload
+            entrega_id = None
+            veiculo_id = None
+        else:
+            return Response(
+                {"erro": "Formato inválido. Esperado objeto com 'coordenadas' ou lista de pontos."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not isinstance(coordenadas, list):
+            return Response(
+                {"erro": "Formato inválido. 'coordenadas' deve ser uma lista."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if len(coordenadas) > 200:
+            return Response(
+                {"erro": f"O tamanho do lote ({len(coordenadas)} pontos) excede o limite máximo permitido de 200 pontos."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        tenant = getattr(request, 'tenant', None)
+
+        # Se houver entrega_id explicitamente informada:
+        if entrega_id:
+            try:
+                res = sincronizar_lote_gps(
+                    tenant=tenant,
+                    entrega_id=int(entrega_id),
+                    pontos=coordenadas,
+                    veiculo_id=int(veiculo_id) if veiculo_id else None
+                )
+                return Response({
+                    "sucesso": True,
+                    "total_sincronizado": res['inseridos'],
+                    "duplicados": res['duplicados'],
+                    "descartados_precisao": res['descartados_precisao']
+                }, status=status.HTTP_200_OK)
+            except DjangoValidationError as e:
+                msg = e.message if hasattr(e, 'message') else str(e)
+                return Response({"erro": msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Se os itens tiverem entrega_id internamente:
+        grupos = {}
+        for c in coordenadas:
+            eid = c.get('entrega_id')
+            if eid:
+                grupos.setdefault(eid, []).append(c)
+
+        total_inseridos = 0
+        total_duplicados = 0
+        total_descartados = 0
+
+        for eid, pts in grupos.items():
+            entrega = Entrega.objects.filter(id=eid).first()
+            if not entrega:
+                continue
+            t = tenant or entrega.tenant
+            try:
+                r = sincronizar_lote_gps(tenant=t, entrega_id=eid, pontos=pts, veiculo_id=veiculo_id)
+                total_inseridos += r['inseridos']
+                total_duplicados += r['duplicados']
+                total_descartados += r['descartados_precisao']
+            except Exception as e:
+                logger.warning(f"Erro ao sincronizar lote da entrega {eid}: {e}")
+
+        return Response({
+            "sucesso": True,
+            "total_sincronizado": total_inseridos,
+            "duplicados": total_duplicados,
+            "descartados_precisao": total_descartados
+        }, status=status.HTTP_200_OK)
+
+
+class OtimizarOrdemParadasAPIView(TenantViewSetMixin, APIView):
+    """
+    Gera a roteirização otimizada para os pontos de entrega (vendas) vinculados à entrega.
+    """
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica]
+
+    def post(self, request, pk=None, *args, **kwargs):
+        from .services.routing import otimizar_ordem_paradas
+        try:
+            resultado = otimizar_ordem_paradas(pk)
+            return Response(resultado, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"erro": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.exception(f"Erro ao otimizar rotas da entrega #{pk}")
+            return Response({"erro": f"Erro interno ao roteirizar paradas: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ==============================================================================
+# SPRINT 10C: FRETE INTERNO, ALOCAÇÃO DE EQUIPE, MARGEM E TCO
+# ==============================================================================
+
+class TabelaFreteInternoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    CRUD da tabela de frete interno (por km ou por parada) (Sprint 10C - Tarefa 5).
+    """
+    serializer_class = TabelaFreteInternoSerializer
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica, IsTenantMember]
+
+    def get_queryset(self):
+        tenant = getattr(self.request, 'tenant', None)
+        return TabelaFreteInterno.unscoped.filter(tenant=tenant).select_related('veiculo')
+
+    def perform_create(self, serializer):
+        tenant = getattr(self.request, 'tenant', None)
+        serializer.save(tenant=tenant)
+
+
+class AlocacaoMotoristaVeiculoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    CRUD da alocação de equipe (motorista/ajudante) no veículo (Sprint 10C - Tarefa 6).
+    """
+    serializer_class = AlocacaoMotoristaVeiculoSerializer
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica, IsTenantMember]
+
+    def get_queryset(self):
+        tenant = getattr(self.request, 'tenant', None)
+        return AlocacaoMotoristaVeiculo.unscoped.filter(tenant=tenant).select_related('veiculo', 'motorista', 'ajudante')
+
+    def perform_create(self, serializer):
+        tenant = getattr(self.request, 'tenant', None)
+        serializer.save(tenant=tenant)
+
+
+class MargemVeiculoAPIView(TenantViewSetMixin, APIView):
+    """
+    Cálculo de margem de contribuição do veículo (Frete Imputado ou Comercial) (Sprint 10C - Tarefa 5).
+    """
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica, IsTenantMember]
+
+    def get(self, request):
+        from logistica.services.margem_veiculo_service import calcular_margem_contribuicao_veiculo
+        tenant = getattr(request, 'tenant', None)
+        ser = MargemVeiculoInputSerializer(data=request.query_params)
+        ser.is_valid(raise_exception=True)
+        vd = ser.validated_data
+
+        resultado = calcular_margem_contribuicao_veiculo(
+            tenant=tenant,
+            veiculo_id=vd['veiculo_id'],
+            data_inicio=vd['data_inicio'],
+            data_fim=vd['data_fim'],
+            politica=vd.get('politica')
+        )
+        return Response(resultado, status=status.HTTP_200_OK)
+
+
+class TCOVeiculoAPIView(TenantViewSetMixin, APIView):
+    """
+    Cálculo do TCO por km e por parada com validação estrita de odômetro (Sprint 10C - Tarefa 6).
+    """
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica, IsTenantMember]
+
+    def get(self, request):
+        from logistica.services.margem_veiculo_service import calcular_tco_veiculo
+        tenant = getattr(request, 'tenant', None)
+        ser = TCOVeiculoInputSerializer(data=request.query_params)
+        ser.is_valid(raise_exception=True)
+        vd = ser.validated_data
+
+        resultado = calcular_tco_veiculo(
+            tenant=tenant,
+            veiculo_id=vd['veiculo_id'],
+            ano=vd['ano'],
+            mes=vd['mes']
+        )
+        return Response(resultado, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# SPRINT 12A VIEWSETS & APIS
+# ==============================================================================
+
+class CapacidadeVeiculoTipoCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    CRUD de capacidade máxima de cilindros por tipo suportada por veículo (Sprint 12A - Tarefa 1).
+    """
+    serializer_class = CapacidadeVeiculoTipoCilindroSerializer
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica, IsTenantMember]
+
+    def get_queryset(self):
+        tenant = getattr(self.request, 'tenant', None)
+        return CapacidadeVeiculoTipoCilindro.unscoped.filter(tenant=tenant).select_related('veiculo', 'tipo_cilindro')
+
+    def perform_create(self, serializer):
+        tenant = getattr(self.request, 'tenant', None)
+        serializer.save(tenant=tenant)
+
+
+class MotoristaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    Gestão de motoristas com dados regulatórios CNH e MOPP (Sprint 12A - Tarefa 1).
+    """
+    serializer_class = MotoristaSerializer
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica, IsTenantMember]
+
+    def get_queryset(self):
+        tenant = getattr(self.request, 'tenant', None)
+        return Motorista.unscoped.filter(tenant=tenant).select_related('usuario')
+
+    def perform_create(self, serializer):
+        tenant = getattr(self.request, 'tenant', None)
+        serializer.save(tenant=tenant)
+
+
+class RegraIncompatibilidadeCargaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    Regras de incompatibilidade química entre classes de risco de gases (Sprint 12A - Tarefa 2).
+    """
+    serializer_class = RegraIncompatibilidadeCargaSerializer
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica, IsTenantMember]
+
+    def get_queryset(self):
+        tenant = getattr(self.request, 'tenant', None)
+        return RegraIncompatibilidadeCarga.unscoped.filter(tenant=tenant)
+
+    def perform_create(self, serializer):
+        tenant = getattr(self.request, 'tenant', None)
+        serializer.save(tenant=tenant)
+
+    @action(detail=False, methods=['post'], url_path='seed')
+    def seed(self, request):
+        tenant = getattr(request, 'tenant', None)
+        from logistica.services.carga import seed_regras_incompatibilidade
+        criadas = seed_regras_incompatibilidade(tenant)
+        return Response({
+            'mensagem': f'{len(criadas)} regras de incompatibilidade verificadas/criadas com sucesso.',
+            'total_regras': len(criadas)
+        }, status=status.HTTP_200_OK)
+
+
+class ParadaEntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    Gestão e execução de paradas de entrega no fluxo logístico e PWA (Sprint 12A - Tarefas 3 e 4).
+    """
+    serializer_class = ParadaEntregaSerializer
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica, IsTenantMember]
+
+    def get_queryset(self):
+        tenant = getattr(self.request, 'tenant', None)
+        return ParadaEntrega.unscoped.filter(tenant=tenant).select_related('entrega', 'cliente', 'venda')
+
+    def perform_create(self, serializer):
+        tenant = getattr(self.request, 'tenant', None)
+        serializer.save(tenant=tenant)
+
+    @action(detail=True, methods=['post'], url_path='atualizar-status')
+    def atualizar_status(self, request, pk=None):
+        parada = self.get_object()
+        novo_status = request.data.get('status')
+        motivo_falha = request.data.get('motivo_falha')
+        odometro_leitura = request.data.get('odometro_leitura')
+        from logistica.services.paradas_service import atualizar_status_parada
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            parada_atualizada = atualizar_status_parada(
+                parada_id=parada.id,
+                novo_status=novo_status,
+                motivo_falha=motivo_falha,
+                odometro_km=Decimal(str(odometro_leitura)) if odometro_leitura is not None else None,
+                usuario=request.user
+            )
+            return Response(ParadaEntregaSerializer(parada_atualizada).data, status=status.HTTP_200_OK)
+        except DjangoValidationError as e:
+            msg = e.message if hasattr(e, 'message') else str(e)
+            return Response({'detail': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='travar-ordem')
+    def travar_ordem(self, request, pk=None):
+        parada = self.get_object()
+        travada = request.data.get('travada', not parada.travada)
+        parada.travada = bool(travada)
+        parada.save(update_fields=['travada'])
+        return Response({'id': parada.id, 'travada': parada.travada}, status=status.HTTP_200_OK)
+
+
+class IndicadoresLogisticaAPIView(TenantViewSetMixin, APIView):
+    """
+    Indicadores logísticos consolidados: pontualidade, km planejado vs real, paradas por hora (Sprint 12A - Tarefa 9).
+    """
+    permission_classes = [permissions.IsAuthenticated, RequiresModuleLogistica, IsTenantMember]
+
+    def get(self, request):
+        from logistica.services.indicadores_service import apurar_indicadores_logistica
+        tenant = getattr(request, 'tenant', None)
+        data_inicio = request.query_params.get('data_inicio')
+        data_fim = request.query_params.get('data_fim')
+        resultado = apurar_indicadores_logistica(tenant=tenant, data_inicio=data_inicio, data_fim=data_fim)
+        return Response(resultado, status=status.HTTP_200_OK)
+
+

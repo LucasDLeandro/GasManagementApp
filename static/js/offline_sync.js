@@ -11,7 +11,7 @@ class GasAppOfflineQueue {
     this._userId = null;
     this._dbName = null;
     this.STORE_NAME = 'movimentacoes_queue';
-    this.DB_VERSION = 6;
+    this.DB_VERSION = 9;
     this.initScope();
   }
 
@@ -34,6 +34,8 @@ class GasAppOfflineQueue {
 
         request.onupgradeneeded = (event) => {
           const db = event.target.result;
+          const oldVersion = event.oldVersion;
+
           if (!db.objectStoreNames.contains(this.STORE_NAME)) {
             const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'client_uuid' });
             store.createIndex('criado_em', 'criado_em', { unique: false });
@@ -59,6 +61,32 @@ class GasAppOfflineQueue {
           if (!db.objectStoreNames.contains('sinistros_queue')) {
             const sinStore = db.createObjectStore('sinistros_queue', { keyPath: 'client_uuid' });
             sinStore.createIndex('criado_em', 'criado_em', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('gps_tracking_queue')) {
+            const gpsStore = db.createObjectStore('gps_tracking_queue', { keyPath: 'client_uuid' });
+            gpsStore.createIndex('timestamp', 'timestamp', { unique: false });
+            gpsStore.createIndex('entrega_id', 'entrega_id', { unique: false });
+            gpsStore.createIndex('sequencia', 'sequencia', { unique: false });
+          }
+
+          // [CORREÇÃO F-40] Versão 8: Fila local despesas_pendentes no IndexedDB (Sprint 9C)
+          if (oldVersion < 8) {
+            if (!db.objectStoreNames.contains('despesas_pendentes')) {
+              const despStore = db.createObjectStore('despesas_pendentes', { keyPath: 'client_uuid' });
+              despStore.createIndex('criado_em', 'criado_em', { unique: false });
+              despStore.createIndex('status_local', 'status_local', { unique: false });
+              despStore.createIndex('tipo', 'tipo', { unique: false });
+            }
+          }
+
+          // [CORREÇÃO F-40] Versão 9: Migração encadeada para gps_tracking_queue (Sprint 12A)
+          if (oldVersion < 9) {
+            if (!db.objectStoreNames.contains('gps_tracking_queue')) {
+              const gpsStore = db.createObjectStore('gps_tracking_queue', { keyPath: 'client_uuid' });
+              gpsStore.createIndex('timestamp', 'timestamp', { unique: false });
+              gpsStore.createIndex('entrega_id', 'entrega_id', { unique: false });
+              gpsStore.createIndex('sequencia', 'sequencia', { unique: false });
+            }
           }
         };
 
@@ -888,6 +916,336 @@ class GasAppOfflineQueue {
   }
 
   /**
+   * Enfileira coordenada GPS capturada para a entrega ativa
+   */
+  async enfileirarCoordenadaGPS(dados) {
+    const db = await this.getDB();
+    const item = {
+      lat: dados.lat,
+      lng: dados.lng,
+      timestamp: dados.timestamp || new Date().toISOString(),
+      entrega_id: dados.entrega_id
+    };
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['gps_tracking_queue'], 'readwrite');
+      const store = tx.objectStore('gps_tracking_queue');
+      const req = store.add(item);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async listarCoordenadasGPS() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['gps_tracking_queue'], 'readonly');
+      const store = tx.objectStore('gps_tracking_queue');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async limparCoordenadasGPS() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['gps_tracking_queue'], 'readwrite');
+      const store = tx.objectStore('gps_tracking_queue');
+      const req = store.clear();
+      req.onsuccess = () => resolve();
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async sincronizarTrackingGPS() {
+    if (!navigator.onLine) return;
+    const coordenadas = await this.listarCoordenadasGPS();
+    if (coordenadas.length === 0) return;
+
+    const token = localStorage.getItem('access_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': this._getCSRFToken(),
+    };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const metaTenant = document.querySelector('meta[name="current-tenant-id"]');
+    if (metaTenant && metaTenant.content) headers['X-Tenant-ID'] = metaTenant.content;
+
+    try {
+      const res = await fetch('/logistica/api/tracking/sync/', {
+        method: 'POST',
+        headers,
+        credentials: 'same-origin',
+        body: JSON.stringify({ coordenadas })
+      });
+
+      if (res.ok || res.status === 200) {
+        await this.limparCoordenadasGPS();
+        console.log(`[PWA Sync] ${coordenadas.length} coordenadas GPS sincronizadas com sucesso.`);
+      }
+    } catch (err) {
+      console.warn('[PWA Sync] Falha ao enviar coordenadas GPS:', err);
+    }
+  }
+
+  /**
+   * [Sprint 9C] Fila offline local de despesas de campo (abastecimento, pedágio, manutenção, outro)
+   */
+  async enfileirarDespesaCampo(dados) {
+    const db = await this.getDB();
+    const item = {
+      client_uuid: dados.client_uuid || (crypto.randomUUID ? crypto.randomUUID() : this._gerarUUID()),
+      status_local: 'PENDENTE',
+      motivo_rejeicao: null,
+      tipo: dados.tipo || 'OUTRO',
+      veiculo_id: dados.veiculo_id,
+      motorista_id: dados.motorista_id || this._userId,
+      entrega_id: dados.entrega_id || null,
+      data_hora: dados.data_hora || new Date().toISOString(),
+      odometro_informado: dados.odometro_informado !== undefined ? dados.odometro_informado : null,
+      litros: dados.litros !== undefined ? dados.litros : null,
+      valor_informado: dados.valor_informado,
+      forma_pagamento: dados.forma_pagamento || 'CARTAO_FROTA',
+      posto_nome: dados.posto_nome || '',
+      posto_cnpj: dados.posto_cnpj || '',
+      latitude: dados.latitude || null,
+      longitude: dados.longitude || null,
+      foto_cupom_base64: dados.foto_cupom_base64 || null,
+      tentativas: 0,
+      criado_em: new Date().toISOString()
+    };
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['despesas_pendentes'], 'readwrite');
+      const store = tx.objectStore('despesas_pendentes');
+      const req = store.put(item);
+      req.onsuccess = () => {
+        console.log('[IndexedDB] Despesa de campo enfileirada:', item.client_uuid);
+        this.updateBadge();
+        if (navigator.onLine) {
+          this.sincronizarDespesasCampo();
+        }
+        resolve(item);
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async listarDespesasPendentes() {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['despesas_pendentes'], 'readonly');
+      const store = tx.objectStore('despesas_pendentes');
+      const req = store.getAll();
+      req.onsuccess = () => resolve((req.result || []).filter(i => i.status_local !== 'REJEITADO'));
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async removerDespesaCampo(clientUuid) {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['despesas_pendentes'], 'readwrite');
+      const store = tx.objectStore('despesas_pendentes');
+      const req = store.delete(clientUuid);
+      req.onsuccess = () => {
+        this.updateBadge();
+        resolve();
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async marcarDespesaRejeitada(clientUuid, motivo) {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['despesas_pendentes'], 'readwrite');
+      const store = tx.objectStore('despesas_pendentes');
+      const getReq = store.get(clientUuid);
+      getReq.onsuccess = () => {
+        const item = getReq.result;
+        if (item) {
+          item.status_local = 'REJEITADO';
+          item.motivo_rejeicao = motivo;
+          item.tentativas = (item.tentativas || 0) + 1;
+          const putReq = store.put(item);
+          putReq.onsuccess = () => {
+            this.updateBadge();
+            resolve(item);
+          };
+          putReq.onerror = (e) => reject(e.target.error);
+        } else {
+          resolve(null);
+        }
+      };
+      getReq.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  /**
+   * Sincroniza fila de despesas de campo com o servidor.
+   * Em caso de conflito, o servidor vence em dados já aprovados ou consolidados.
+   */
+  async sincronizarDespesasCampo() {
+    if (!navigator.onLine) return;
+    const pendentes = await this.listarDespesasPendentes();
+    if (pendentes.length === 0) return;
+
+    console.log(`[PWA Sync] Sincronizando ${pendentes.length} despesas de campo offline...`);
+    const token = localStorage.getItem('access_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': this._getCSRFToken(),
+    };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const metaTenant = document.querySelector('meta[name="current-tenant-id"]');
+    if (metaTenant && metaTenant.content) headers['X-Tenant-ID'] = metaTenant.content;
+
+    try {
+      const res = await fetch('/financeiro/api/despesas-campo/sincronizar/', {
+        method: 'POST',
+        headers,
+        credentials: 'same-origin',
+        body: JSON.stringify({ itens: pendentes })
+      });
+
+      if (res.ok || res.status === 200 || res.status === 201) {
+        const data = await res.json();
+        const resultados = data.resultados || [];
+        let sucessos = 0;
+        let rejeicoes = 0;
+
+        for (const r of resultados) {
+          if (r.status === 'APROVADO' || r.status === 'PENDENTE_CONFERENCIA' || r.status === 'ja_processado' || r.sucesso) {
+            await this.removerDespesaCampo(r.client_uuid);
+            sucessos++;
+          } else if (r.status === 'REJEITADO' || r.erro) {
+            await this.marcarDespesaRejeitada(r.client_uuid, r.erro || 'Rejeitado pelo servidor');
+            rejeicoes++;
+          }
+        }
+
+        if (sucessos > 0) {
+          this._mostrarNotificacao(`⛽ ${sucessos} despesa(s) de campo sincronizada(s) com sucesso.`, 'sucesso');
+        }
+        if (rejeicoes > 0) {
+          this._mostrarNotificacao(`⚠️ ${rejeicoes} despesa(s) com anomalia/rejeição no servidor.`, 'erro');
+        }
+      }
+    } catch (err) {
+      console.warn('[PWA Sync] Falha ao sincronizar despesas de campo:', err);
+    }
+  }
+
+  /**
+   * Enfileira ponto de rastreamento GPS na fila offline gps_tracking_queue (Sprint 12A - Tarefa 5).
+   * Descarta pontos com precisão pior que 100 metros (LGPD e economia de banda).
+   */
+  async enfileirarCoordenadaGPS(ponto) {
+    if (!ponto) return false;
+    const precisao = parseFloat(ponto.precisao_m || ponto.accuracy || 0);
+    if (precisao > 100.0) {
+      console.warn(`[GPS Offline] Ponto descartado por baixa precisão (${precisao} m > 100 m)`);
+      return false;
+    }
+
+    const db = await this.initDB();
+    const item = {
+      client_uuid: ponto.client_uuid || this._gerarUUID(),
+      entrega_id: ponto.entrega_id,
+      latitude: ponto.latitude || ponto.lat,
+      longitude: ponto.longitude || ponto.lng,
+      velocidade: ponto.velocidade || ponto.speed || null,
+      precisao_m: precisao,
+      sequencia: ponto.sequencia || Date.now(),
+      capturado_em: ponto.capturado_em || ponto.timestamp || new Date().toISOString(),
+      timestamp: ponto.timestamp || new Date().toISOString()
+    };
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['gps_tracking_queue'], 'readwrite');
+      const store = tx.objectStore('gps_tracking_queue');
+      const req = store.put(item);
+      req.onsuccess = () => resolve(item);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  /**
+   * Lista pontos de rastreamento GPS pendentes (até 200 por lote).
+   */
+  async listarCoordenadasGPSPendentes(limite = 200) {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['gps_tracking_queue'], 'readonly');
+      const store = tx.objectStore('gps_tracking_queue');
+      const req = store.openCursor();
+      const itens = [];
+      req.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor && itens.length < limite) {
+          itens.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve(itens);
+        }
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  /**
+   * Remove pontos de rastreamento GPS sincronizados com sucesso.
+   */
+  async removerCoordenadasGPSSincronizadas(clientUuids) {
+    if (!clientUuids || clientUuids.length === 0) return;
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['gps_tracking_queue'], 'readwrite');
+      const store = tx.objectStore('gps_tracking_queue');
+      clientUuids.forEach(uuid => store.delete(uuid));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  /**
+   * Sincroniza fila de telemetria GPS offline com o servidor em lotes de até 200 pontos (Sprint 12A - Tarefa 5).
+   */
+  async sincronizarTrackingGPS() {
+    if (!navigator.onLine) return;
+    const pendentes = await this.listarCoordenadasGPSPendentes(200);
+    if (!pendentes || pendentes.length === 0) return;
+
+    console.log(`[PWA GPS Sync] Sincronizando lote de ${pendentes.length} pontos GPS...`);
+    const token = localStorage.getItem('access_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': this._getCSRFToken(),
+    };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const metaTenant = document.querySelector('meta[name="current-tenant-id"]');
+    if (metaTenant && metaTenant.content) headers['X-Tenant-ID'] = metaTenant.content;
+
+    try {
+      const res = await fetch('/logistica/api/tracking/sync/', {
+        method: 'POST',
+        headers,
+        credentials: 'same-origin',
+        body: JSON.stringify({ coordenadas: pendentes })
+      });
+
+      if (res.ok || res.status === 200) {
+        const uuids = pendentes.map(p => p.client_uuid);
+        await this.removerCoordenadasGPSSincronizadas(uuids);
+        console.log(`[PWA GPS Sync] ${uuids.length} pontos GPS sincronizados com sucesso.`);
+      }
+    } catch (err) {
+      console.warn('[PWA GPS Sync] Falha ao sincronizar telemetria GPS:', err);
+    }
+  }
+
+  /**
    * Atualiza indicadores visuais de pendências e rejeições na interface
    */
   async updateBadge() {
@@ -1065,6 +1423,8 @@ window.addEventListener('online', () => {
   window.GasAppOffline.sincronizarChecklists();
   window.GasAppOffline.sincronizarDefeitos();
   window.GasAppOffline.sincronizarSinistros();
+  window.GasAppOffline.sincronizarTrackingGPS();
+  window.GasAppOffline.sincronizarDespesasCampo();
 });
 
 window.addEventListener('offline', () => {
@@ -1077,5 +1437,7 @@ setInterval(() => {
   if (navigator.onLine) {
     window.GasAppOffline.sincronizarLote();
     window.GasAppOffline.sincronizarSinistros();
+    window.GasAppOffline.sincronizarTrackingGPS();
+    window.GasAppOffline.sincronizarDespesasCampo();
   }
 }, 30000);

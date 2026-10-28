@@ -7,6 +7,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from core.tenancy import TenantAwareModel
+from core.money import quantize
 
 def veiculo_foto_upload_path(instance, filename):
     ext = filename.split('.')[-1].lower() if '.' in filename else 'jpg'
@@ -103,9 +104,14 @@ class Veiculo(TenantAwareModel):
     marca = models.CharField(max_length=100, verbose_name="Marca")
     ano = models.IntegerField(verbose_name="Ano")
     capacidade_carga = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Capacidade de Carga (kg)")
+    capacidade_carga_kg = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Capacidade de Carga Líquida (kg)")
     tara_veiculo_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Tara do Veículo (kg)")
     rntrc_antt = models.CharField(max_length=30, null=True, blank=True, verbose_name="RNTRC ANTT")
+    rntrc = models.CharField(max_length=30, blank=True, default='', verbose_name="RNTRC")
+    civ_validade = models.DateField(null=True, blank=True, verbose_name="Validade CIV (Certificado de Inspeção Veicular)")
+    cipp_validade = models.DateField(null=True, blank=True, verbose_name="Validade CIPP (Certificado de Inspeção para Produtos Perigosos)")
     motorista_padrao = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='veiculos_padrao', verbose_name="Motorista Padrão")
+    filial = models.ForeignKey('core.Filial', on_delete=models.PROTECT, null=True, blank=True, related_name='veiculos', verbose_name="Filial")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Ativo')
     localizacao_atual = models.CharField(max_length=50, choices=LOCALIZACAO_CHOICES, default='Base')
 
@@ -118,6 +124,12 @@ class Veiculo(TenantAwareModel):
     combustivel_padrao = models.CharField(max_length=30, choices=COMBUSTIVEL_CHOICES, default='Diesel S10', null=True, blank=True, verbose_name="Combustível Padrão")
     capacidade_tanque_l = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, verbose_name="Capacidade do Tanque (L)")
     consumo_referencia_km_l = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name="Consumo Referência (km/l)")
+    
+    # Sprint 9C (Regra 2: 3 casas decimais para quantidades físicas / volumétricas)
+    capacidade_tanque_litros = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, verbose_name="Capacidade do Tanque (Litros)")
+    consumo_referencia_kml = models.DecimalField(max_digits=8, decimal_places=3, null=True, blank=True, verbose_name="Consumo Referência (km/l)")
+    tipo_combustivel = models.CharField(max_length=30, choices=COMBUSTIVEL_CHOICES, default='Diesel S10', null=True, blank=True, verbose_name="Tipo de Combustível")
+    
     tipo_carroceria = models.CharField(max_length=100, null=True, blank=True, verbose_name="Tipo de Carroceria")
     eixos = models.PositiveSmallIntegerField(null=True, blank=True, default=2, verbose_name="Eixos")
     pbt_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso Bruto Total - PBT (kg)")
@@ -125,6 +137,14 @@ class Veiculo(TenantAwareModel):
     data_aquisicao = models.DateField(null=True, blank=True, verbose_name="Data de Aquisição")
     valor_aquisicao = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Valor de Aquisição (R$)")
     status_ativo = models.CharField(max_length=25, choices=STATUS_ATIVO_CHOICES, default='Ativo', verbose_name="Status Operacional do Ativo")
+    ativo_imobilizado = models.OneToOneField(
+        'produtos.AtivoImobilizado',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='veiculo',
+        verbose_name="Ativo Imobilizado Vinculado"
+    )
     observacoes = models.TextField(null=True, blank=True, verbose_name="Observações Gerais")
 
     # Integração FIPE
@@ -155,11 +175,41 @@ class Veiculo(TenantAwareModel):
     def __str__(self):
         return f"{self.placa} - {self.modelo}"
 
+    def save(self, *args, **kwargs):
+        # Sincronização de campos legados (Regra 9 - Retrocompatibilidade)
+        if self.capacidade_tanque_litros is not None and self.capacidade_tanque_l is None:
+            self.capacidade_tanque_l = quantize(self.capacidade_tanque_litros, 2)
+        elif self.capacidade_tanque_l is not None and self.capacidade_tanque_litros is None:
+            self.capacidade_tanque_litros = quantize(self.capacidade_tanque_l, 3)
+
+        if self.consumo_referencia_kml is not None and self.consumo_referencia_km_l is None:
+            self.consumo_referencia_km_l = quantize(self.consumo_referencia_kml, 2)
+        elif self.consumo_referencia_km_l is not None and self.consumo_referencia_kml is None:
+            self.consumo_referencia_kml = quantize(self.consumo_referencia_km_l, 3)
+
+        if self.tipo_combustivel and not self.combustivel_padrao:
+            self.combustivel_padrao = self.tipo_combustivel
+        elif self.combustivel_padrao and not self.tipo_combustivel:
+            self.tipo_combustivel = self.combustivel_padrao
+
+        # Sincronização Sprint 12A
+        if not self.capacidade_carga_kg and self.capacidade_carga:
+            self.capacidade_carga_kg = self.capacidade_carga
+        elif self.capacidade_carga_kg and not self.capacidade_carga:
+            self.capacidade_carga = self.capacidade_carga_kg
+
+        if not self.rntrc and self.rntrc_antt:
+            self.rntrc = self.rntrc_antt
+        elif self.rntrc and not self.rntrc_antt:
+            self.rntrc_antt = self.rntrc
+
+        super().save(*args, **kwargs)
+
     @property
     def valor_mercado_estimado(self):
-        fipe = self.fipe_valor or 0
-        adic = self.valor_adicionais or 0
-        return float(fipe) + float(adic)
+        fipe = self.fipe_valor or Decimal('0.00')
+        adic = self.valor_adicionais or Decimal('0.00')
+        return quantize(fipe + adic, 2)
 
     @property
     def foto_principal(self):
@@ -179,6 +229,67 @@ class Veiculo(TenantAwareModel):
                 status__in=['Aberta', 'Orçada', 'Aprovada', 'Em Execução']
             ).exists()
         return False
+
+
+class LeituraOdometro(TenantAwareModel):
+    """
+    Registro histórico e auditável de leituras de odômetro por veículo (Sprint 9C - Tarefa 1).
+    Permite validar monotonicidade (odômetro não pode regredir) e apurar consumo real.
+    """
+    ORIGEM_CHOICES = [
+        ('ROTA', 'Rota de Campo'),
+        ('ABASTECIMENTO', 'Abastecimento'),
+        ('MANUTENCAO', 'Ordem de Manutenção'),
+    ]
+
+    veiculo = models.ForeignKey(
+        Veiculo,
+        on_delete=models.CASCADE,
+        related_name='leituras_odometro',
+        verbose_name="Veículo"
+    )
+    km = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        verbose_name="Quilometragem (km)"
+    )
+    data_hora = models.DateTimeField(
+        default=timezone.now,
+        db_index=True,
+        verbose_name="Data/Hora da Leitura"
+    )
+    origem = models.CharField(
+        max_length=20,
+        choices=ORIGEM_CHOICES,
+        default='ROTA',
+        verbose_name="Origem da Leitura"
+    )
+    validada = models.BooleanField(
+        default=True,
+        verbose_name="Leitura Validada"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Leitura de Odômetro"
+        verbose_name_plural = "Leituras de Odômetro"
+        ordering = ['-data_hora', '-id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'veiculo', 'data_hora', 'origem'],
+                name='uniq_leitura_odometro'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.veiculo.placa} - {self.km} km ({self.origem} em {self.data_hora})"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.validada and self.km:
+            if not self.veiculo.odometro_atual_km or self.km > self.veiculo.odometro_atual_km:
+                self.veiculo.odometro_atual_km = quantize(self.km, 2)
+                self.veiculo.save(update_fields=['odometro_atual_km'])
 
 
 class VeiculoFoto(TenantAwareModel):
@@ -466,6 +577,8 @@ class Entrega(TenantAwareModel):
     motorista = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='entregas_motorista', verbose_name="Motorista")
     data_saida = models.DateTimeField(null=True, blank=True, verbose_name="Data de Saída")
     status = models.CharField(max_length=20, choices=STATUS_ENTREGA, default='Agendada')
+    token_rastreio = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name="Token de Rastreio Público")
+    filial = models.ForeignKey('core.Filial', on_delete=models.PROTECT, null=True, blank=True, related_name='entregas', verbose_name="Filial")
     
     class Meta:
         verbose_name = "Entrega"
@@ -474,6 +587,23 @@ class Entrega(TenantAwareModel):
     def __str__(self):
         rota_nome = self.rota.nome if self.rota else 'Sem Rota'
         return f"Entrega #{self.id} - {rota_nome} ({self.status})"
+
+    @property
+    def nome_motorista(self):
+        if self.motorista:
+            return self.motorista.get_full_name() or self.motorista.username
+        return "Motorista Designado"
+
+    @property
+    def placa_mascarada(self):
+        if not self.veiculo or not self.veiculo.placa:
+            return "Veículo em Trânsito"
+        p = self.veiculo.placa.replace("-", "").strip()
+        if len(p) >= 7:
+            return f"{p[:3]}-***{p[-1]}"
+        elif len(p) >= 4:
+            return f"{p[:3]}-*"
+        return "***-****"
 
     def clean(self):
         super().clean()
@@ -494,6 +624,11 @@ class Entrega(TenantAwareModel):
             try:
                 from .services.rentabilidade import consolidar_custo_viagem
                 consolidar_custo_viagem(self, congelar=True)
+            except Exception:
+                pass
+            try:
+                from fiscal.services.transporte_service import encerrar_mdfe_entrega
+                encerrar_mdfe_entrega(self)
             except Exception:
                 pass
 
@@ -573,6 +708,104 @@ class Entrega(TenantAwareModel):
 
 def default_motivos_exigem_foto():
     return ['Avaria no manuseio', 'Vazamento', 'Roubo/Extravio']
+
+
+class CoordenadaRastreamento(TenantAwareModel):
+    """
+    Telemetria e tracking contínuo de coordenadas GPS transmitidas pelo PWA de Campo.
+    Permite exibição em tempo real na Torre de Controle e no link público de rastreio ao cliente.
+    """
+    entrega = models.ForeignKey(
+        Entrega,
+        on_delete=models.CASCADE,
+        related_name='coordenadas_rastreamento',
+        verbose_name="Entrega"
+    )
+    veiculo = models.ForeignKey(
+        Veiculo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='coordenadas_rastreamento',
+        verbose_name="Veículo"
+    )
+    latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        verbose_name="Latitude"
+    )
+    longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        verbose_name="Longitude"
+    )
+    velocidade = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Velocidade (km/h)"
+    )
+    precisao_m = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precisão do GPS (m)"
+    )
+    sequencia = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Sequência do Ponto na Rota"
+    )
+    client_uuid = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        db_index=True,
+        verbose_name="UUID do Cliente Offline"
+    )
+    timestamp = models.DateTimeField(
+        default=timezone.now,
+        db_index=True,
+        verbose_name="Data/Hora da Captura GPS (Legado)"
+    )
+    capturado_em = models.DateTimeField(
+        default=timezone.now,
+        db_index=True,
+        verbose_name="Data/Hora da Captura GPS"
+    )
+    recebido_em = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="Data/Hora de Recepção no Servidor"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Coordenada de Rastreamento"
+        verbose_name_plural = "Coordenadas de Rastreamento"
+        ordering = ['capturado_em']
+        indexes = [
+            models.Index(fields=['tenant', 'entrega', 'capturado_em'], name='idx_coord_tenant_ent_cap')
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'entrega', 'sequencia', 'client_uuid'],
+                condition=~models.Q(client_uuid=''),
+                name='uniq_coord_sync_idempotente'
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.capturado_em and self.timestamp:
+            self.capturado_em = self.timestamp
+        elif self.capturado_em and not self.timestamp:
+            self.timestamp = self.capturado_em
+        if not self.veiculo and self.entrega and self.entrega.veiculo:
+            self.veiculo = self.entrega.veiculo
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"GPS Entrega #{self.entrega_id} ({self.latitude}, {self.longitude}) @ {self.capturado_em}"
 
 
 class ConfiguracaoValidacaoCarga(TenantAwareModel):
@@ -2347,6 +2580,425 @@ class CustoViagemItem(TenantAwareModel):
         if custo and not custo.snapshot_congelado:
             custo.recalcular_itens_avulsos()
             custo.save()
+
+
+# ==============================================================================
+# SPRINT 10C: MARGEM POR VEÍCULO, FRETE INTERNO E TCO (CORREÇÃO F-23)
+# ==============================================================================
+
+class TabelaFreteInterno(TenantAwareModel):
+    """
+    Tabela de precificação interna de frete imputado por veículo ou geral (Sprint 10C - Tarefa 5).
+    Utilizada na política de contribuição de frete do veículo quando não há frete destacado.
+    """
+    TIPO_CHOICES = [
+        ('POR_KM', 'Por Km Rodado'),
+        ('POR_PARADA', 'Por Parada / Entrega Realizada'),
+    ]
+
+    descricao = models.CharField(max_length=120, verbose_name="Descrição da Tabela de Frete Interno")
+    veiculo = models.ForeignKey(
+        Veiculo,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='tabelas_frete_interno',
+        verbose_name="Veículo Específico (Opcional, se nulo aplica-se a toda frota)"
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='POR_KM',
+        verbose_name="Tipo de Cobrança Interna"
+    )
+    valor = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Valor Unitário Interno (R$)"
+    )
+    vigencia_inicio = models.DateField(default=timezone.localdate, verbose_name="Início da Vigência")
+    vigencia_fim = models.DateField(null=True, blank=True, verbose_name="Fim da Vigência (Opcional)")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        verbose_name = "Tabela de Frete Interno"
+        verbose_name_plural = "Tabelas de Frete Interno"
+        ordering = ['-vigencia_inicio', 'descricao']
+
+    def __str__(self):
+        alvo = self.veiculo.placa if self.veiculo else "Frota Geral"
+        return f"{self.descricao} [{alvo}]: R$ {self.valor} ({self.get_tipo_display()})"
+
+
+class AlocacaoMotoristaVeiculo(TenantAwareModel):
+    """
+    Registro e alocação de equipe (motorista e ajudante) por veículo e período (Sprint 10C - Tarefa 6).
+    Permite rateio auditável de custos fixos de mão de obra para apuração do TCO.
+    """
+    veiculo = models.ForeignKey(
+        Veiculo,
+        on_delete=models.CASCADE,
+        related_name='alocacoes_equipe',
+        verbose_name="Veículo"
+    )
+    motorista = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='alocacoes_como_motorista',
+        verbose_name="Motorista"
+    )
+    ajudante = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='alocacoes_como_ajudante',
+        verbose_name="Ajudante de Carga (Opcional)"
+    )
+    data_inicio = models.DateField(verbose_name="Data Início da Alocação")
+    data_fim = models.DateField(verbose_name="Data Fim da Alocação")
+    dias_alocados = models.PositiveIntegerField(default=1, verbose_name="Dias Efetivos Alocados no Período")
+    custo_diaria_total = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Custo Diário Total da Equipe com Encargos (R$)"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        verbose_name = "Alocação de Motorista no Veículo"
+        verbose_name_plural = "Alocações de Motoristas em Veículos"
+        ordering = ['-data_inicio', 'veiculo']
+
+    def __str__(self):
+        return f"Alocação {self.veiculo.placa} ({self.motorista.get_full_name() or self.motorista.username}): {self.dias_alocados} dias"
+
+
+# ==============================================================================
+# SPRINT 12A: TORRE DE CONTROLE, CARGA PERIGOSA, GPS OFFLINE E RASTREIO PÚBLICO
+# ==============================================================================
+
+class CapacidadeVeiculoTipoCilindro(TenantAwareModel):
+    """
+    Capacidade máxima de transporte do veículo estratificada por modelo/tipo de cilindro (Sprint 12A - Tarefa 1).
+    Evita carregamento excessivo de recipientes específicos mesmo que o PBT não seja excedido.
+    """
+    veiculo = models.ForeignKey(
+        Veiculo,
+        on_delete=models.CASCADE,
+        related_name='capacidades_por_tipo',
+        verbose_name="Veículo"
+    )
+    tipo_cilindro = models.ForeignKey(
+        'produtos.ModeloCilindro',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='capacidades_veiculos',
+        verbose_name="Modelo / Tipo de Cilindro"
+    )
+    tipo_cilindro_codigo = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        verbose_name="Código / Nome do Tipo de Cilindro"
+    )
+    quantidade_maxima = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Quantidade Máxima Permitida (Unidades)"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Capacidade por Tipo de Cilindro"
+        verbose_name_plural = "Capacidades por Tipo de Cilindro"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'veiculo', 'tipo_cilindro'],
+                name='unique_capacidade_veiculo_tipo'
+            )
+        ]
+
+    def __str__(self):
+        tipo_str = self.tipo_cilindro.descricao if self.tipo_cilindro else (self.tipo_cilindro_codigo or "Geral")
+        return f"{self.veiculo.placa} - {tipo_str}: máx {self.quantidade_maxima} un"
+
+
+class Motorista(TenantAwareModel):
+    """
+    Cadastro regulatório e dados de habilitação/capacitação de motoristas (Sprint 12A - Tarefa 1).
+    Controla validade de CNH, categoria e curso MOPP para transporte de produtos perigosos.
+    """
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='motorista_perfis',
+        verbose_name="Usuário de Sistema Vinculado"
+    )
+    nome = models.CharField(max_length=150, verbose_name="Nome Completo do Motorista")
+    cpf = models.CharField(max_length=14, blank=True, default='', verbose_name="CPF")
+    cnh_numero = models.CharField(max_length=20, blank=True, default='', verbose_name="Número do Registro CNH")
+    cnh_categoria = models.CharField(max_length=5, default='D', verbose_name="Categoria da CNH (ex: C, D, E)")
+    cnh_validade = models.DateField(null=True, blank=True, verbose_name="Data de Validade da CNH")
+    mopp_validade = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Validade do Curso MOPP (Movimentação de Produtos Perigosos)"
+    )
+    ativo = models.BooleanField(default=True, verbose_name="Motorista Ativo")
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Motorista"
+        verbose_name_plural = "Motoristas"
+        ordering = ['nome']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'cpf'],
+                condition=~models.Q(cpf=''),
+                name='unique_tenant_motorista_cpf'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.nome} (CNH {self.cnh_categoria} - Val: {self.cnh_validade or 'N/I'})"
+
+    @property
+    def cnh_vencida(self) -> bool:
+        if not self.cnh_validade:
+            return True
+        return self.cnh_validade < timezone.localdate()
+
+    @property
+    def mopp_vencido(self) -> bool:
+        if not self.mopp_validade:
+            return True
+        return self.mopp_validade < timezone.localdate()
+
+
+class RegraIncompatibilidadeCarga(TenantAwareModel):
+    """
+    Matriz de incompatibilidade química entre classes de risco ANTT (Sprint 12A - Tarefa 2 / Res. 5.998/22 e NBR 14619).
+    Ex: 2.1 (Gases Inflamáveis) x 5.1 (Gases Oxidantes/Oxigênio) -> BLOQUEAR.
+    """
+    ACAO_CHOICES = [
+        ('BLOQUEAR', 'Bloquear Expedição / Saída'),
+        ('AVISAR', 'Avisar e Exigir Ciência'),
+    ]
+
+    classe_a = models.CharField(max_length=10, db_index=True, verbose_name="Classe de Risco A (ex: 2.1)")
+    classe_b = models.CharField(max_length=10, db_index=True, verbose_name="Classe de Risco B (ex: 5.1 ou 2.3)")
+    acao = models.CharField(max_length=10, choices=ACAO_CHOICES, default='BLOQUEAR', verbose_name="Ação a Aplicar")
+    norma_referencia = models.CharField(
+        max_length=150,
+        default='Resolução ANTT nº 5.998/2022 e ABNT NBR 14619',
+        verbose_name="Norma Regulamentadora de Referência"
+    )
+    mensagem = models.TextField(blank=True, default='', verbose_name="Instrução Operacional / Justificativa Técnica")
+    ativo = models.BooleanField(default=True, verbose_name="Regra Ativa")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Regra de Incompatibilidade de Carga"
+        verbose_name_plural = "Regras de Incompatibilidade de Carga"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'classe_a', 'classe_b'],
+                name='unique_tenant_incompatibilidade_carga'
+            )
+        ]
+
+    def __str__(self):
+        return f"Incompatibilidade: {self.classe_a} x {self.classe_b} -> {self.acao}"
+
+
+class LiberacaoCarga(TenantAwareModel):
+    """
+    Registro formal e auditado de liberação excepcional de saída em rota com pendências de validação (Sprint 12A - Tarefa 2).
+    Exige permissão específica 'logistica.liberar_carga_bloqueada' e motivo formal obrigatório.
+    """
+    entrega = models.ForeignKey(
+        Entrega,
+        on_delete=models.CASCADE,
+        related_name='liberacoes_carga',
+        verbose_name="Entrega Liberada"
+    )
+    responsavel = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='cargas_liberadas',
+        verbose_name="Responsável / Gestor Aprovador"
+    )
+    motivo = models.TextField(verbose_name="Motivo Formal Obrigatório da Liberação")
+    erros_ignorados = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Erros e Alertas Técnicos Ignorados na Liberação"
+    )
+    data_liberacao = models.DateTimeField(auto_now_add=True, verbose_name="Data/Hora da Liberação")
+
+    class Meta:
+        verbose_name = "Liberação de Carga Bloqueada"
+        verbose_name_plural = "Liberações de Cargas Bloqueadas"
+        ordering = ['-data_liberacao']
+        permissions = [
+            ("liberar_carga_bloqueada", "Pode liberar saída de rota com carga ou documentação bloqueada"),
+        ]
+
+    def __str__(self):
+        return f"Liberação Entrega #{self.entrega_id} por {self.responsavel.username} em {self.data_liberacao.strftime('%d/%m/%Y %H:%M')}"
+
+
+class ParadaEntrega(TenantAwareModel):
+    """
+    Parada individualizada no trajeto da entrega (Sprint 12A - Tarefas 3 e 4).
+    Controla ordem de atendimento, janelas de horário, estado de execução no PWA e reordenação.
+    """
+    STATUS_CHOICES = [
+        ('PENDENTE', 'Pendente'),
+        ('A_CAMINHO', 'A Caminho'),
+        ('CHEGOU', 'Chegou ao Local'),
+        ('ENTREGUE', 'Entregue com Sucesso'),
+        ('FALHA', 'Falha na Entrega'),
+    ]
+
+    entrega = models.ForeignKey(
+        Entrega,
+        on_delete=models.CASCADE,
+        related_name='paradas_entrega',
+        verbose_name="Entrega"
+    )
+    venda = models.ForeignKey(
+        'vendas.Venda',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='paradas_logistica',
+        verbose_name="Venda / Pedido"
+    )
+    cliente = models.ForeignKey(
+        'clientes.Cliente',
+        on_delete=models.PROTECT,
+        related_name='paradas_logistica',
+        verbose_name="Cliente Destinatário"
+    )
+    ordem = models.PositiveIntegerField(default=1, verbose_name="Ordem de Atendimento")
+    travada = models.BooleanField(
+        default=False,
+        verbose_name="Ordem Travada Manualmente",
+        help_text="Se travada, o algoritmo de roteirização não altera a posição desta parada."
+    )
+    janela_inicio = models.TimeField(null=True, blank=True, verbose_name="Início da Janela de Atendimento")
+    janela_fim = models.TimeField(null=True, blank=True, verbose_name="Fim da Janela de Atendimento")
+    tempo_servico_min = models.PositiveIntegerField(default=15, verbose_name="Tempo Estimado de Serviço / Descarga (min)")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PENDENTE',
+        db_index=True,
+        verbose_name="Estado da Parada no PWA"
+    )
+    motivo_falha = models.TextField(blank=True, default='', verbose_name="Motivo Obrigatório em Caso de Falha")
+    eta_estimado = models.DateTimeField(null=True, blank=True, verbose_name="ETA Estimado de Chegada")
+    chegada_em = models.DateTimeField(null=True, blank=True, verbose_name="Horário Efetivo de Chegada")
+    concluida_em = models.DateTimeField(null=True, blank=True, verbose_name="Horário de Conclusão / Baixa")
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Parada de Entrega"
+        verbose_name_plural = "Paradas de Entrega"
+        ordering = ['entrega', 'ordem']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'entrega', 'ordem'],
+                name='unique_parada_ordem_por_entrega'
+            )
+        ]
+
+    def __str__(self):
+        return f"Parada #{self.ordem} - Entrega #{self.entrega_id} ({self.cliente.nome}) [{self.status}]"
+
+
+class TokenRastreio(TenantAwareModel):
+    """
+    Token público seguro e efêmero para link de rastreamento de última milha do cliente (Sprint 12A - Tarefa 7 / Correção F-34).
+    Expira poucas horas após a parada e obedece regras estritas de privacidade e mascaramento.
+    """
+    entrega = models.ForeignKey(
+        Entrega,
+        on_delete=models.CASCADE,
+        related_name='tokens_rastreio',
+        verbose_name="Entrega"
+    )
+    parada = models.ForeignKey(
+        ParadaEntrega,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='tokens_rastreio',
+        verbose_name="Parada Específica do Destinatário"
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True, verbose_name="Token de Rastreio Público")
+    expira_em = models.DateTimeField(db_index=True, verbose_name="Data/Hora de Expiração do Link")
+    revogado = models.BooleanField(default=False, verbose_name="Token Revogado")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Token de Rastreio Público"
+        verbose_name_plural = "Tokens de Rastreio Público"
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f"Token {self.token} - Entrega #{self.entrega_id} (Exp: {self.expira_em.strftime('%d/%m/%Y %H:%M')})"
+
+    @property
+    def esta_valido(self) -> bool:
+        if self.revogado:
+            return False
+        return timezone.now() <= self.expira_em
+
+
+class TrajetoEntrega(TenantAwareModel):
+    """
+    Polilinha simplificada e consolidada do trajeto percorrido pela entrega (Sprint 12A - Tarefa 6).
+    Substitui pontos detalhados após 90 dias, mantendo consultas ultra-rápidas (< 300 ms).
+    """
+    entrega = models.OneToOneField(
+        Entrega,
+        on_delete=models.CASCADE,
+        related_name='trajeto_simplificado',
+        verbose_name="Entrega"
+    )
+    polilinha = models.TextField(verbose_name="Polilinha Codificada / Coordenadas GeoJSON Consolidadas")
+    distancia_total_km = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Distância Total Percorrida (km)"
+    )
+    pontos_contagem = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Quantidade de Pontos GPS Processados"
+    )
+    gerado_em = models.DateTimeField(auto_now=True, verbose_name="Gerado / Atualizado em")
+
+    class Meta:
+        verbose_name = "Trajeto Consolidado de Entrega"
+        verbose_name_plural = "Trajetos Consolidados de Entregas"
+
+    def __str__(self):
+        return f"Trajeto Entrega #{self.entrega_id} ({self.distancia_total_km} km, {self.pontos_contagem} pts)"
+
+
 
 
 

@@ -255,6 +255,36 @@
                 ⚠️ Abrir Relato de Defeito
             </button>
         </div>
+
+        <!-- Card: Despesa de Campo (Sprint 9C) -->
+        <div class="journey-card">
+            <div class="journey-card-header">
+                <span class="journey-step-badge primary">💳 Despesa Antifraude</span>
+                <span style="font-size: 12px; color: var(--app-text-muted);">Cartão / Caixa / Reembolso</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 800;">💸 Lançar Despesa de Campo</div>
+            <div style="font-size: 13px; color: var(--app-text-muted);">
+                Abastecimento, pedágio ou manutenção com foto do cupom e validação antifraude.
+            </div>
+            <button type="button" class="btn-touch btn-touch-primary btn-touch-full" id="btn-abrir-despesa-campo" style="background: #0284c7; font-weight: 800;">
+                💸 Registrar Nova Despesa
+            </button>
+        </div>
+
+        <!-- Card: Fechamento de Caixa da Rota (Sprint 9C) -->
+        <div class="journey-card">
+            <div class="journey-card-header">
+                <span class="journey-step-badge success">💰 Caixa de Rota</span>
+                <span style="font-size: 12px; color: var(--app-text-muted);">Contagem Cega</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 800;">💰 Fechamento de Caixa de Rota</div>
+            <div style="font-size: 13px; color: var(--app-text-muted);">
+                Contagem física cega de dinheiro e cheques ao final do dia antes da entrega à tesouraria.
+            </div>
+            <button type="button" class="btn-touch btn-touch-success btn-touch-full" id="btn-abrir-caixa-campo" style="background: #10b981; font-weight: 800;">
+                💰 Iniciar Fechamento de Caixa
+            </button>
+        </div>
     </div>
 
     <!-- ABA 4: SINCRONIZAÇÃO & PENDÊNCIAS OFFLINE -->
@@ -744,6 +774,78 @@
 
                 <button type="submit" class="btn-touch btn-touch-danger btn-touch-full" id="btn-salvar-sinistro-campo" style="font-weight: 800; font-size: 15px; background: #dc2626;">
                     🚨 Transmitir Ocorrência para a Gestão
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 8: Despesa de Campo Antifraude (Sprint 9C) -->
+    <div class="field-modal" id="modal-campo-despesa" style="display: none;" hidden>
+        <div class="field-modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--app-border); padding-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 17px; color: var(--app-primary);">💸 Lançar Despesa de Campo</h3>
+                <button type="button" class="btn-touch btn-touch-outline" id="btn-fechar-despesa-campo" style="min-height: 38px; padding: 4px 10px; font-size: 13px;">✕ Fechar</button>
+            </div>
+
+            <form id="form-campo-despesa">
+                <input type="hidden" id="campo-despesa-client-uuid">
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Tipo de Despesa *</label>
+                    <select id="campo-despesa-tipo" class="input-touch" required>
+                        <option value="ABASTECIMENTO">⛽ Abastecimento de Combustível</option>
+                        <option value="PEDAGIO">🛣️ Pedágio</option>
+                        <option value="MANUTENCAO_EMERGENCIAL">🔧 Manutenção Emergencial</option>
+                        <option value="OUTRO">📦 Outra Despesa</option>
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Valor Total (R$) *</label>
+                        <input type="number" step="0.01" min="0.01" id="campo-despesa-valor" class="input-touch" inputmode="decimal" required placeholder="0,00">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Forma de Pagamento *</label>
+                        <select id="campo-despesa-pagamento" class="input-touch" required>
+                            <option value="CARTAO_FROTA">💳 Cartão Frota</option>
+                            <option value="DINHEIRO_ROTA">💵 Dinheiro da Rota</option>
+                            <option value="REEMBOLSO">🧾 Reembolso do Motorista</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Odômetro no Momento (km)</label>
+                        <input type="number" step="0.1" id="campo-despesa-odometro" class="input-touch" inputmode="numeric" placeholder="Ex: 85200">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Litros (se combustível)</label>
+                        <input type="number" step="0.001" min="0" id="campo-despesa-litros" class="input-touch" inputmode="decimal" placeholder="Ex: 50.000">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Estabelecimento / Posto (Nome e CNPJ)</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="campo-despesa-posto-nome" class="input-touch" placeholder="Nome do Posto" style="flex: 2;">
+                        <input type="text" id="campo-despesa-posto-cnpj" class="input-touch" placeholder="CNPJ" style="flex: 1;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Foto do Cupom Fiscal / Recibo *</label>
+                    <input type="file" id="campo-despesa-foto" accept="image/*" capture="environment" style="display: none;">
+                    <div class="campo-foto-box" id="box-upload-despesa-foto" onclick="document.getElementById('campo-despesa-foto').click()">
+                        <span style="font-size: 24px;">📷</span>
+                        <span style="font-weight: 700; font-size: 14px;">Fotografar Cupom Fiscal</span>
+                        <span class="campo-foto-filename" id="filename-despesa-foto">Nenhum cupom selecionado</span>
+                        <img class="campo-foto-preview" id="preview-despesa-foto" alt="Prévia do cupom fiscal">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-touch btn-touch-primary btn-touch-full" id="btn-salvar-despesa-campo" style="font-weight: 800; font-size: 15px;">
+                    💾 Gravar Despesa (Offline-First)
                 </button>
             </form>
         </div>

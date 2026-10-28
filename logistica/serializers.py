@@ -34,7 +34,9 @@ from .models import (
     SinistroItemCarga,
     ConfiguracaoRentabilidade,
     CustoViagem,
-    CustoViagemItem
+    CustoViagemItem,
+    TabelaFreteInterno,
+    AlocacaoMotoristaVeiculo,
 )
 from vendas.models import ItemVenda
 from core.models import Membership
@@ -875,5 +877,196 @@ class CustoViagemSerializer(serializers.ModelSerializer):
         if obj.entrega and obj.entrega.motorista:
             return obj.entrega.motorista.get_full_name() or obj.entrega.motorista.username
         return None
+
+
+# ==============================================================================
+# SPRINT 10C: FRETE INTERNO, ALOCAÇÃO DE EQUIPE, MARGEM E TCO
+# ==============================================================================
+
+class TabelaFreteInternoSerializer(serializers.ModelSerializer):
+    veiculo_placa = serializers.CharField(source='veiculo.placa', default='', read_only=True)
+
+    class Meta:
+        model = TabelaFreteInterno
+        fields = [
+            'id',
+            'descricao',
+            'veiculo',
+            'veiculo_placa',
+            'tipo',
+            'valor',
+            'vigencia_inicio',
+            'vigencia_fim',
+            'ativo',
+            'criado_em',
+            'atualizado_em',
+        ]
+        read_only_fields = ['id', 'criado_em', 'atualizado_em']
+
+
+class AlocacaoMotoristaVeiculoSerializer(serializers.ModelSerializer):
+    veiculo_placa = serializers.CharField(source='veiculo.placa', read_only=True)
+    motorista_nome = serializers.SerializerMethodField()
+    ajudante_nome = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AlocacaoMotoristaVeiculo
+        fields = [
+            'id',
+            'veiculo',
+            'veiculo_placa',
+            'motorista',
+            'motorista_nome',
+            'ajudante',
+            'ajudante_nome',
+            'data_inicio',
+            'data_fim',
+            'dias_alocados',
+            'custo_diaria_total',
+            'criado_em',
+            'atualizado_em',
+        ]
+        read_only_fields = ['id', 'criado_em', 'atualizado_em']
+
+    def get_motorista_nome(self, obj):
+        if obj.motorista:
+            return obj.motorista.get_full_name() or obj.motorista.username
+        return None
+
+    def get_ajudante_nome(self, obj):
+        if obj.ajudante:
+            return obj.ajudante.get_full_name() or obj.ajudante.username
+        return None
+
+
+class MargemVeiculoInputSerializer(serializers.Serializer):
+    veiculo_id = serializers.IntegerField(required=True)
+    data_inicio = serializers.DateField(required=True)
+    data_fim = serializers.DateField(required=True)
+    politica = serializers.ChoiceField(
+        choices=['CONTRIBUICAO_COMERCIAL', 'CONTRIBUICAO_FRETE'],
+        required=False,
+        allow_null=True,
+        default=None
+    )
+
+
+class TCOVeiculoInputSerializer(serializers.Serializer):
+    veiculo_id = serializers.IntegerField(required=True)
+    ano = serializers.IntegerField(required=True, min_value=2000, max_value=2100)
+    mes = serializers.IntegerField(required=True, min_value=1, max_value=12)
+
+
+# ==============================================================================
+# SPRINT 12A SERIALIZERS
+# ==============================================================================
+
+class CapacidadeVeiculoTipoCilindroSerializer(serializers.ModelSerializer):
+    veiculo_placa = serializers.CharField(source='veiculo.placa', read_only=True)
+    tipo_cilindro_descricao = serializers.CharField(source='tipo_cilindro.descricao', read_only=True)
+
+    class Meta:
+        from .models import CapacidadeVeiculoTipoCilindro
+        model = CapacidadeVeiculoTipoCilindro
+        fields = [
+            'id', 'veiculo', 'veiculo_placa', 'tipo_cilindro',
+            'tipo_cilindro_descricao', 'tipo_cilindro_codigo',
+            'quantidade_maxima', 'criado_em', 'atualizado_em'
+        ]
+        read_only_fields = ['id', 'criado_em', 'atualizado_em']
+
+
+class MotoristaSerializer(serializers.ModelSerializer):
+    usuario_nome = serializers.SerializerMethodField()
+    cnh_vencida = serializers.BooleanField(read_only=True)
+    mopp_vencido = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        from .models import Motorista
+        model = Motorista
+        fields = [
+            'id', 'usuario', 'usuario_nome', 'nome', 'cpf',
+            'cnh_numero', 'cnh_categoria', 'cnh_validade',
+            'mopp_validade', 'cnh_vencida', 'mopp_vencido',
+            'ativo', 'criado_em', 'atualizado_em'
+        ]
+        read_only_fields = ['id', 'criado_em', 'atualizado_em', 'cnh_vencida', 'mopp_vencido']
+
+    def get_usuario_nome(self, obj):
+        if obj.usuario:
+            return obj.usuario.get_full_name() or obj.usuario.username
+        return None
+
+
+class RegraIncompatibilidadeCargaSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import RegraIncompatibilidadeCarga
+        model = RegraIncompatibilidadeCarga
+        fields = [
+            'id', 'classe_a', 'classe_b', 'acao',
+            'norma_referencia', 'mensagem', 'ativo', 'criado_em'
+        ]
+        read_only_fields = ['id', 'criado_em']
+
+
+class LiberacaoCargaSerializer(serializers.ModelSerializer):
+    responsavel_nome = serializers.SerializerMethodField()
+
+    class Meta:
+        from .models import LiberacaoCarga
+        model = LiberacaoCarga
+        fields = [
+            'id', 'entrega', 'responsavel', 'responsavel_nome',
+            'motivo', 'erros_ignorados', 'data_liberacao'
+        ]
+        read_only_fields = ['id', 'responsavel', 'responsavel_nome', 'data_liberacao']
+
+    def get_responsavel_nome(self, obj):
+        if obj.responsavel:
+            return obj.responsavel.get_full_name() or obj.responsavel.username
+        return None
+
+
+class ParadaEntregaSerializer(serializers.ModelSerializer):
+    cliente_nome = serializers.CharField(source='cliente.nome', read_only=True)
+    cliente_cnpj = serializers.CharField(source='cliente.cnpj', read_only=True)
+
+    class Meta:
+        from .models import ParadaEntrega
+        model = ParadaEntrega
+        fields = [
+            'id', 'entrega', 'venda', 'cliente', 'cliente_nome',
+            'cliente_cnpj', 'ordem', 'travada', 'janela_inicio',
+            'janela_fim', 'tempo_servico_min', 'status', 'motivo_falha',
+            'eta_estimado', 'chegada_em', 'concluida_em',
+            'criado_em', 'atualizado_em'
+        ]
+        read_only_fields = ['id', 'criado_em', 'atualizado_em']
+
+
+class TokenRastreioSerializer(serializers.ModelSerializer):
+    esta_valido = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        from .models import TokenRastreio
+        model = TokenRastreio
+        fields = [
+            'id', 'entrega', 'parada', 'token', 'expira_em',
+            'revogado', 'esta_valido', 'criado_em'
+        ]
+        read_only_fields = ['id', 'token', 'esta_valido', 'criado_em']
+
+
+class TrajetoEntregaSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import TrajetoEntrega
+        model = TrajetoEntrega
+        fields = [
+            'id', 'entrega', 'polilinha', 'distancia_total_km',
+            'pontos_contagem', 'gerado_em'
+        ]
+        read_only_fields = ['id', 'gerado_em']
+
+
 
 

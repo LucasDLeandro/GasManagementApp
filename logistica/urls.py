@@ -44,7 +44,19 @@ from .views import (
     ConfiguracaoRentabilidadeView,
     RentabilidadeIndicadoresView,
     TCOFrotaView,
-    CustoViagemItemComprovanteDownloadView
+    CustoViagemItemComprovanteDownloadView,
+    TrackingPublicoView,
+    SincronizarTrackingGPSAPIView,
+    OtimizarOrdemParadasAPIView,
+    TabelaFreteInternoViewSet,
+    AlocacaoMotoristaVeiculoViewSet,
+    MargemVeiculoAPIView,
+    TCOVeiculoAPIView,
+    CapacidadeVeiculoTipoCilindroViewSet,
+    MotoristaViewSet,
+    RegraIncompatibilidadeCargaViewSet,
+    ParadaEntregaViewSet,
+    IndicadoresLogisticaAPIView,
 )
 
 router = DefaultRouter()
@@ -69,6 +81,12 @@ router.register(r'apolices-seguro', ApoliceSeguroViewSet, basename='apolice-segu
 router.register(r'sinistros', SinistroViewSet, basename='sinistro')
 router.register(r'custos-viagem', CustoViagemViewSet, basename='custo-viagem')
 router.register(r'custos-viagem-itens', CustoViagemItemViewSet, basename='custo-viagem-item')
+router.register(r'tabelas-frete-interno', TabelaFreteInternoViewSet, basename='tabela-frete-interno')
+router.register(r'alocacoes-equipe', AlocacaoMotoristaVeiculoViewSet, basename='alocacao-equipe')
+router.register(r'capacidades-veiculo-cilindro', CapacidadeVeiculoTipoCilindroViewSet, basename='capacidade-veiculo-cilindro')
+router.register(r'motoristas', MotoristaViewSet, basename='motorista')
+router.register(r'regras-incompatibilidade', RegraIncompatibilidadeCargaViewSet, basename='regra-incompatibilidade')
+router.register(r'paradas', ParadaEntregaViewSet, basename='parada')
 
 app_name = 'logistica'
 
@@ -98,6 +116,12 @@ urlpatterns = [
     path('api/rentabilidade/tco/', TCOFrotaView.as_view(), name='rentabilidade_tco'),
     path('api/rentabilidade/configuracao/', ConfiguracaoRentabilidadeView.as_view(), name='rentabilidade_configuracao'),
     path('api/custos-viagem-itens/<int:pk>/comprovante/', CustoViagemItemComprovanteDownloadView.as_view(), name='download_comprovante_custo_item'),
+    path('api/tracking/sync/', SincronizarTrackingGPSAPIView.as_view(), name='sync_tracking_gps'),
+    path('api/entregas/<int:pk>/otimizar-rotas/', OtimizarOrdemParadasAPIView.as_view(), name='otimizar_rotas_entrega'),
+    path('api/margem-veiculo/', MargemVeiculoAPIView.as_view(), name='margem_veiculo_api'),
+    path('api/tco-veiculo/', TCOVeiculoAPIView.as_view(), name='tco_veiculo_api'),
+    path('api/indicadores/', IndicadoresLogisticaAPIView.as_view(), name='indicadores_logistica_api'),
+    path('rastreio/<uuid:token>/', TrackingPublicoView.as_view(), name='rastreio_publico'),
     path('api/', include(router.urls)),
 ]
 
