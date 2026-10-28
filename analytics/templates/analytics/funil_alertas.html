@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Funil de Oportunidades Comerciais | Analytics{% endblock %}
+
+{% block css %}
+<style>
+    :root {
+        --bg-main: #0b0f19;
+        --card-bg: rgba(18, 24, 38, 0.85);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --accent-blue: #3b82f6;
+        --accent-emerald: #10b981;
+        --accent-amber: #f59e0b;
+        --accent-rose: #f43f5e;
+        --accent-indigo: #6366f1;
+    }
+
+    body {
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    .funil-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+    }
+
+    .header-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--card-border);
+    }
+
+    .header-title h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0;
+        background: linear-gradient(135deg, #60a5fa, #c084fc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .header-title p {
+        margin: 0.35rem 0 0;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    }
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text-primary);
+        border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* KPI Grid */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .kpi-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 1.25rem;
+        backdrop-filter: blur(12px);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .kpi-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+    }
+
+    .kpi-value {
+        font-size: 1.85rem;
+        font-weight: 700;
+        color: #fff;
+    }
+
+    .kpi-sub {
+        font-size: 0.8rem;
+        color: var(--accent-emerald);
+        margin-top: 0.25rem;
+    }
+
+    /* Analytics Sections */
+    .sections-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    @media (max-width: 900px) {
+        .sections-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .panel-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        backdrop-filter: blur(12px);
+    }
+
+    .panel-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 0;
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .data-table th, .data-table td {
+        padding: 0.75rem 0.6rem;
+        text-align: left;
+        border-bottom: 1px solid var(--card-border);
+    }
+
+    .data-table th {
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+    }
+
+    .data-table tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .badge-novo { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-em_contato { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-convertido { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-descartado { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+
+    .badge-recompra { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+    .badge-churn { background: rgba(217, 70, 239, 0.15); color: #f0abfc; }
+    .badge-cilindro { background: rgba(245, 158, 11, 0.15); color: #fde68a; }
+
+    /* Alert List */
+    .alerts-container {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        backdrop-filter: blur(12px);
+    }
+
+    .evidence-box {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+        padding: 0.6rem 0.8rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        color: #cbd5e1;
+        margin-top: 0.5rem;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    .action-select {
+        background: #1e293b;
+        color: #f8fafc;
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+    }
+
+    .toast-msg {
+        display: none;
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        background: #10b981;
+        color: #fff;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        z-index: 9999;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="funil-container">
+
+    <!-- Header -->
+    <div class="header-bar">
+        <div class="header-title">
+            <h1>Funil de Oportunidades & Risco de Churn</h1>
+            <p>Sprint 12C: Alertas Comerciais Explicáveis & Probabilidade de Retenção (Kaplan-Meier)</p>
+        </div>
+        <div class="header-actions">
+            <button id="btn-gerar-alertas" class="btn btn-primary" onclick="dispararVarredura()">
+                <span>⚡</span> Disparar Varredura
+            </button>
+            <button id="btn-backtest" class="btn btn-secondary" onclick="abrirModalBacktest()">
+                <span>📊</span> Backtest Histórico
+            </button>
+        </div>
+    </div>
+
+    {% if modulo_inativo %}
+    <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+        <h3 style="color: #f87171; margin-top: 0;">Módulo Analytics Inativo</h3>
+        <p style="color: #fca5a5; margin: 0;">O módulo de analytics estatístico preditivo não está habilitado para a sua assinatura.</p>
+    </div>
+    {% else %}
+
+    <!-- Top KPI Cards -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <span class="kpi-label">Total Alertas</span>
+            <span class="kpi-value" id="kpi-total">{{ funil.totais.total_alertas|default:0 }}</span>
+            <span class="kpi-sub" style="color: var(--text-secondary);">Oportunidades mapeadas</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Novos</span>
+            <span class="kpi-value" id="kpi-novos">{{ funil.totais.novos|default:0 }}</span>
+            <span class="kpi-sub" style="color: var(--accent-blue);">Aguardando ação</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Em Contato</span>
+            <span class="kpi-value" id="kpi-contato">{{ funil.totais.em_contato|default:0 }}</span>
+            <span class="kpi-sub" style="color: var(--accent-amber);">Tratativa comercial</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Convertidos</span>
+            <span class="kpi-value" id="kpi-convertidos">{{ funil.totais.convertidos|default:0 }}</span>
+            <span class="kpi-sub">Vendas recuperadas</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Descartados</span>
+            <span class="kpi-value" id="kpi-descartados">{{ funil.totais.descartados|default:0 }}</span>
+            <span class="kpi-sub" style="color: var(--text-secondary);">Cooldown 30d ativo</span>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">Taxa Conversão</span>
+            <span class="kpi-value" id="kpi-taxa">{{ funil.totais.taxa_conversao_global|default:0 }}%</span>
+            <span class="kpi-sub">Eficácia global</span>
+        </div>
+    </div>
+
+    <!-- Conversion Breakdowns -->
+    <div class="sections-grid">
+        <div class="panel-card">
+            <h3 class="panel-title">
+                Taxa de Conversão por Tipo de Alerta
+                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal;">Auditável</span>
+            </h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Total</th>
+                        <th>Convertidos</th>
+                        <th>Taxa (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in funil.por_tipo %}
+                    <tr>
+                        <td><strong>{{ item.tipo_label }}</strong></td>
+                        <td>{{ item.total }}</td>
+                        <td>{{ item.convertidos }}</td>
+                        <td><span class="badge badge-convertido">{{ item.taxa_conversao }}%</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Nenhum dado consolidado no período.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="panel-card">
+            <h3 class="panel-title">
+                Calibragem por Faixa de k (Média + k · Desvio)
+                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal;">Sensibilidade</span>
+            </h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Faixa de k</th>
+                        <th>Total</th>
+                        <th>Convertidos</th>
+                        <th>Taxa (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in funil.calibragem_k %}
+                    <tr>
+                        <td><strong>{{ item.faixa }}</strong></td>
+                        <td>{{ item.total }}</td>
+                        <td>{{ item.convertidos }}</td>
+                        <td><span class="badge badge-convertido">{{ item.taxa_conversao }}%</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Sem dados de calibragem k.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Alert List with Evidence Box -->
+    <div class="alerts-container">
+        <h3 class="panel-title">
+            Alertas Ativos & Evidência Estatística Explicável
+            <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal;">Transparência Matemática</span>
+        </h3>
+
+        <div style="overflow-x: auto;">
+            <table class="data-table" id="tabela-alertas">
+                <thead>
+                    <tr>
+                        <th>Cliente / Gás</th>
+                        <th>Tipo & Score</th>
+                        <th>Evidência Explicável (Números Usados)</th>
+                        <th>Status Atual</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alerta in alertas %}
+                    <tr id="alerta-row-{{ alerta.id }}">
+                        <td>
+                            <strong style="color: #fff; font-size: 0.95rem;">{{ alerta.cliente.nome }}</strong>
+                            <div style="color: var(--text-secondary); font-size: 0.8rem;">
+                                CNPJ/CPF: {{ alerta.cliente.cnpj|default:alerta.cliente.cpf|default:'-' }}
+                            </div>
+                            {% if alerta.gas %}
+                            <div style="margin-top: 0.25rem;">
+                                <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc;">{{ alerta.gas.nome }} ({{ alerta.gas.sigla }})</span>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div>
+                                {% if alerta.tipo == 'RECOMPRA_ATRASADA' %}
+                                    <span class="badge badge-recompra">{{ alerta.get_tipo_display }}</span>
+                                {% elif alerta.tipo == 'CHURN_RISCO' %}
+                                    <span class="badge badge-churn">{{ alerta.get_tipo_display }}</span>
+                                {% else %}
+                                    <span class="badge badge-cilindro">{{ alerta.get_tipo_display }}</span>
+                                {% endif %}
+                            </div>
+                            <div style="margin-top: 0.5rem; font-size: 0.85rem;">
+                                <strong>Score:</strong> {{ alerta.score }}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                Ref: {{ alerta.data_ref|date:"d/m/Y" }}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="evidence-box">
+                                {% if alerta.evidencia_json.explicacao %}
+                                <div><strong>Explicacao:</strong> {{ alerta.evidencia_json.explicacao }}</div>
+                                {% endif %}
+                                {% if alerta.evidencia_json.mu is not None %}
+                                <div><strong>Média (μ):</strong> {{ alerta.evidencia_json.mu }} dias | <strong>Desvio (σ):</strong> {{ alerta.evidencia_json.sigma }} dias</div>
+                                <div><strong>Dias desde última compra:</strong> {{ alerta.evidencia_json.dias_desde_ultima_compra }} | <strong>Limite (μ+k·σ):</strong> {{ alerta.evidencia_json.limite_alerta }} (k={{ alerta.evidencia_json.k }})</div>
+                                {% endif %}
+                                {% if alerta.evidencia_json.dias_permanencia is not None %}
+                                <div><strong>Dias em posse:</strong> {{ alerta.evidencia_json.dias_permanencia }} dias | <strong>Probabilidade não retorno S(t):</strong> {{ alerta.evidencia_json.probabilidade_km }}</div>
+                                <div><strong>Curva Kaplan-Meier:</strong> {{ alerta.evidencia_json.fonte_curva }}</div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-{{ alerta.status|lower }}" id="status-badge-{{ alerta.id }}">
+                                {{ alerta.get_status_display }}
+                            </span>
+                            {% if alerta.responsavel %}
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                Por: {{ alerta.responsavel.get_full_name|default:alerta.responsavel.username }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                                <select class="action-select" id="select-status-{{ alerta.id }}">
+                                    <option value="">Alterar Status...</option>
+                                    <option value="EM_CONTATO">Em Contato</option>
+                                    <option value="CONVERTIDO">Convertido (Venda)</option>
+                                    <option value="DESCARTADO">Descartado (Cooldown 30d)</option>
+                                </select>
+                                <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="atualizarStatusAlerta({{ alerta.id }})">
+                                    Salvar
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            Nenhum alerta de oportunidade gerado até o momento. Clique em <strong>Disparar Varredura</strong> para analisar a base.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Modal Backtest -->
+<div id="modal-backtest" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; width: 90%; max-width: 600px; padding: 1.75rem;">
+        <h3 style="margin-top: 0; font-size: 1.25rem;">Backtest Histórico Retrospectivo</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem;">
+            Simula a assertividade dos alertas no histórico real sem metas inventadas.
+        </p>
+        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+            <div style="flex: 1;">
+                <label style="font-size: 0.8rem; color: var(--text-secondary);">Horizonte de Avaliação (Dias)</label>
+                <input type="number" id="backtest-dias" value="30" style="width: 100%; padding: 0.5rem; background: #1e293b; border: 1px solid var(--card-border); color: #fff; border-radius: 6px; box-sizing: border-box;">
+            </div>
+            <div style="flex: 1;">
+                <label style="font-size: 0.8rem; color: var(--text-secondary);">Sensibilidade k</label>
+                <input type="number" step="0.1" id="backtest-k" value="2.0" style="width: 100%; padding: 0.5rem; background: #1e293b; border: 1px solid var(--card-border); color: #fff; border-radius: 6px; box-sizing: border-box;">
+            </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;">
+            <button class="btn btn-secondary" onclick="fecharModalBacktest()">Cancelar</button>
+            <button class="btn btn-primary" onclick="executarSimulacaoBacktest()">Executar Simulação</button>
+        </div>
+        <div id="backtest-resultado" style="margin-top: 1rem; display: none;"></div>
+    </div>
+</div>
+
+<div id="toast-msg" class="toast-msg">Status atualizado com sucesso!</div>
+
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast-msg');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    async function dispararVarredura() {
+        const btn = document.getElementById('btn-gerar-alertas');
+        btn.disabled = true;
+        btn.innerText = 'Processando...';
+
+        try {
+            const res = await fetch('/api/analytics/alertas/gerar-alertas/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ k: 2.0 })
+            });
+            const data = await res.json();
+            showToast(`Varredura concluída: ${data.total_alertas_gerados || 0} novos alertas gerados.`);
+            setTimeout(() => window.location.reload(), 1200);
+        } catch (e) {
+            alert('Erro ao disparar varredura: ' + e);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<span>⚡</span> Disparar Varredura';
+        }
+    }
+
+    async function atualizarStatusAlerta(alertaId) {
+        const select = document.getElementById(`select-status-${alertaId}`);
+        const novoStatus = select.value;
+        if (!novoStatus) {
+            alert('Selecione um status válido.');
+            return;
+        }
+
+        const feedback = prompt('Feedback ou observação comercial (opcional):', '');
+
+        try {
+            const res = await fetch(`/api/analytics/alertas/${alertaId}/atualizar-status/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ status: novoStatus, feedback: feedback || '' })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                alert('Erro ao atualizar: ' + JSON.stringify(err));
+                return;
+            }
+
+            const data = await res.json();
+            showToast(`Status atualizado para ${data.status_label || novoStatus}`);
+            const badge = document.getElementById(`status-badge-${alertaId}`);
+            if (badge) {
+                badge.innerText = data.status_label || novoStatus;
+                badge.className = `badge badge-${novoStatus.toLowerCase()}`;
+            }
+        } catch (e) {
+            alert('Erro na requisição: ' + e);
+        }
+    }
+
+    function abrirModalBacktest() {
+        const modal = document.getElementById('modal-backtest');
+        modal.style.display = 'flex';
+    }
+
+    function fecharModalBacktest() {
+        const modal = document.getElementById('modal-backtest');
+        modal.style.display = 'none';
+    }
+
+    async function executarSimulacaoBacktest() {
+        const dias = document.getElementById('backtest-dias').value;
+        const k = document.getElementById('backtest-k').value;
+        const resBox = document.getElementById('backtest-resultado');
+        resBox.style.display = 'block';
+        resBox.innerHTML = '<p style="color: var(--accent-blue);">Executando simulação retrospectiva...</p>';
+
+        try {
+            const res = await fetch(`/api/analytics/alertas/backtest/?dias_horizonte=${dias}&k=${k}`, {
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            const data = await res.json();
+            resBox.innerHTML = `
+                <div style="background: rgba(0,0,0,0.4); padding: 1rem; border-radius: 8px; border: 1px solid var(--card-border); font-size: 0.85rem;">
+                    <p><strong>Total de Alertas Simulados:</strong> ${data.total_alertas_simulados}</p>
+                    <p><strong>Alertas com Recompra Real em até ${data.dias_horizonte} dias:</strong> ${data.total_convertidos_no_prazo}</p>
+                    <p><strong>Taxa de Conversão Retrospectiva:</strong> <span style="color: var(--accent-emerald); font-weight: bold; font-size: 1.1rem;">${data.taxa_conversao_percentual}%</span></p>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">${data.explicacao}</p>
+                </div>
+            `;
+        } catch (e) {
+            resBox.innerHTML = `<p style="color: var(--accent-rose);">Erro ao executar: ${e}</p>`;
+        }
+    }
+</script>
+{% endblock %}
