@@ -109,7 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
         $('titulo-lote').textContent = lote.codigo_lote;
 
         $('card-gas').textContent = `${lote.gas_sigla}${lote.numero_onu ? ' · ONU ' + lote.numero_onu : ''}`;
-        $('card-pureza').textContent = `Pureza ${lote.pureza_percentual}% · ${lote.gas_nome}`;
+        const pureza = Number(lote.pureza_percentual).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+        $('card-pureza').textContent = `Pureza ${pureza}% · ${lote.gas_nome}`;
         const qualidade = $('card-qualidade');
         qualidade.textContent = lote.status_qualidade_display || lote.status_qualidade;
         qualidade.className = 'recall-metrica-texto';

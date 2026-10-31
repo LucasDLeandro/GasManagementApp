@@ -1253,6 +1253,14 @@ class RecallCampanhaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
                 {'error': "Campos 'lote_id', 'codigo_campanha' e 'motivo' são obrigatórios."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        # Recall é ato regulatório: motivo e comunicado precisam ser descritivos (mesmos mínimos da tela).
+        erros = {}
+        if len(str(motivo).strip()) < 10:
+            erros['motivo'] = ['Descreva o desvio com pelo menos 10 caracteres.']
+        if len(str(texto_notificacao).strip()) < 20:
+            erros['texto_notificacao'] = ['O texto da notificação precisa ter pelo menos 20 caracteres.']
+        if erros:
+            return Response(erros, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             campanha = abrir_campanha_recall(

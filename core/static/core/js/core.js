@@ -491,8 +491,16 @@ window.showToast = function({ icon = 'success', title = 'Sucesso', text = '' }) 
         limparErros(raiz);
         let primeiro = null;
         raiz.querySelectorAll('input, select, textarea').forEach((campo) => {
-            if (campo.disabled || campo.type === 'hidden' || campo.checkValidity()) return;
-            marcarErro(campo, campo.validationMessage);
+            if (campo.disabled || campo.type === 'hidden') return;
+            // O navegador só aplica minlength a texto digitado e aceita "só espaços" em required;
+            // a regra aqui vale para qualquer valor (colado, preenchido por script, etc.).
+            const texto = typeof campo.value === 'string' ? campo.value.trim() : '';
+            let mensagem = '';
+            if (!campo.checkValidity()) mensagem = campo.validationMessage;
+            else if (campo.required && campo.type !== 'checkbox' && campo.type !== 'file' && !texto) mensagem = 'Preencha este campo.';
+            else if (campo.minLength > 0 && texto && texto.length < campo.minLength) mensagem = `Use pelo menos ${campo.minLength} caracteres.`;
+            if (!mensagem) return;
+            marcarErro(campo, mensagem);
             primeiro = primeiro || campo;
         });
         if (primeiro) primeiro.focus();

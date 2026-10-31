@@ -176,7 +176,10 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 > - **2.2.3 Recebimento de fornecedor** em 3 etapas (Nota fiscal → Cilindros → Revisão), com bipagem e chips sem duplicidade e validade posterior ao envase. **Bug corrigido:** o campo "RT conferente" era montado a partir dos lotes e enviava o **ID do lote** como RT. Agora lista os RTs ativos reais da empresa.
 > - **2.2.4 a 2.2.7**: modais do painel do cilindro no padrão (bloqueio com motivo e **confirmação dupla**; reteste com **variação de tara ao vivo** e alerta acima de 5%; reclassificação com aviso de RT para gás medicinal; estorno com prévia do lançamento). Todos usam `Baros.api` e mostram o erro real do backend.
 > - **Zero `alert`/`confirm`/`prompt`** nos scripts de Produtos (eram 18), garantido por teste.
-> - **Faltam:** 2.2.8 (rampa como "estação") e 2.2.9 (Recall ANVISA). As etiquetas (layout de impressão) ainda têm estilos inline.
+> - **2.2.8 Rampa como estação de pátio (concluído):** alvos grandes, leitor óptico, cartões por cilindro e barra de ações fixa. **Conformidade IN 129:** o checklist pré-envase nascia todo marcado como conforme; agora nasce pendente, e o envase só é concluído com a inspeção completa ou com a declaração explícita "Conferi todos".
+> - **2.2.9 Recall ANVISA (concluído):** a tela foi reescrita em abas (contenção, exposição, campanhas), com linha do tempo da campanha, sem `innerHTML` com dados de clientes (fecha um risco de XSS armazenado), sem `prompt`/`alert` e sem o fluxo duplicado de abertura. **Backend:** a campanha avança sozinha (`EM_NOTIFICACAO` → `CONCLUIDO`, com `concluido_em`); notificar antes da homologação do RT é bloqueado; só campanha aberta pode ser homologada; `status` deixou de ser alterável por PATCH; motivo ≥ 10 e comunicado ≥ 20 caracteres também no backend.
+> - **Design System:** `Baros.validarCampos` agora aplica `minlength` e recusa campos só com espaços para qualquer valor (o navegador só checava texto digitado).
+> - **Ainda pendente no 2.2:** as etiquetas (layout de impressão) têm estilos inline. **O módulo de envase está desligado em todas as empresas do banco de desenvolvimento**, então rampa, lotes e recall não aparecem no app local até ele ser ligado no backoffice.
 
 ### 2.3 Telas novas (backend já pronto)
 | ID | Tela | API | Tam. |
