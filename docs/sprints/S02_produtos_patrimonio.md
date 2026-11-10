@@ -3,7 +3,7 @@
 > Cole esta mensagem inteira no agente.
 
 **Antes de começar, leia:** `docs/sprints/00_REGRAS_GERAIS.md` (obrigatório), `docs/DESIGN_SYSTEM.md`, a seção 5.4 de `docs/GUIA_MODULOS_BAROS.md`, a seção "Sprint 8A" de `docs/DECISOES_PENDENTES.md` e o relatório `RELATORIO_SPRINT_*` mais recente que fale de patrimônio, se houver.
-**Branch:** `sprint-02/produtos-patrimonio` a partir de `sprint-01/produtos-acabamento`.
+**Branch:** `sprint-02/produtos-patrimonio` a partir de `sprint-01b/paineis`.
 
 ## Objetivo
 Dar tela ao backend de patrimônio da Sprint 8A, que hoje só existe na API: fabricantes, classes de ativo, lotes de aquisição, ativos imobilizados e tabela de indenização.

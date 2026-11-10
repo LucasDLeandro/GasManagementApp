@@ -1,6 +1,15 @@
 # Regras gerais para o agente de codificação (valem para TODAS as sprints)
 
-Leia este arquivo inteiro antes de começar qualquer sprint. Se uma instrução da sprint conflitar com este arquivo, **este arquivo vence**; pare e registre a dúvida no relatório.
+Leia este arquivo inteiro antes de começar qualquer sprint. Leia também `CLAUDE.md` e `docs/PROGRESSO.md`.
+
+**Python do projeto:** nesta estação o ambiente virtual é `venv/` (Python 3.13): use `venv/Scripts/python.exe` em todos os comandos. Se a pasta for `.venv/`, troque o caminho. O servidor de teste usa Python 3.14: não use nada que exija versão específica. Se uma instrução da sprint conflitar com este arquivo, **este arquivo vence**; pare e registre a dúvida no relatório.
+
+## 0. Como começar qualquer sprint (antes de alterar qualquer arquivo)
+1. Leia por inteiro `CLAUDE.md`, `docs/PROGRESSO.md`, este arquivo, a sprint e os documentos que ela indica.
+2. Confirme que a branch de origem indicada na sprint existe e que o `git status` está limpo; crie a branch da sprint a partir dela.
+3. Rode a suíte completa e anote o resultado de partida (seção 5).
+4. Confira se cada item de "O que está errado" ainda é verdade no código atual.
+5. **Responda com um plano curto e espere a confirmação do dono antes de codar:** arquivos que vai alterar, os testes que vão falhar antes da correção, o que mudou desde que a sprint foi escrita e as dúvidas de negócio.
 
 ## 1. Contexto do projeto
 - **Baros**: SaaS B2B multi-tenant (Django 6 + DRF) para envase e distribuição de gases industriais e medicinais.
@@ -47,7 +56,9 @@ Leia este arquivo inteiro antes de começar qualquer sprint. Se uma instrução 
 10. Toda tela precisa funcionar nos temas **claro, escuro e alto contraste solar** e com **375px** de largura.
 
 ## 5. Testes
-- Rode a suíte completa antes do último commit da sprint: `.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`. **Ela precisa terminar verde.** Ela leva cerca de 5 minutos.
+- Rode a suíte completa **no início** (anote o resultado de partida no relatório) e antes do último commit: `venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`. **Ela precisa terminar verde.** Leva cerca de 5 minutos.
+- **Bug corrigido começa com um teste que falha.** Para cada item de "O que está errado" da sprint, escreva primeiro o teste que reproduz o problema, rode e **confirme que ele falha no código atual**; só então corrija. No relatório, diga quais testes falharam antes e passaram depois.
+- Comportamento de JavaScript que o pytest não executa (ex.: `innerHTML` com dado) ganha um **teste estático** que lê o arquivo e procura o padrão proibido.
 - Toda regra nova de backend ganha teste (sucesso, erro de validação, papel sem permissão, isolamento entre empresas).
 - Toda tela nova ganha ao menos um teste que a renderiza com um usuário do papel certo e confirma os IDs principais e a ausência de `alert(`/`prompt(` no JS (veja `produtos/tests/test_fase2_catalogo_cadastro_cilindro.py`).
 - Em testes, consultas fora de requisição usam `tenant_context(tenant)` ou `.unscoped`.
@@ -55,7 +66,13 @@ Leia este arquivo inteiro antes de começar qualquer sprint. Se uma instrução 
 - Depois de rodar os testes, confira `git status`: nada fora do que você mudou de propósito.
 
 ## 6. Banco de desenvolvimento
-- Não altere dados do `db.sqlite3` de desenvolvimento, nem para "testar rapidinho". Se precisar de dados, crie-os nos testes. Se precisar verificar no navegador algo que dependa de um módulo desligado, **registre no relatório** em vez de ligar o módulo.
+- Não altere dados do `db.sqlite3` de desenvolvimento, nem para "testar rapidinho". Se precisar de dados, crie-os nos testes.
+- **Para verificar no navegador** algo que dependa de dados ou de um módulo desligado, use uma **cópia** do banco fora do projeto e aponte o servidor para ela só naquele terminal:
+  ```bash
+  cp db.sqlite3 /c/Temp/baros_verificacao.sqlite3
+  DB_ENGINE=django.db.backends.sqlite3 DB_NAME=C:/Temp/baros_verificacao.sqlite3 venv/Scripts/python.exe manage.py runserver
+  ```
+  Na cópia você pode ligar módulos (`/baros-admin/` → Empresas → Módulos) e criar dados. Descreva no relatório o que fez na cópia. Nunca commite a cópia.
 
 ## 7. Entrega de cada sprint
 Ao terminar, crie `docs/sprints/relatorios/SPRINT_XX.md` com:
@@ -67,7 +84,9 @@ Ao terminar, crie `docs/sprints/relatorios/SPRINT_XX.md` com:
 6. Lista de commits.
 7. **Notas de deploy** (ver seção 8): migrações novas, variáveis de ambiente novas, dependências novas e comandos a rodar no servidor (`collectstatic`, `populate_db.py` etc.). Se não houver nada, escreva "nenhuma".
 
-Atualize também o bloco "Status" da fase correspondente em `docs/PLANO_CORRECAO_E_EVOLUCAO.md`.
+Atualize também o bloco "Status" da fase correspondente em `docs/PLANO_CORRECAO_E_EVOLUCAO.md` e a tabela de `docs/PROGRESSO.md` (status da sprint e qual é a próxima).
+
+Copie para o relatório as listas **Testes** e **Critérios de aceite** da sprint, marcando `[x]` no que foi feito e explicando cada `[ ]` que ficou aberto. Nunca marque como feito algo que não verificou.
 
 ## 8. Ambiente de teste na AWS (usado por um Responsável Técnico real)
 - Existe um ambiente de teste numa EC2 (Ubuntu 24.04, gunicorn + nginx, SQLite, `DEBUG=False`, HTTPS, `USE_HTTPS=True`). O dono do projeto o atualiza a partir das branches revisadas e mergeadas. Você **não** tem acesso a ele e não deve tentar acessá-lo.
@@ -76,3 +95,17 @@ Atualize também o bloco "Status" da fase correspondente em `docs/PLANO_CORRECAO
 - Estáticos sempre por `{% static %}` (funcionam depois do `collectstatic`, servidos pelo nginx em `/static/`). Não sirva arquivo sensível (laudo, certificado) como estático nem por `/media/` direto: use uma view com permissão.
 - Dependência nova: adicione ao `requirements.txt` e confirme que ela instala em Python 3.14 no Linux x86_64.
 - Migração de dados precisa funcionar num banco que **já tem dados** (o do servidor foi gerado pelo `populate_db.py` e já tem uso real). Mudanças em `populate_db.py` continuam idempotentes.
+
+## 9. Definição de pronto (vale para toda sprint)
+Uma sprint só está pronta quando **todos** estes itens passam. Rode-os no fim e cole a saída resumida no relatório:
+
+1. `venv/Scripts/python.exe manage.py check` → "System check identified no issues".
+2. `venv/Scripts/python.exe manage.py makemigrations --check --dry-run` → "No changes detected" (nenhuma migração esquecida).
+3. `venv/Scripts/python.exe -m pytest -q -p no:cacheprovider` → verde, com o número de testes **maior ou igual** ao de partida.
+4. Nos arquivos de template e JS que a sprint tocou:
+   - `grep -c 'style="' <arquivo>` → 0 (exceto largura dinâmica de barra de progresso, justificada no relatório);
+   - `grep -nE '(^|[^.[:alnum:]_])(alert|confirm|prompt)\(' <arquivo>` → nada;
+   - `grep -n 'innerHTML' <arquivo>` → só atribuições de texto fixo ou `''` (nenhuma com dado da API).
+5. Todos os itens **Testes** e **Critérios de aceite** da sprint marcados no relatório, incluindo a verificação no navegador descrita (papel usado, o que clicou, o que viu, temas e 375px).
+6. `git status` limpo: só os commits da sprint, nada de `db.sqlite3`, `.env`, `media/`, cópias de banco ou arquivos temporários.
+7. Relatório completo (seção 7), com as **Notas de deploy**.

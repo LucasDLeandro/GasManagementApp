@@ -6,8 +6,10 @@ Cada arquivo `Sxx_*.md` é uma mensagem pronta: **abra o arquivo, copie o conte�
 
 | # | Arquivo | Escopo | Depende de |
 |---|---|---|---|
-| 01 | `S01_produtos_acabamento_e_etiquetas.md` | Produtos: aba Ativos, drawer, Lotes/CQ, etiquetas com QR real | `fase-2/produtos` |
-| 01B | `S01B_paineis_monitor_e_gestao.md` | Histórico de status, **monitor operacional para TV** (link sem login), home com visão de gestão (com e sem módulo financeiro) | 01 |
+| 01.00 | `S01_00_lotes_cq.md` | Lotes/CQ: liberação pelo RT com transições, histórico e confirmação | `fase-2/produtos` |
+| 01.01 | `S01_01_ativos_drawer.md` | Ativos 360°: filtros pela URL (atalhos da home), contadores, drawer sem XSS | 01.00 |
+| 01.02 | `S01_02_etiquetas.md` | Etiquetas: só a página real do servidor, QR legível, CSS de impressão | 01.01 |
+| 01B | `S01B_paineis_monitor_e_gestao.md` | Histórico de status, **monitor operacional para TV** (link sem login), home com visão de gestão (com e sem módulo financeiro). **Dividir em sub-sprints antes de começar** | 01.02 |
 | 02 | `S02_produtos_patrimonio.md` | Patrimônio: ativos, lotes de aquisição, classes, fabricantes, indenização | 01 |
 | 03 | `S03_produtos_retestes_e_baixa.md` | Retestes em lote (envio e retorno com expansão) e baixa patrimonial | 02 |
 | 04 | `S04_produtos_granel_tanques_estoque_custos.md` | Tanques, granel, estoque de gás e de produto, custo de envase, **nível do tanque em tempo real, autonomia e saída a granel** | 03 |
@@ -30,8 +32,11 @@ A Sprint 16 (laboratório) está depois do go-live, como atualização. Se o pri
 
 A Sprint 13 tem itens de segurança (troca da senha provisória e recuperação do MFA). Se quiser, ela pode ser antecipada para logo depois da 01: nenhuma das duas depende da outra.
 
+## Formato
+As sprints 01.00, 01.01 e 01.02 já seguem o formato novo (`_MODELO_SPRINT.md`): problema verificado no código, teste que falha antes da correção, checklist de testes e critérios, verificação no navegador e Definição de pronto (seção 9 das regras gerais). **As demais (01B em diante) ainda estão no formato antigo e grandes demais: cada uma deve ser reescrita e dividida logo antes de começar**, olhando o código daquele momento.
+
 ## Como usar
-1. Antes da Sprint 01, garanta que a branch `fase-2/produtos` está no GitHub ou que o agente roda nesta mesma pasta.
+1. Antes da Sprint 01.00, garanta que a branch `fase-2/produtos` está no GitHub ou que o agente roda nesta mesma pasta.
 2. Cole uma sprint por vez. Ao terminar, o agente grava `docs/sprints/relatorios/SPRINT_XX.md`: leia o relatório (principalmente "bugs encontrados" e "o que ficou de fora") antes de colar a próxima.
 3. O agente **não** faz push nem merge. Revise a branch, faça o merge e só então siga.
 4. Se o agente travar numa decisão de negócio, ele registra no relatório. Responda e peça para continuar.

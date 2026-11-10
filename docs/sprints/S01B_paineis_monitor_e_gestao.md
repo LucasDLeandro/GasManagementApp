@@ -3,7 +3,7 @@
 > Cole esta mensagem inteira no agente.
 
 **Antes de começar, leia:** `docs/sprints/00_REGRAS_GERAIS.md` (obrigatório), `docs/DESIGN_SYSTEM.md`, a "FASE 7" de `docs/PLANO_CORRECAO_E_EVOLUCAO.md` (tarefas 7.1 a 7.1.4) e `core/views.py` (`HomeView` e `DashboardStatsAPIView`).
-**Branch:** crie `sprint-01b/paineis` a partir de `sprint-01/produtos-acabamento`.
+**Branch:** crie `sprint-01b/paineis` a partir de `sprint-01.02/etiquetas`.
 
 ## Objetivo
 Separar o que hoje está misturado na home (`/inicio/`):
