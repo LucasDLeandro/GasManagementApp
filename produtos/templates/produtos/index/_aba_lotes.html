@@ -2,65 +2,84 @@
     <!-- ABA 4: CENTRAL DE LOTES & QUALIDADE CQ                                         -->
     <!-- ============================================================================== -->
     {% if tem_modulo_envase %}
-    <div id="aba-conteudo-lotes" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+    <div id="aba-conteudo-lotes" class="tab-pane-content ds-hidden">
+        <div class="lotes-header">
             <div>
-                <h2 style="font-size: 22px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2">
+                <h2 class="lotes-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lotes-title-icon" aria-hidden="true">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                         <polyline points="14 2 14 8 20 8"></polyline>
                         <line x1="16" y1="13" x2="8" y2="13"></line>
                         <line x1="16" y1="17" x2="8" y2="17"></line>
                     </svg>
-                    Central de Lotes Químicos & Homologação CQ
-                    <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; border: 1px solid #0284c7;">RDC 658/2022</span>
+                    Central de Lotes Químicos &amp; Homologação CQ
+                    <span class="badge badge-status-transit">RDC 658/2022</span>
                 </h2>
-                <p style="margin: 0; color: var(--color-text-muted); font-size: 13px;">
+                <p class="lotes-subtitle">
                     Homologação técnica de certificados pelo RT, quarentena regulatória e acionamento de bloqueio sanitário.
                 </p>
             </div>
 
-            <a href="/produtos/anvisa/recall/" class="action-queue-btn" style="background: #dc2626; color: #fff; text-decoration: none;">
+            <a href="/produtos/anvisa/recall/" class="btn-danger">
                 Abrir Painel de Recall ANVISA &rarr;
             </a>
         </div>
 
         <!-- KPIs de Qualidade -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-            <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px;">
-                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted);">Aprovados pelo RT</span>
-                <h3 id="cq-kpi-aprovados" style="font-size: 26px; font-weight: 700; color: #16a34a; margin: 4px 0 0 0;">-</h3>
+        <div class="lotes-kpis-grid">
+            <div class="metric-card metric-card--approved">
+                <h4>Aprovados pelo RT</h4>
+                <p id="cq-kpi-aprovados" class="font-mono">-</p>
             </div>
-            <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px;">
-                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted);">Em Quarentena / Análise</span>
-                <h3 id="cq-kpi-quarentena" style="font-size: 26px; font-weight: 700; color: #d97706; margin: 4px 0 0 0;">-</h3>
+            <div class="metric-card metric-card--quarantine">
+                <h4>Em Quarentena / Análise</h4>
+                <p id="cq-kpi-quarentena" class="font-mono">-</p>
             </div>
-            <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px;">
-                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted);">Reprovados / Bloqueados</span>
-                <h3 id="cq-kpi-reprovados" style="font-size: 26px; font-weight: 700; color: #dc2626; margin: 4px 0 0 0;">-</h3>
+            <div class="metric-card metric-card--danger">
+                <h4>Reprovados / Bloqueados</h4>
+                <p id="cq-kpi-reprovados" class="font-mono">-</p>
             </div>
         </div>
 
         <!-- Tabela de Lotes Químicos -->
-        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <div class="table-container lotes-table-wrapper">
+            <table class="lotes-table">
                 <thead>
-                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
-                        <th style="padding: 12px 16px;">Código do Lote</th>
-                        <th style="padding: 12px 16px;">Gás Químico</th>
-                        <th style="padding: 12px 16px;">Pureza Aferida</th>
-                        <th style="padding: 12px 16px;">Validade</th>
-                        <th style="padding: 12px 16px;">Status CQ</th>
-                        <th style="padding: 12px 16px;">RT Homologador</th>
-                        <th style="padding: 12px 16px; text-align: right;">Ações do RT</th>
+                    <tr>
+                        <th>Código do Lote</th>
+                        <th>Gás Químico</th>
+                        <th>Pureza Aferida</th>
+                        <th>Validade</th>
+                        <th>Status CQ</th>
+                        <th>Liberado por</th>
+                        <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody id="tbody-lotes-cq">
                     <tr>
-                        <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Carregando lotes químicos...</td>
+                        <td colspan="7" class="ds-cell-sub">Carregando lotes químicos...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
+
+        <!-- Drawer de Histórico de Qualidade -->
+        <dialog id="drawer-historico-lote" class="drawer-dialog" aria-labelledby="drawer-historico-titulo">
+            <div class="drawer-header">
+                <div>
+                    <h3 id="drawer-historico-titulo">Histórico de Qualidade</h3>
+                    <span id="drawer-historico-subtitulo" class="font-mono ds-cell-sub"></span>
+                </div>
+                <button type="button" class="drawer-close-btn" id="btn-fechar-drawer-historico" aria-label="Fechar painel">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="drawer-body">
+                <div id="drawer-historico-conteudo" class="historico-timeline"></div>
+            </div>
+        </dialog>
     </div>
     {% endif %}
