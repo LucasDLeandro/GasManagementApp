@@ -36,7 +36,7 @@ Terminar o redesign da tela `/produtos/`: aba Ativos 360°, aba Lotes/CQ, drawer
 ### 01.4 Etiquetas (modal 5 e modal 6 de `index/_modais.html`, `produtos/templates/produtos/etiqueta_casco.html`, `etiqueta_colarinho.html`, `produtos/static/produtos/css/etiquetas.css`)
 - Mover todos os estilos inline para `etiquetas.css`, mantendo o layout de impressão (60x40 mm e colarinho).
 - Os modais de pré-visualização seguem `dialog.action-modal.ds-dialog`.
-- O QR code da etiqueta hoje é um quadrado "[ QR CODE 2D ]". Gere o QR de verdade **no servidor** em SVG, com a biblioteca `qrcode` (já está no `requirements.txt`; veja `BarosAdminMfaCadastroView._render` em `core/views_baros_admin.py`). Conteúdo: a URL pública do passaporte do cilindro (`/v/cilindro/<codigo_qr>/`).
+- O QR code da etiqueta hoje é um quadrado "[ QR CODE 2D ]". Gere o QR de verdade **no servidor** em SVG, com a biblioteca `qrcode` (já está no `requirements.txt`; veja `BarosAdminMfaCadastroView._render` em `core/views_baros_admin.py`). Conteúdo: a URL pública **absoluta** do passaporte do cilindro (`/v/cilindro/<codigo_qr>/`), montada com `request.build_absolute_uri()` para funcionar no domínio do servidor de teste (nunca `localhost`).
 - Testar a impressão com `@media print` (sem menus, só as etiquetas).
 
 ### 01.5 Limpeza
@@ -47,7 +47,7 @@ Terminar o redesign da tela `/produtos/`: aba Ativos 360°, aba Lotes/CQ, drawer
 ## Critérios de aceite
 - `/produtos/` funciona nos temas claro, escuro e alto contraste e com 375px de largura.
 - Busca, filtros, paginação e abrir o drawer funcionam como antes.
-- A etiqueta impressa contém um QR legível que aponta para o passaporte público.
+- A etiqueta impressa contém um QR legível que aponta para o passaporte público, com o domínio de quem acessou a tela.
 - Suíte completa verde.
 
 ## Testes obrigatórios

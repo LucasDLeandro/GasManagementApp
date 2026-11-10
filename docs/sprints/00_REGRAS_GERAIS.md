@@ -65,5 +65,14 @@ Ao terminar, crie `docs/sprints/relatorios/SPRINT_XX.md` com:
 4. Decisões tomadas por premissa (com referência a `DECISOES_PENDENTES.md`).
 5. Resultado da suíte (`N passed`).
 6. Lista de commits.
+7. **Notas de deploy** (ver seção 8): migrações novas, variáveis de ambiente novas, dependências novas e comandos a rodar no servidor (`collectstatic`, `populate_db.py` etc.). Se não houver nada, escreva "nenhuma".
 
 Atualize também o bloco "Status" da fase correspondente em `docs/PLANO_CORRECAO_E_EVOLUCAO.md`.
+
+## 8. Ambiente de teste na AWS (usado por um Responsável Técnico real)
+- Existe um ambiente de teste numa EC2 (Ubuntu 24.04, gunicorn + nginx, SQLite, `DEBUG=False`, HTTPS, `USE_HTTPS=True`). O dono do projeto o atualiza a partir das branches revisadas e mergeadas. Você **não** tem acesso a ele e não deve tentar acessá-lo.
+- Configuração nova vai em `config/settings.py`, lida do ambiente com `config(...)` e com padrão seguro para desenvolvimento. **Nunca** coloque host, IP, domínio, porta ou segredo fixo no código.
+- URLs absolutas (QR codes, links em PDF, e-mails, webhooks) são montadas com `request.build_absolute_uri(...)`; fora de uma requisição, use uma configuração `SITE_URL` lida do ambiente. Nunca `localhost` nem `127.0.0.1`.
+- Estáticos sempre por `{% static %}` (funcionam depois do `collectstatic`, servidos pelo nginx em `/static/`). Não sirva arquivo sensível (laudo, certificado) como estático nem por `/media/` direto: use uma view com permissão.
+- Dependência nova: adicione ao `requirements.txt` e confirme que ela instala em Python 3.14 no Linux x86_64.
+- Migração de dados precisa funcionar num banco que **já tem dados** (o do servidor foi gerado pelo `populate_db.py` e já tem uso real). Mudanças em `populate_db.py` continuam idempotentes.
