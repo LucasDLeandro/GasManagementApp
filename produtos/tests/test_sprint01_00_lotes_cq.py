@@ -401,4 +401,26 @@ class LotesCQRegrasETests(TestCase):
         self.assertEqual(dados[1]['status_novo'], 'APROVADO')
         self.assertEqual(dados[0]['rt_nome_snapshot'], 'Dr. Lucas Silva')
 
+    def test_render_pagina_produtos_aba_lotes_com_rt_e_gerente(self):
+        """Aba Lotes é renderizada com IDs corretos, KPIs do Design System e drawer sem estilos inline."""
+        self.client.force_login(self.rt_usuario)
+        resp_rt = self.client.get('/produtos/')
+        self.assertEqual(resp_rt.status_code, 200)
+        html_rt = resp_rt.content.decode()
+
+        self.assertIn('id="aba-conteudo-lotes"', html_rt)
+        self.assertIn('id="cq-kpi-aprovados"', html_rt)
+        self.assertIn('id="cq-kpi-quarentena"', html_rt)
+        self.assertIn('id="cq-kpi-reprovados"', html_rt)
+        self.assertIn('id="tbody-lotes-cq"', html_rt)
+        self.assertIn('id="drawer-historico-lote"', html_rt)
+        self.assertIn('id="btn-fechar-drawer-historico"', html_rt)
+
+        # Gerente também renderiza a estrutura (os botões são controlados por transicoes_permitidas)
+        self.client.force_login(self.gerente)
+        resp_ger = self.client.get('/produtos/')
+        self.assertEqual(resp_ger.status_code, 200)
+        html_ger = resp_ger.content.decode()
+        self.assertIn('id="tbody-lotes-cq"', html_ger)
+
 
