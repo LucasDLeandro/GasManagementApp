@@ -6,7 +6,7 @@
 **Branch:** `sprint-04/produtos-granel` a partir de `sprint-03/produtos-retestes-baixa`.
 
 ## Objetivo
-Dar tela à cadeia gás a granel → tanque → envase → custo → estoque da Sprint 8C, que hoje só existe na API.
+Dar tela à cadeia gás a granel → tanque → envase → custo → estoque da Sprint 8C, que hoje só existe na API, e fazer o nível de cada tanque refletir o envase e as saídas a granel em tempo real.
 
 ## O que já existe
 - APIs: `/produtos/api/tanques/` (actions `painel`, `registrar-medicao`, `fechar-periodo`), `/produtos/api/medicoes-tanque/`, `/produtos/api/entradas-granel/`, `/produtos/api/estoque-gas/movimentos/` (somente leitura), `/produtos/api/custos-lote/` (somente leitura + action `estornar`), `/produtos/api/estoque-produto/movimentos/` (somente leitura), `/produtos/api/lotes/{id}/fechar/` (fecha o lote e apura o custo).
@@ -35,20 +35,35 @@ Dar tela à cadeia gás a granel → tanque → envase → custo → estoque da 
 - Ajuste manual de estoque de produto (`movimentar_estoque_produto` com tipo `AJUSTE` ou `PERDA`): modal com motivo obrigatório, só ADMIN e GERENTE. Crie o endpoint se não existir.
 - Links no menu lateral para "Tanques e granel" e "Estoque", visíveis só com o módulo envase.
 
+### 04.4 Nível do tanque em tempo real, autonomia e saída a granel
+Hoje o tanque só é baixado quando o lote é fechado (`fechar_lote_envase` gera um único `CONSUMO_ENVASE` com a massa do lote). Entre o primeiro envase e o fechamento, o nível mostrado fica errado.
+- **Nível projetado:** `saldo_atual_kg` menos a soma de `EnvaseCilindro.massa_liquida_gas_kg` dos lotes **abertos** daquele tanque (`tanque_origem`). Quando a massa aferida não existir, usar `ModeloCilindro.massa_gas_padrao_kg` e marcar o valor como estimado. Expor na action `painel`: `saldo_contabil_kg`, `consumo_lotes_abertos_kg`, `nivel_projetado_kg`, `nivel_pct` (sobre `capacidade_kg`) e se é estimado. **Não** criar movimentos de estoque por cilindro: o fechamento do lote continua sendo o lançamento oficial (custo médio), para não lançar duas vezes.
+- **Autonomia e ponto de pedido:** consumo médio diário dos últimos 30 dias (envase + saídas a granel + perdas) → "dias até acabar". Novo campo `nivel_minimo_pct` no tanque (padrão 20%); abaixo dele, alerta "pedir gás ao fornecedor" no cartão do tanque, na home de gestão e no monitor (seção Fábrica da Sprint 01B).
+- **Saída a granel (caminhão-tanque / abastecimento de tanque de cliente):** novo tipo `SAIDA_GRANEL` em `MovimentoEstoqueGas.TIPO_CHOICES` e um serviço `registrar_saida_granel(tanque, massa_kg, ...)` em `produtos/services/granel.py`, com pesagem do caminhão em etapas (tara na entrada → bruto na saída → massa líquida), placa, motorista, cliente/destino e vínculo opcional com a venda. Baixa o tanque na hora, pelo custo médio vigente. Modal em etapas na página do tanque (ADMIN, GERENTE e OPERADOR_PATIO).
+- **Medição × saldo contábil:** ao registrar uma medição, mostrar a diferença para o nível projetado e exigir justificativa acima da `tolerancia_pesagem_pct`. A diferença entra no gráfico de nível como uma segunda linha ("medido" × "contábil").
+- **Como o nível é medido na prática:** por leitura manual do indicador do tanque (nível/pressão diferencial convertido para kg pela tabela do fabricante, informada no cadastro do tanque como campo de texto/arquivo de referência) ou, no futuro, por telemetria IoT (roadmap).
+
+### 04.5 Lote de envase não nasce aprovado (confirmar com o dono antes)
+- Em `LoteEnvase`, `status_qualidade` tem padrão `APROVADO` e `pureza_percentual` tem padrão `99.5`. Um lote criado sem análise já sai liberado, com uma pureza que ninguém mediu. Proposta: padrão `QUARENTENA`, `pureza_percentual` sem padrão (`null=True`), obrigatória para aprovar; só o RT aprova ou reprova (o bloqueio de entrega/rota para lote não aprovado já existe em `ciclo_cilindro.py`).
+- **Antes de implementar, registrar no relatório e pedir a confirmação do dono**, porque muda o fluxo da rampa: cilindros envasados só poderão sair depois da liberação do lote. Ajustar os testes que criam lotes contando com o padrão `APROVADO`.
+
 ## Critérios de aceite
 - Fluxo completo na tela: entrada a granel com divergência → medição → envase na rampa (já existe) → fechar o lote → ver o custo → ver o estoque de produto.
 - Tolerâncias de 2% e 3% aplicadas com justificativa, também no backend.
+- O nível do tanque cai a cada cilindro envasado (nível projetado) e a cada saída a granel, sem lançar o consumo duas vezes no fechamento do lote.
 - Suíte verde.
 
 ## Testes obrigatórios
 - Entrada a granel acima da tolerância sem justificativa responde 400.
 - Fechamento de período com perda acima de 3% sem justificativa responde 400.
 - Ajuste de estoque: só ADMIN e GERENTE; motivo obrigatório.
+- Nível projetado: envasar 3 cilindros num lote aberto reduz o nível projetado; fechar o lote não muda o nível projetado (só move do "consumo em lote aberto" para o saldo contábil).
+- Saída a granel: massa líquida = bruto − tara; massa maior que o saldo do tanque responde 400.
 - Isolamento entre empresas nos endpoints novos.
 - Renderização das páginas novas (com o módulo envase ligado no tenant de teste).
 
 ## Fora do escopo
-Telemetria IoT de tanques nos hospitais (roadmap futuro).
+Telemetria IoT de tanques (da fábrica e dos hospitais) e faturamento completo da venda a granel por kg/m³ (depende da Sprint 06). Laboratório de controle de qualidade completo: Sprint 16.
 
 ## Entrega
 Seção 7 das regras gerais. Relatório: `docs/sprints/relatorios/SPRINT_04.md`.

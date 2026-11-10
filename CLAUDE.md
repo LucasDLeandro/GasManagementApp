@@ -11,7 +11,7 @@ Stack: **Python 3.14, Django 6.0, DRF**, SQLite em desenvolvimento (PostgreSQL p
 | `docs/PLANO_CORRECAO_E_EVOLUCAO.md` | Plano em fases, com o **status** do que já foi feito |
 | `docs/DESIGN_SYSTEM.md` | Regras de interface (stepper, estados, temas, `window.Baros`) |
 | `docs/sprints/00_REGRAS_GERAIS.md` | Regras obrigatórias de backend, frontend e testes, incluindo erros que já aconteceram |
-| `docs/sprints/README.md` | Sprints 01 a 15, prontas para um agente de codificação |
+| `docs/sprints/README.md` | Sprints 01, 01B e 02 a 16, prontas para um agente de codificação |
 | `docs/DECISOES_PENDENTES.md` | Premissas de negócio, fiscais e sanitárias já adotadas |
 | `docs/ANALISE_SISTEMA_2026-10-27.md` | Raio-X inicial do sistema |
 
@@ -38,7 +38,7 @@ python -m venv .venv
 - **Fase 2 (Produtos):** em andamento.
   - Feito: catálogo (gases, modelos, SKUs) e cadastro de cilindro (bloco 2.0); recebimento de fornecedor em etapas; modais do cilindro; rampa como estação de pátio; Recall ANVISA reescrito, com a campanha avançando até "Concluída".
   - Falta: Sprint 01 em diante (`docs/sprints/`), começando pelo acabamento da tela de Produtos e pelas etiquetas.
-- Próximos passos planejados: as sprints 01 a 15 de `docs/sprints/`, na ordem do `README.md` de lá.
+- Próximos passos planejados: as sprints de `docs/sprints/`, na ordem do `README.md` de lá: 01 → **01B (painéis: monitor de TV e home de gestão)** → 02 a 15 → 16 (laboratório de CQ, que pode ser antecipada se o primeiro cliente for envasadora medicinal).
 
 ## Decisões do dono que não devem ser revertidas sem perguntar
 - **Superusuário entra em qualquer empresa livremente** pelo seletor da topbar. O break-glass é um acesso *registrado* opcional (decidido em 27/10/2026).
@@ -46,6 +46,8 @@ python -m venv .venv
 - **Recall:** clientes só são notificados depois da homologação pelo RT; o status da campanha não muda por PATCH.
 - **Cancelar uma venda já faturada** fica bloqueado até existir o estorno (Sprint 06).
 - **Gateway fiscal e PSP de produção ainda não foram escolhidos**; a Sprint 12 depende disso.
+- **Home com módulos:** empresa sem o módulo financeiro vê uma visão básica de gestão (vendas e patrimônio), sem números financeiros zerados; contas a receber, inadimplência e caixa só com o módulo (decidido em 10/11/2026).
+- **Monitor de TV** abre por link com token, sem login, e nunca mostra valores em R$ nem dados de contato.
 
 ## Armadilhas já conhecidas (detalhes em `docs/sprints/00_REGRAS_GERAIS.md`)
 - Nunca fazer consulta com escopo de tenant no import de um módulo (ex.: `queryset=Model.objects.all()` no corpo de um serializer). Isso derruba o projeto inteiro com `TenantNotSet`.

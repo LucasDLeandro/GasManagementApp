@@ -30,8 +30,10 @@ Este plano cobre: **(1)** a correção de todos os problemas encontrados na aná
 | 5 | Financeiro | GG | 3 |
 | 6 | Fiscal + unificação do Faturamento | GG | 5 + decisão do gateway |
 | 7 | Core (home, integrações, perfil), Accounts, Analytics | G | 0 |
+| 7B | Painéis: monitor operacional (TV) e home de gestão — Sprint 01B | G | 2 (Sprint 01) |
 | 8 | App de Campo (PWA) e Portal B2B | G | 4 |
 | 9 | Go-live: segurança, performance, documentação | M | todas |
+| 10 | Laboratório de controle de qualidade — Sprint 16 | G | 2 + validação do RT |
 
 As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam nos mesmos arquivos.
 
@@ -189,6 +191,8 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 | 2.3.3 | **Baixa patrimonial** e estorno | `api/patrimonio/baixas` | M |
 | 2.3.4 | **Tabela de indenização** por modelo/gás | `api/patrimonio/indenizacoes` | P |
 | 2.3.5 | **Tanques criogênicos**: cadastro, nível atual, medições, gráfico de boil-off, fechamento de período | `api/tanques`, `api/medicoes-tanque` | G |
+| 2.3.5a | **Nível do tanque em tempo real**: nível projetado (saldo − envases de lotes abertos), % da capacidade, consumo médio, dias de autonomia e alerta de ponto de pedido (Sprint 04, 04.4) | `api/tanques/painel` (ampliar) | M |
+| 2.3.5b | **Saída a granel** (caminhão-tanque / abastecimento de tanque de cliente) com pesagem tara × bruto: novo tipo `SAIDA_GRANEL` (Sprint 04, 04.4) | novo serviço `registrar_saida_granel` | M |
 | 2.3.6 | **Entradas a granel** (NF × pesagem com alerta de tolerância) | `api/entradas-granel` | M |
 | 2.3.7 | **Estoque**: gás (por tanque) e produto acabado (por SKU), com movimentos | `api/estoque-gas/movimentos`, `api/estoque-produto/movimentos` | M |
 | 2.3.8 | **Custo por lote de envase** (fechar/estornar, energia da rampa) | `api/custos-lote` | M |
@@ -197,6 +201,7 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 ### 2.4 Melhorias
 - Substituir o uso do modelo legado `Produto` por `SkuRecarga` em todo o sistema (vendas, sinistros) e marcar `Produto` como somente leitura. **M**
 - Painel "Cilindro 360°" com linha do tempo completa do ledger (já parcialmente no drawer). **M**
+- **Lote de envase não nasce aprovado**: hoje `LoteEnvase.status_qualidade` tem padrão `APROVADO` e `pureza_percentual` padrão `99.5`. Proposta: nascer em `QUARENTENA`, sem pureza até a análise (Sprint 04, 04.5; **confirmar com o dono**). **P**
 
 ---
 
@@ -307,7 +312,11 @@ Título a receber/pagar em etapas (Dados → Parcelas → Rateio/Retenções →
 
 | ID | Tarefa | Tam. |
 |---|---|:---:|
-| 7.1 | **Home** (`core/home.html`): redesign dos 3 painéis (envase, distribuição, integrado) com cartões de métrica e atalhos por papel | M |
+| 7.1 | **Home** (`core/home.html`): redesign dos 3 painéis (envase, distribuição, integrado) com cartões de métrica e atalhos por papel. **Antecipado para a Sprint 01B** (itens 7.1.1 a 7.1.4) | M |
+| 7.1.1 | **Histórico de status** de venda e de entrega (quando mudou, quem mudou, de onde), pré-requisito para medir tempo de espera | M |
+| 7.1.2 | **Monitor operacional para TV**: link por painel com token secreto, sem login, revogável; esteira de pedidos com tempo em cada etapa (verde/amarelo/vermelho), pátio × demanda por gás, retornos, faixa de alertas e, com envase, fila da rampa, lotes em quarentena e nível dos tanques. Sem valores em R$ nem dados de contato | G |
+| 7.1.3 | **Home de gestão** (ADMIN/GERENTE): vendas (faturamento, variação, ticket, gráfico diário), a prazo × à vista, bloqueados por crédito, patrimônio (valor do parque, risco em R$, estadia a faturar), **giro médio do casco**, retestes em 90 dias, % entregue no prazo, clientes em risco de parar de comprar. **Com módulo financeiro:** a receber, inadimplência (cruzando com casco retido), caixa e a pagar em 7 dias. **Sem módulo financeiro:** só o que vem de vendas, com aviso — nunca zeros falsos | G |
+| 7.1.4 | Correções da home atual: gerente sem cartões operacionais, reteste duplicado, cálculos descartados na API (7 consultas por carregamento), `Pendente` misturado com `Em Separação`, estilos inline; `populate_db.py` com a empresa padrão sem cilindros | M |
 | 7.2 | **Integrações**: webhooks (criar, testar, log de entregas, reenviar), exportação ERP | M |
 | 7.3 | **Perfil regulatório e RTs** no padrão novo | P |
 | 7.4 | **Filiais**: tela de cadastro (hoje sem tela) | M |
@@ -339,10 +348,30 @@ Título a receber/pagar em etapas (Dados → Parcelas → Rateio/Retenções →
 
 ---
 
+## FASE 10 — Laboratório de controle de qualidade (Sprint 16)
+
+Hoje o CQ do lote é um único número (`pureza_percentual`) e um PDF anexado à mão.
+
+| ID | Tarefa | Tam. |
+|---|---|:---:|
+| 10.1 | Especificações por gás e grau (medicinal, industrial, alimentício), versionadas, com parâmetros e limites (pureza, umidade, CO, CO₂, identidade...) e plano de amostragem — **valores validados pelo RT** | M |
+| 10.2 | Equipamentos de laboratório com calibração; equipamento vencido não pode ser usado | M |
+| 10.3 | Análises por amostra e parâmetro, conformidade calculada contra a especificação, resultado imutável (correção por retificação) | G |
+| 10.4 | Liberação pelo RT; reprovação bloqueia os cilindros do lote e abre não conformidade (com atalho para recall) | M |
+| 10.5 | Certificado de análise (CoA) em PDF gerado pelo sistema, no dossiê e no Portal B2B | M |
+| 10.6 | Análise de entrada do gás a granel; tanque não conforme não pode originar lote | M |
+| 10.7 | Painel do laboratório (fila de análises, não conformidades, calibrações vencendo, tempo envase → liberação) | P |
+
+Se o primeiro cliente for envasadora de gás medicinal, antecipar esta fase para antes do go-live.
+
+---
+
 ## Roadmap futuro (depois das telas)
 
 Itens dos planos que ainda não foram implementados no backend:
-- **Telemetria IoT de tanques criogênicos** nos hospitais (MQTT/HTTP) + alerta preditivo de abastecimento (Sprint 7 do plano original).
+- **Telemetria IoT de tanques criogênicos** na fábrica e nos hospitais (MQTT/HTTP) + alerta preditivo de abastecimento (Sprint 7 do plano original). Substitui a leitura manual do nível (Sprint 04).
+- **Integração com analisadores do laboratório** (leitura automática por serial/USB/rede) e com LIMS externo.
+- **Monitor de TV**: alerta sonoro e rotação automática entre telas.
 - **Portal do cliente hospitalar** com laudos e certificados de reteste (parcialmente coberto pelo Portal B2B).
 - **API pública para ERPs** com webhooks bidirecionais (hoje só existe a exportação).
 

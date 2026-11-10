@@ -25,7 +25,7 @@ Acabamento das áreas transversais: página inicial, usuários e acesso, integra
 - Meu perfil e troca de senha no padrão (senha atual + nova com validação).
 
 ### 13.3 Core
-- **Home:** redesign dos 3 painéis com cartões de métrica e atalhos por papel (motorista vê o App de Campo, RT vê lotes e recall etc.).
+- **Home:** o redesign foi feito na **Sprint 01B** (fila por papel, visão de gestão e monitor de TV). Aqui, só conferir que os 3 painéis (envase, distribuição, integrado) seguem coerentes com o menu novo e com os módulos; não refazer.
 - **Integrações:** webhooks (criar com o segredo *write-only*, testar, que já é síncrono, ver o log de entregas e **reenviar** uma entrega com falha) e exportação ERP.
 - **Perfil regulatório e RTs** no padrão.
 - **Filiais:** CRUD (CNPJ validado, município IBGE de 7 dígitos, matriz não pode ser excluída).
