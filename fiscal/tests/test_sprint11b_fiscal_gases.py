@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 from decimal import Decimal
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from django.utils import timezone
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -709,6 +709,9 @@ class TestApuracaoGerencialImposto(BaseFiscalGasesTestCase):
             origem_id='100',
             valor_total=Decimal('1000.00')
         )
+        DocumentoFiscal.objects.filter(id=doc_saida.id).update(
+            criado_em=timezone.make_aware(datetime(2026, 10, 10, 12, 0, 0))
+        )
         item_s = DocumentoFiscalItem.objects.create(
             tenant=self.tenant,
             documento=doc_saida,
@@ -787,6 +790,9 @@ class TestApuracaoGerencialImposto(BaseFiscalGasesTestCase):
             serie=1,
             origem_id='105',
             valor_total=Decimal('1000.00')
+        )
+        DocumentoFiscal.objects.filter(id=doc_saida.id).update(
+            criado_em=timezone.make_aware(datetime(2026, 10, 10, 12, 0, 0))
         )
         item_s = DocumentoFiscalItem.objects.create(
             tenant=self.tenant,

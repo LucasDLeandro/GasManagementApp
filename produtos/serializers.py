@@ -5,6 +5,7 @@ from .models import (
     Cilindro,
     EnvaseCilindro,
     LoteEnvase,
+    HistoricoQualidadeLote,
     GasQuimico,
     ModeloCilindro,
     SkuRecarga,
@@ -124,11 +125,34 @@ class CadastroCilindroSerializer(serializers.Serializer):
         return attrs
 
 
+class HistoricoQualidadeLoteSerializer(serializers.ModelSerializer):
+    status_anterior_display = serializers.CharField(source='get_status_anterior_display', read_only=True)
+    status_novo_display = serializers.CharField(source='get_status_novo_display', read_only=True)
+    usuario_nome = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HistoricoQualidadeLote
+        fields = [
+            'id', 'tenant', 'lote', 'status_anterior', 'status_anterior_display',
+            'status_novo', 'status_novo_display', 'justificativa',
+            'usuario', 'usuario_nome', 'responsavel_tecnico',
+            'rt_nome_snapshot', 'rt_registro_snapshot', 'criado_em'
+        ]
+        read_only_fields = fields
+
+    def get_usuario_nome(self, obj):
+        if obj.usuario:
+            return obj.usuario.get_full_name() or obj.usuario.username
+        return "Sistema"
+
+
 class LoteEnvaseSerializer(serializers.ModelSerializer):
     gas_sigla = serializers.CharField(source='gas.sigla', read_only=True)
     gas_nome = serializers.CharField(source='gas.nome', read_only=True)
     esta_vencido = serializers.BooleanField(read_only=True)
     status_qualidade_display = serializers.CharField(source='get_status_qualidade_display', read_only=True)
+    ultima_liberacao = serializers.SerializerMethodField()
+    transicoes_permitidas = serializers.SerializerMethodField()
 
     class Meta:
         model = LoteEnvase
@@ -138,9 +162,78 @@ class LoteEnvaseSerializer(serializers.ModelSerializer):
             'data_envase', 'data_validade', 'pureza_percentual',
             'responsavel_tecnico', 'responsavel_tecnico_fk',
             'rt_nome_snapshot', 'rt_conselho_snapshot', 'rt_registro_snapshot',
-            'laudo_pdf', 'esta_vencido', 'criado_em', 'atualizado_em'
+            'laudo_pdf', 'esta_vencido', 'ultima_liberacao', 'transicoes_permitidas',
+            'criado_em', 'atualizado_em'
         ]
-        read_only_fields = ['tenant', 'criado_em', 'atualizado_em']
+        read_only_fields = [
+            'tenant', 'status_qualidade', 'criado_em', 'atualizado_em',
+            'ultima_liberacao', 'transicoes_permitidas',
+            'responsavel_tecnico', 'responsavel_tecnico_fk',
+            'rt_nome_snapshot', 'rt_conselho_snapshot', 'rt_registro_snapshot'
+        ]
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance is not None and 'codigo_lote' in fields:
+            fields['codigo_lote'].read_only = True
+        return fields
+
+    def validate_codigo_lote(self, value):
+        if self.instance is not None and self.instance.codigo_lote != value:
+            raise serializers.ValidationError("O código do lote não pode ser alterado após a criação.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is not None and self.instance.status_qualidade != 'QUARENTENA':
+            raise serializers.ValidationError("Lote liberado não pode ser alterado.")
+        return attrs
+
+    def get_ultima_liberacao(self, obj):
+        # Otimização anti N+1 (prefetched se disponível)
+        if hasattr(obj, 'historicos_ordenados'):
+            ultima = obj.historicos_ordenados[0] if obj.historicos_ordenados else None
+        else:
+            ultima = obj.historico_qualidade.order_by('-criado_em').first()
+
+        if ultima:
+            return {
+                'status': ultima.status_novo,
+                'status_display': ultima.get_status_novo_display(),
+                'rt': ultima.rt_nome_snapshot,
+                'registro': ultima.rt_registro_snapshot,
+                'data': ultima.criado_em.isoformat(),
+                'justificativa': ultima.justificativa,
+            }
+        return {
+            'status': obj.status_qualidade,
+            'status_display': obj.get_status_qualidade_display(),
+            'rt': 'Sem registro (anterior ao histórico)',
+            'registro': '—',
+            'data': None,
+            'justificativa': '',
+        }
+
+    def get_transicoes_permitidas(self, obj):
+        from produtos.services.ciclo_cilindro import TRANSICOES_QUALIDADE_LOTE, obter_rt_vinculado_para_liberacao
+        context = self.context or {}
+        pode_liberar = context.get('usuario_pode_liberar_rt')
+        if pode_liberar is None:
+            request = context.get('request')
+            if request and getattr(request, 'user', None) and request.user.is_authenticated:
+                tenant = getattr(request, 'tenant', None)
+                tenant_id = getattr(tenant, 'id', None) or getattr(request, 'tenant_id', None) or obj.tenant_id
+                try:
+                    obter_rt_vinculado_para_liberacao(request.user, tenant_id=tenant_id)
+                    pode_liberar = True
+                except PermissionError:
+                    pode_liberar = False
+            else:
+                pode_liberar = False
+
+        if not pode_liberar:
+            return []
+        return TRANSICOES_QUALIDADE_LOTE.get(obj.status_qualidade, [])
 
 
 class MovimentacaoCilindroSerializer(serializers.ModelSerializer):

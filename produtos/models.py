@@ -290,6 +290,77 @@ class LoteEnvase(TenantAwareModel):
         return self.esta_vencido
 
 
+class HistoricoQualidadeLote(TenantAwareModel):
+    """
+    Registro imutável de homologação técnica e controle de qualidade de lote de envase (Sprint 01.00).
+    Audita cada alteração de status_qualidade, registrando o RT atuante, snapshots regulatórios
+    (CRF/CRQ e UF) e a justificativa técnica.
+    """
+    lote = models.ForeignKey(
+        LoteEnvase,
+        on_delete=models.PROTECT,
+        related_name='historico_qualidade',
+        verbose_name="Lote de Envase"
+    )
+    status_anterior = models.CharField(
+        max_length=20,
+        choices=LoteEnvase.STATUS_QUALIDADE_CHOICES,
+        verbose_name="Status Anterior"
+    )
+    status_novo = models.CharField(
+        max_length=20,
+        choices=LoteEnvase.STATUS_QUALIDADE_CHOICES,
+        verbose_name="Status Novo"
+    )
+    justificativa = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Justificativa Técnica"
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='historicos_qualidade_lote_registrados',
+        verbose_name="Usuário Operador"
+    )
+    responsavel_tecnico = models.ForeignKey(
+        'core.ResponsavelTecnico',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='historicos_qualidade_liberados',
+        verbose_name="Responsável Técnico"
+    )
+    rt_nome_snapshot = models.CharField(
+        max_length=255,
+        verbose_name="Nome RT (Snapshot)"
+    )
+    rt_registro_snapshot = models.CharField(
+        max_length=100,
+        verbose_name="Registro RT (Snapshot)"
+    )
+    criado_em = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Criado em"
+    )
+
+    class Meta:
+        verbose_name = "Histórico de Qualidade de Lote"
+        verbose_name_plural = "Históricos de Qualidade de Lotes"
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f"{self.lote.codigo_lote}: {self.status_anterior} -> {self.status_novo} ({self.rt_nome_snapshot})"
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise ValidationError("Registros de histórico de qualidade são imutáveis e não podem ser alterados.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Registros de histórico de qualidade são imutáveis e não podem ser excluídos.")
+
+
 # ==============================================================================
 # 2.1 PATRIMÔNIO, CATÁLOGO DE FABRICANTES E ATIVOS IMOBILIZADOS (SPRINT 8A)
 # ==============================================================================

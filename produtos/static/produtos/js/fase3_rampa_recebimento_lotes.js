@@ -664,14 +664,26 @@ const RecebimentoFornecedor = {
 // ==============================================================================
 
 const CentralLotesCQ = {
+    // Utilitário para construção segura de nós do DOM sem innerHTML
+    el(tag, opcoes = {}, ...filhos) {
+        const e = document.createElement(tag);
+        if (opcoes.classe) e.className = opcoes.classe;
+        if (opcoes.texto !== undefined && opcoes.texto !== null) e.textContent = opcoes.texto;
+        if (opcoes.attrs) {
+            Object.entries(opcoes.attrs).forEach(([k, v]) => {
+                if (v !== undefined && v !== null) e.setAttribute(k, v);
+            });
+        }
+        filhos.filter(Boolean).forEach(f => e.append(f));
+        return e;
+    },
+
     async carregar() {
         const tbody = document.getElementById('tbody-lotes-cq');
         if (!tbody) return;
 
         try {
-            const res = await fetch('/produtos/api/lotes/', { headers: getAuthHeaders() });
-            if (!res.ok) return;
-            const data = await res.json();
+            const data = await Baros.api('/produtos/api/lotes/');
             const lotes = Array.isArray(data) ? data : (data.results || []);
 
             let totalAprov = 0, totalQuar = 0, totalReprov = 0;
@@ -690,79 +702,285 @@ const CentralLotesCQ = {
 
             tbody.innerHTML = '';
             if (lotes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 25px; color: var(--color-text-muted);">Nenhum lote químico registrado.</td></tr>';
+                const trVazia = this.el('tr', {},
+                    this.el('td', { attrs: { colspan: 7 }, classe: 'ds-cell-sub' },
+                        this.el('div', { classe: 'ds-empty' },
+                            this.el('p', { classe: 'ds-empty-title', texto: 'Nenhum lote químico registrado.' })
+                        )
+                    )
+                );
+                tbody.append(trVazia);
                 return;
             }
 
             lotes.forEach(l => {
-                const tr = document.createElement('tr');
-                let badgeClass = 'badge-conforme';
-                if (l.status_qualidade === 'REPROVADO') badgeClass = 'badge-nao-conforme';
-                else if (l.status_qualidade === 'QUARENTENA') badgeClass = 'pill-filter-btn';
+                const tr = this.el('tr');
 
-                const laudoLink = l.laudo_pdf 
-                    ? `<a href="/produtos/api/lotes-anvisa/${l.id}/laudo/" target="_blank" class="action-queue-btn" style="padding: 3px 8px; font-size: 11px;">Ver Laudo</a>`
-                    : '<span style="font-size: 11px; color: var(--color-text-muted);">Sem PDF</span>';
+                // 1. Código do lote
+                const tdCodigo = this.el('td', {},
+                    this.el('strong', { classe: 'font-mono', texto: l.codigo_lote })
+                );
 
-                tr.innerHTML = `
-                    <td><strong>${l.codigo_lote}</strong></td>
-                    <td><strong>${l.gas_sigla}</strong> (${l.gas_nome})</td>
-                    <td>${l.pureza_percentual}%</td>
-                    <td>${l.data_validade}</td>
-                    <td><span class="${badgeClass}">[${l.status_qualidade_display || l.status_qualidade}]</span></td>
-                    <td>${l.rt_nome_snapshot || l.responsavel_tecnico || 'N/A'}</td>
-                    <td style="text-align: right; display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
-                        <a href="/produtos/lotes/${l.id}/etiqueta-colarinho/" target="_blank" class="action-queue-btn" style="padding: 3px 8px; font-size: 11px; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text);" title="Imprimir Colarinho IN 129/2022">Colarinho</a>
-                        ${laudoLink}
-                        ${l.status_qualidade !== 'APROVADO' ? `<button class="action-queue-btn" style="padding: 3px 8px; font-size: 11px; background: #16a34a; color:#fff;" onclick="CentralLotesCQ.alterarQualidade(${l.id}, 'APROVADO')">Homologar RT</button>` : ''}
-                        ${l.status_qualidade !== 'REPROVADO' ? `<button class="action-queue-btn" style="padding: 3px 8px; font-size: 11px; background: #dc2626; color:#fff;" onclick="CentralLotesCQ.reprovarLoteComJustificativa(${l.id}, '${l.codigo_lote}')">Reprovar</button>` : ''}
-                    </td>
-                `;
-                tbody.appendChild(tr);
+                // 2. Gás Químico
+                const tdGas = this.el('td', {},
+                    this.el('strong', { texto: l.gas_sigla }),
+                    this.el('span', { classe: 'ds-cell-sub', texto: ` (${l.gas_nome})` })
+                );
+
+                // 3. Pureza
+                const purezaNum = Number(l.pureza_percentual || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                const tdPureza = this.el('td', { classe: 'font-mono', texto: `${purezaNum}%` });
+
+                // 4. Validade
+                const tdValidade = this.el('td', { classe: 'font-mono', texto: l.data_validade || '—' });
+
+                // 5. Status CQ Badge
+                const tomBadge = {
+                    APROVADO: 'approved',
+                    QUARENTENA: 'quarantine',
+                    REPROVADO: 'danger'
+                }[l.status_qualidade] || 'warning';
+                const statusTexto = l.status_qualidade_display || l.status_qualidade;
+                const tdStatus = this.el('td', {},
+                    this.el('span', { classe: `badge-status-${tomBadge}`, texto: statusTexto })
+                );
+
+                // 6. Liberado por (RT, registro e data da última liberação)
+                const tdLiberado = this.el('td');
+                const ultima = l.ultima_liberacao;
+                if (ultima && ultima.data) {
+                    const dataFormatada = Baros.data ? Baros.data(ultima.data.split('T')[0]) : ultima.data.split('T')[0];
+                    const infoRT = `${ultima.rt} (${ultima.registro})`;
+                    tdLiberado.append(
+                        this.el('div', {},
+                            this.el('strong', { texto: infoRT }),
+                            this.el('span', { classe: 'ds-cell-sub', texto: dataFormatada })
+                        )
+                    );
+                } else if (ultima && ultima.rt) {
+                    tdLiberado.append(this.el('span', { classe: 'ds-cell-sub', texto: ultima.rt }));
+                } else {
+                    tdLiberado.append(this.el('span', { classe: 'ds-cell-sub', texto: 'Sem registro (anterior ao histórico)' }));
+                }
+
+                // 7. Ações
+                const tdAcoes = this.el('td');
+                const divAcoes = this.el('div', { classe: 'lotes-acoes-celula' });
+
+                // Botão Colarinho
+                const btnColarinho = this.el('a', {
+                    classe: 'btn-outline btn-sm',
+                    texto: 'Colarinho',
+                    attrs: {
+                        href: `/produtos/lotes/${l.id}/etiqueta-colarinho/`,
+                        target: '_blank',
+                        title: 'Imprimir Colarinho IN 129/2022'
+                    }
+                });
+                divAcoes.append(btnColarinho);
+
+                // Botão Laudo
+                if (l.laudo_pdf) {
+                    const btnLaudo = this.el('a', {
+                        classe: 'btn-outline btn-sm',
+                        texto: 'Ver Laudo',
+                        attrs: {
+                            href: `/produtos/api/lotes-anvisa/${l.id}/laudo/`,
+                            target: '_blank'
+                        }
+                    });
+                    divAcoes.append(btnLaudo);
+                } else {
+                    divAcoes.append(this.el('span', { classe: 'ds-cell-sub', texto: 'Sem PDF' }));
+                }
+
+                // Botão Histórico
+                const btnHistorico = this.el('button', {
+                    classe: 'btn-outline btn-sm',
+                    texto: 'Histórico',
+                    attrs: { type: 'button' }
+                });
+                btnHistorico.addEventListener('click', () => CentralLotesCQ.abrirHistorico(l));
+                divAcoes.append(btnHistorico);
+
+                // Botões de transição permitida
+                const transicoes = l.transicoes_permitidas || [];
+                if (transicoes.length > 0) {
+                    if (transicoes.includes('APROVADO')) {
+                        const btnAprovar = this.el('button', {
+                            classe: 'btn-primary btn-sm',
+                            texto: 'Aprovar',
+                            attrs: { type: 'button' }
+                        });
+                        btnAprovar.addEventListener('click', () => CentralLotesCQ.confirmarAprovacao(l));
+                        divAcoes.append(btnAprovar);
+                    }
+                    if (transicoes.includes('REPROVADO')) {
+                        const btnReprovar = this.el('button', {
+                            classe: 'btn-danger btn-sm',
+                            texto: 'Reprovar',
+                            attrs: { type: 'button' }
+                        });
+                        btnReprovar.addEventListener('click', () => CentralLotesCQ.confirmarReprovacao(l));
+                        divAcoes.append(btnReprovar);
+                    }
+                } else {
+                    divAcoes.append(this.el('span', { classe: 'lotes-restrito-texto', texto: 'Liberação restrita ao RT' }));
+                }
+
+                tdAcoes.append(divAcoes);
+
+                tr.append(tdCodigo, tdGas, tdPureza, tdValidade, tdStatus, tdLiberado, tdAcoes);
+                tbody.append(tr);
             });
         } catch (e) {
             console.error("Erro ao carregar lotes CQ:", e);
-        }
-    },
-
-    async alterarQualidade(loteId, novoStatus, justificativa = '') {
-        try {
-            const res = await fetch(`/produtos/api/lotes/${loteId}/qualidade/`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    novo_status: novoStatus,
-                    justificativa: justificativa
-                })
-            });
-
-            const data = await res.json();
-            if (!res.ok) {
-                Baros.erro(data.error || 'Não foi possível atualizar a qualidade do lote.');
-                return;
+            const msg = (e && (e.mensagem || e.message)) || 'Não foi possível carregar os lotes químicos.';
+            tbody.innerHTML = '';
+            const trErro = this.el('tr', {},
+                this.el('td', { attrs: { colspan: 7 } },
+                    this.el('div', { classe: 'ds-empty ds-empty--danger' },
+                        this.el('p', { classe: 'ds-empty-title', texto: msg }),
+                        this.el('button', {
+                            classe: 'btn-secondary btn-sm',
+                            texto: 'Tentar novamente',
+                            attrs: { type: 'button' }
+                        })
+                    )
+                )
+            );
+            const btnTentar = trErro.querySelector('button');
+            if (btnTentar) {
+                btnTentar.addEventListener('click', () => CentralLotesCQ.carregar());
             }
-
-            AudioFeedback.success();
-            Baros.sucesso(`Qualidade do lote atualizada: ${novoStatus}.`);
-            await this.carregar();
-            await RampaEnvase.carregarLotes();
-        } catch (e) {
-            console.error("Erro ao atualizar qualidade:", e);
-            Baros.erro('Sem comunicação com o servidor.');
+            tbody.append(trErro);
+            if (window.Baros && typeof Baros.erro === 'function') {
+                Baros.erro(msg);
+            }
         }
     },
 
-    async reprovarLoteComJustificativa(loteId, codigoLote) {
+    async confirmarAprovacao(lote) {
+        const pureza = Number(lote.pureza_percentual || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+        const laudoTexto = lote.laudo_pdf
+            ? '✓ Laudo de Análise (PDF) anexado.'
+            : '⚠️ ATENÇÃO: Este lote NÃO possui Laudo de Análise anexado em PDF (não impede aprovação técnica).';
+
+        const detalhes = [
+            `Lote: ${lote.codigo_lote}`,
+            `Gás: ${lote.gas_sigla} - ${lote.gas_nome}`,
+            `Pureza: ${pureza}%`,
+            `Validade: ${lote.data_validade || '—'}`,
+            '',
+            laudoTexto
+        ].join('\n');
+
+        const confirmou = await Baros.confirmar({
+            titulo: `Aprovar lote ${lote.codigo_lote}?`,
+            texto: detalhes,
+            botao: 'Confirmar Aprovação',
+        });
+        if (!confirmou) return;
+
+        await this.alterarQualidade(lote.id, 'APROVADO', 'Aprovação pelo Responsável Técnico');
+    },
+
+    async confirmarReprovacao(lote) {
         const justificativa = await Baros.confirmar({
-            titulo: `Reprovar o lote ${codigoLote}?`,
-            texto: 'Todos os cilindros cheios deste lote no pátio entram em bloqueio sanitário imediato.',
+            titulo: `Reprovar o lote ${lote.codigo_lote}?`,
+            texto: 'Atenção regulatória: Todos os cilindros cheios deste lote no pátio entrarão em bloqueio sanitário imediato.',
             botao: 'Reprovar lote',
             perigo: true,
             motivo: 10,
         });
         if (!justificativa) return;
 
-        this.alterarQualidade(loteId, 'REPROVADO', justificativa);
+        await this.alterarQualidade(lote.id, 'REPROVADO', justificativa);
+    },
+
+    async alterarQualidade(loteId, novoStatus, justificativa = '') {
+        try {
+            await Baros.api(`/produtos/api/lotes/${loteId}/qualidade/`, {
+                method: 'POST',
+                body: {
+                    novo_status: novoStatus,
+                    justificativa: justificativa
+                }
+            });
+
+            if (window.AudioFeedback && typeof AudioFeedback.success === 'function') {
+                AudioFeedback.success();
+            }
+            Baros.sucesso(`Qualidade do lote atualizada para ${novoStatus}.`);
+            await this.carregar();
+            if (window.RampaEnvase && typeof RampaEnvase.carregarLotes === 'function') {
+                await RampaEnvase.carregarLotes();
+            }
+        } catch (e) {
+            console.error("Erro ao atualizar qualidade:", e);
+            const msg = (e && (e.mensagem || e.message)) || 'Não foi possível atualizar a qualidade do lote.';
+            Baros.erro(msg);
+        }
+    },
+
+    async abrirHistorico(lote) {
+        const dialog = document.getElementById('drawer-historico-lote');
+        const subtitulo = document.getElementById('drawer-historico-subtitulo');
+        const conteudo = document.getElementById('drawer-historico-conteudo');
+        if (!dialog || !conteudo) return;
+
+        if (subtitulo) {
+            subtitulo.textContent = `${lote.codigo_lote} · ${lote.gas_sigla} (${lote.gas_nome})`;
+        }
+        conteudo.innerHTML = '';
+        conteudo.append(this.el('p', { classe: 'ds-cell-sub', texto: 'Carregando histórico...' }));
+        dialog.showModal();
+
+        try {
+            const historicos = await Baros.api(`/produtos/api/lotes/${lote.id}/historico-qualidade/`);
+            conteudo.innerHTML = '';
+            if (!historicos || historicos.length === 0) {
+                conteudo.append(
+                    this.el('div', { classe: 'ds-empty' },
+                        this.el('p', { classe: 'ds-empty-title', texto: 'Nenhuma alteração registrada.' }),
+                        this.el('span', { classe: 'ds-cell-sub', texto: 'Este lote não possui registros no novo formato de histórico.' })
+                    )
+                );
+                return;
+            }
+
+            historicos.forEach(h => {
+                const tom = { APROVADO: 'approved', REPROVADO: 'danger' }[h.status_novo] || 'warning';
+                const card = this.el('div', { classe: 'historico-card' },
+                    this.el('div', { classe: 'historico-card-header' },
+                        this.el('div', {},
+                            this.el('strong', { texto: `${h.status_anterior} \u2192 ` }),
+                            this.el('span', { classe: `badge-status-${tom}`, texto: h.status_novo_display || h.status_novo })
+                        ),
+                        this.el('span', {
+                            classe: 'font-mono ds-cell-sub',
+                            texto: h.criado_em ? (Baros.data ? Baros.data(h.criado_em.split('T')[0]) : h.criado_em.split('T')[0]) + ' ' + (h.criado_em.split('T')[1] || '').substring(0, 5) : '—'
+                        })
+                    ),
+                    this.el('div', { classe: 'historico-card-rt' },
+                        this.el('strong', { texto: 'RT: ' }),
+                        this.el('span', { texto: `${h.rt_nome_snapshot} (${h.rt_registro_snapshot})` }),
+                        this.el('span', { classe: 'ds-cell-sub', texto: ` · Operador: ${h.usuario_nome}` })
+                    )
+                );
+                if (h.justificativa) {
+                    card.append(this.el('div', { classe: 'historico-card-justificativa', texto: `Justificativa: ${h.justificativa}` }));
+                }
+                conteudo.append(card);
+            });
+        } catch (e) {
+            conteudo.innerHTML = '';
+            conteudo.append(
+                this.el('div', { classe: 'ds-empty ds-empty--danger' },
+                    this.el('p', { classe: 'ds-empty-title', texto: (e && (e.mensagem || e.message)) || 'Erro ao carregar histórico.' })
+                )
+            );
+        }
     }
 };
 
@@ -771,4 +989,11 @@ document.addEventListener('DOMContentLoaded', () => {
     RampaEnvase.inicializar();
     RecebimentoFornecedor.inicializar();
     CentralLotesCQ.carregar();
+    const btnFechar = document.getElementById('btn-fechar-drawer-historico');
+    if (btnFechar) {
+        btnFechar.addEventListener('click', () => {
+            const dialog = document.getElementById('drawer-historico-lote');
+            if (dialog && typeof dialog.close === 'function') dialog.close();
+        });
+    }
 });

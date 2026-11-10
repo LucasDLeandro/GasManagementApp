@@ -198,6 +198,8 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 | 2.3.8 | **Custo por lote de envase** (fechar/estornar, energia da rampa) | `api/custos-lote` | M |
 | 2.3.9 | **Lotes de envase**: lista, CQ/laudo, liberação pela RT, etiquetas | `api/lotes` | M |
 
+> **Status do item 2.3.9 (Sprint 01.00 concluída em 10/11/2026):** Central de Lotes & CQ redesenhada com Design System v1, máquina de estados estrita (`TRANSICOES_QUALIDADE_LOTE`), modelo imutável `HistoricoQualidadeLote`, liberação restrita ao RT ativo vinculado com snapshot regulatório, confirmação de aprovação com aviso de laudo, reprovação com justificativa ≥ 10 caracteres e bloqueio sanitário imediato dos cilindros, drawer de histórico e prevenção anti-N+1. As etiquetas regulamentares da tabela seguem para a Sprint 01.02.
+
 ### 2.4 Melhorias
 - Substituir o uso do modelo legado `Produto` por `SkuRecarga` em todo o sistema (vendas, sinistros) e marcar `Produto` como somente leitura. **M**
 - Painel "Cilindro 360°" com linha do tempo completa do ledger (já parcialmente no drawer). **M**

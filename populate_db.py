@@ -749,8 +749,21 @@ def run():
         user_go.set_password(default_pwd)
         user_go.save()
 
+    user_rt_bsb, _ = User.objects.get_or_create(
+        username="rt.bsb",
+        defaults={"email": "rt@bsbgases.com.br", "first_name": "Camila", "last_name": "Rocha", "tipo_usuario": "SUPERVISOR"}
+    )
+    if not user_rt_bsb.check_password(default_pwd):
+        user_rt_bsb.set_password(default_pwd)
+        user_rt_bsb.save()
+
     Membership.objects.get_or_create(user=user_bsb, tenant=tenant_a, defaults={"papel": "GERENTE", "ativo": True})
     Membership.objects.get_or_create(user=user_go, tenant=tenant_b, defaults={"papel": "GERENTE", "ativo": True})
+    Membership.objects.get_or_create(user=user_rt_bsb, tenant=tenant_a, defaults={"papel": "RESPONSAVEL_TECNICO", "ativo": True})
+
+    if rt_a.user != user_rt_bsb:
+        rt_a.user = user_rt_bsb
+        rt_a.save(update_fields=['user'])
 
     popular_tenant(tenant_a, user_bsb, "Brasília", gases)
     popular_tenant(tenant_b, user_go, "Goiânia", gases)

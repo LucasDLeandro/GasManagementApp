@@ -3,7 +3,7 @@ import datetime
 from django.http import HttpResponse, FileResponse
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -30,6 +30,7 @@ from core.models import ResponsavelTecnico
 from .models import (
     Produto,
     LoteEnvase,
+    HistoricoQualidadeLote,
     EnvaseCilindro,
     Cilindro,
     GasQuimico,
@@ -68,6 +69,7 @@ from .serializers import (
     CilindroSerializer,
     EnvaseCilindroSerializer,
     LoteEnvaseSerializer,
+    HistoricoQualidadeLoteSerializer,
     InspecaoPreEnvaseSerializer,
     RecebimentoCilindroCheioSerializer,
     ReclassificacaoCilindroSerializer,
@@ -116,6 +118,7 @@ from .services import (
     acionar_bloqueio_sanitario,
     liberar_bloqueio_sanitario,
     atualizar_qualidade_lote,
+    obter_rt_vinculado_para_liberacao,
     abrir_campanha_recall,
     homologar_campanha_recall,
     obter_dossie_recall_lote,
@@ -1107,12 +1110,75 @@ class LoteEnvaseViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     API endpoint para gestão e consulta de Lotes de Envase com isolamento de Tenant.
     Permite alteração de qualidade ('QUARENTENA', 'APROVADO', 'REPROVADO') restrita ao RT.
     """
+    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
     queryset = LoteEnvase.unscoped.all()
     serializer_class = LoteEnvaseSerializer
     permission_classes = [IsTenantMember, RequiresModuleEnvase]
 
+    def _obter_papel_usuario(self, request):
+        if getattr(request.user, 'is_superuser', False):
+            return 'ADMIN'
+        membership = getattr(request, 'membership', None)
+        if not membership:
+            from core.models import Membership
+            tenant = getattr(request, 'tenant', None)
+            if tenant:
+                membership = Membership.objects.filter(user=request.user, tenant=tenant, ativo=True).first()
+        return membership.papel if membership else None
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        papel = self._obter_papel_usuario(request)
+        if papel not in ('ADMIN', 'GERENTE', 'RESPONSAVEL_TECNICO'):
+            return Response(
+                {'detail': 'Edição de lotes restrita a administradores, gerentes ou Responsável Técnico.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if instance.status_qualidade != 'QUARENTENA':
+            return Response(
+                {'detail': 'Lote liberado não pode ser alterado.', 'error': 'Lote liberado não pode ser alterado.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'Exclusão de lotes de envase não é permitida.', 'error': 'Exclusão de lotes de envase não é permitida.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
     def get_queryset(self):
-        return super().get_queryset().select_related('gas', 'responsavel_tecnico_fk')
+        return super().get_queryset().select_related(
+            'gas', 'responsavel_tecnico_fk'
+        ).prefetch_related(
+            Prefetch(
+                'historico_qualidade',
+                queryset=HistoricoQualidadeLote.objects.order_by('-criado_em'),
+                to_attr='historicos_ordenados'
+            )
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        request = self.request
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            tenant = getattr(request, 'tenant', None)
+            tenant_id = getattr(tenant, 'id', None) or getattr(request, 'tenant_id', None)
+            try:
+                obter_rt_vinculado_para_liberacao(request.user, tenant_id=tenant_id)
+                context['usuario_pode_liberar_rt'] = True
+            except PermissionError:
+                context['usuario_pode_liberar_rt'] = False
+        else:
+            context['usuario_pode_liberar_rt'] = False
+        return context
 
     @action(detail=True, methods=['post'], url_path='qualidade')
     def atualizar_qualidade(self, request, pk=None):
@@ -1131,14 +1197,21 @@ class LoteEnvaseViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
                 justificativa=justificativa,
                 usuario=request.user
             )
-            return Response(LoteEnvaseSerializer(lote_atualizado).data, status=status.HTTP_200_OK)
+            return Response(LoteEnvaseSerializer(lote_atualizado, context=self.get_serializer_context()).data, status=status.HTTP_200_OK)
         except PermissionError as e:
-            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'detail': str(e), 'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
         except ValidationError as e:
             msg = e.message if hasattr(e, 'message') else str(e)
-            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': msg, 'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'], url_path='historico-qualidade')
+    def historico_qualidade(self, request, pk=None):
+        """
+        Retorna a trilha imutável de histórico de qualidade deste lote (Sprint 01.00).
+        """
+        lote = self.get_object()
+        historico = lote.historico_qualidade.select_related('usuario', 'responsavel_tecnico').order_by('-criado_em')
+        return Response(HistoricoQualidadeLoteSerializer(historico, many=True).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='fechar')
     def fechar(self, request, pk=None):
