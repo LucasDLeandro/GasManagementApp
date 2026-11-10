@@ -202,6 +202,24 @@ MEDIA_URL = '/media/'
 
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Arquivos estáticos coletados (collectstatic) para o nginx servir em produção
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Origens confiáveis para CSRF (obrigatório atrás de HTTPS). Ex.: https://baros.exemplo.com
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='',
+    cast=lambda value: [item.strip() for item in value.split(',') if item.strip()],
+)
+
+# Atrás do nginx com TLS: confiar no cabeçalho X-Forwarded-Proto e usar cookies seguros
+if config('USE_HTTPS', default=False, cast=bool):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
+
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/inicio/'
 

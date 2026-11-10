@@ -44,3 +44,9 @@ scratch/
 htmlcov/
 .pytest_cache/
 .hypothesis/
+
+# Arquivos estáticos coletados
+staticfiles/
+
+# Chaves privadas
+*.pem
