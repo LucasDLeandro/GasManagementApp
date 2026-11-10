@@ -8,6 +8,7 @@ from produtos.models import (
     Cilindro,
     MovimentacaoCilindro,
     LoteEnvase,
+    HistoricoQualidadeLote,
     EnvaseCilindro,
     InspecaoPreEnvase,
     RecebimentoCilindroCheio,
@@ -17,6 +18,16 @@ from produtos.models import (
     RecallCampanha,
     ItemRecallCliente
 )
+
+# ==============================================================================
+# MÁQUINA DE ESTADOS FINITA (FSM) DE LOTES E CQ (Sprint 01.00)
+# ==============================================================================
+
+TRANSICOES_QUALIDADE_LOTE = {
+    'QUARENTENA': ['APROVADO', 'REPROVADO'],
+    'APROVADO': ['REPROVADO'],
+    'REPROVADO': [],
+}
 
 # ==============================================================================
 # MÁQUINA DE ESTADOS FINITA (FSM) DE CILINDROS
@@ -1088,6 +1099,38 @@ def _obter_responsavel_tecnico(usuario, tenant_id=None, responsavel_tecnico=None
     return qs.first()
 
 
+def obter_rt_vinculado_para_liberacao(usuario, tenant_id=None):
+    """
+    Retorna o ResponsavelTecnico ativo vinculado ao usuário no tenant especificado.
+    Exige papel RESPONSAVEL_TECNICO (ou superusuário) E ResponsavelTecnico ativo vinculado ao usuário.
+    Lança PermissionError se não cumprir os requisitos (Adjustment 3 da Sprint 01.00).
+    """
+    if not usuario or not usuario.is_authenticated:
+        raise PermissionError("Liberação restrita ao Responsável Técnico.")
+
+    from core.models import Membership, ResponsavelTecnico
+
+    # Superusuário sem o vínculo de ResponsavelTecnico ativo recebe 403.
+    # Usuário comum deve ter Membership com papel RESPONSAVEL_TECNICO.
+    if not usuario.is_superuser:
+        qs_mem = Membership.objects.filter(user=usuario, ativo=True)
+        if tenant_id:
+            qs_mem = qs_mem.filter(tenant_id=tenant_id)
+        membership = qs_mem.first()
+        if not membership or membership.papel != 'RESPONSAVEL_TECNICO':
+            raise PermissionError("Liberação restrita ao Responsável Técnico.")
+
+    # Busca o vínculo de ResponsavelTecnico formal com user=usuario no tenant
+    qs_rt = ResponsavelTecnico.objects.filter(user=usuario, ativo=True)
+    if tenant_id:
+        qs_rt = qs_rt.filter(tenant_id=tenant_id)
+    rt = qs_rt.first()
+    if not rt or not rt.esta_vigente:
+        raise PermissionError("Liberação restrita ao Responsável Técnico.")
+
+    return rt
+
+
 @transaction.atomic
 def acionar_bloqueio_sanitario(
     *,
@@ -1185,22 +1228,51 @@ def atualizar_qualidade_lote(
 ):
     """
     Atualiza o status de controle de qualidade de um lote de envase (QUARENTENA, APROVADO, REPROVADO).
-    Ação exclusiva do RT.
+    Ação exclusiva do RT ativo devidamente vinculado (Sprint 01.00).
     Se o lote for REPROVADO, aciona automaticamente bloqueio sanitário em todos os cilindros
     cujo envase ativo pertença a esse lote.
+    Grava registro imutável em HistoricoQualidadeLote.
     """
     if lote is not None and lote_id is None:
         lote_id = lote.id
 
     lote = LoteEnvase.objects.select_for_update().get(id=lote_id)
-    _verificar_permissao_rt(usuario, tenant_id=lote.tenant_id)
+    rt = obter_rt_vinculado_para_liberacao(usuario, tenant_id=lote.tenant_id)
 
-    status_validos = [c[0] for c in LoteEnvase.STATUS_QUALIDADE_CHOICES]
-    if novo_status not in status_validos:
-        raise ValidationError(f"Status de qualidade inválido: '{novo_status}'. Válidos: {status_validos}")
+    status_anterior = lote.status_qualidade
+    transicoes_permitidas = TRANSICOES_QUALIDADE_LOTE.get(status_anterior, [])
+    if novo_status not in transicoes_permitidas:
+        raise ValidationError(
+            f"Transição de qualidade inválida: não é permitido alterar o lote de '{status_anterior}' para '{novo_status}'."
+        )
+
+    justificativa_limpa = (justificativa or "").strip()
+    if novo_status == 'REPROVADO':
+        if len(justificativa_limpa) < 10:
+            raise ValidationError(
+                "A reprovação de lote exige justificativa técnica com no mínimo 10 caracteres."
+            )
+        justificativa = justificativa_limpa
+    else:
+        justificativa = justificativa_limpa
+
+    rt_nome = rt.nome_completo
+    rt_reg = f"{rt.conselho_classe}-{rt.uf_conselho} {rt.numero_registro}".strip()
 
     lote.status_qualidade = novo_status
     lote.save(update_fields=['status_qualidade'])
+
+    HistoricoQualidadeLote.unscoped.create(
+        tenant=lote.tenant,
+        lote=lote,
+        status_anterior=status_anterior,
+        status_novo=novo_status,
+        justificativa=justificativa,
+        usuario=usuario,
+        responsavel_tecnico=rt,
+        rt_nome_snapshot=rt_nome,
+        rt_registro_snapshot=rt_reg
+    )
 
     # Se for REPROVADO, efetua bloqueio sanitário automático dos cilindros ativos desse lote
     if novo_status == 'REPROVADO':
@@ -1210,7 +1282,7 @@ def atualizar_qualidade_lote(
 
         motivo_bloqueio = (
             f"Lote {lote.codigo_lote} REPROVADO pelo RT. "
-            f"Justificativa: {justificativa or 'Desvio de conformidade físico-química'}"
+            f"Justificativa: {justificativa}"
         )
 
         for cil in cilindros_ativos:
@@ -1218,11 +1290,8 @@ def atualizar_qualidade_lote(
             cil.motivo_bloqueio_sanitario = motivo_bloqueio
             cil.save(update_fields=['bloqueio_sanitario', 'motivo_bloqueio_sanitario'])
 
-            rt = _obter_responsavel_tecnico(usuario, tenant_id=cil.tenant_id, responsavel_tecnico=responsavel_tecnico)
-            rt_nome = rt.nome_completo if rt else (usuario.get_full_name() or usuario.username)
-            rt_reg = f"{rt.conselho_classe}-{rt.uf_conselho} {rt.numero_registro}" if rt else "RT-SISTEMA"
-
-            AuditoriaBloqueioSanitario.objects.create(
+            AuditoriaBloqueioSanitario.unscoped.create(
+                tenant=cil.tenant,
                 cilindro=cil,
                 acao='BLOQUEIO',
                 motivo=motivo_bloqueio,

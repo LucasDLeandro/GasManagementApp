@@ -3,7 +3,7 @@ import datetime
 from django.http import HttpResponse, FileResponse
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -30,6 +30,7 @@ from core.models import ResponsavelTecnico
 from .models import (
     Produto,
     LoteEnvase,
+    HistoricoQualidadeLote,
     EnvaseCilindro,
     Cilindro,
     GasQuimico,
@@ -68,6 +69,7 @@ from .serializers import (
     CilindroSerializer,
     EnvaseCilindroSerializer,
     LoteEnvaseSerializer,
+    HistoricoQualidadeLoteSerializer,
     InspecaoPreEnvaseSerializer,
     RecebimentoCilindroCheioSerializer,
     ReclassificacaoCilindroSerializer,
@@ -116,6 +118,7 @@ from .services import (
     acionar_bloqueio_sanitario,
     liberar_bloqueio_sanitario,
     atualizar_qualidade_lote,
+    obter_rt_vinculado_para_liberacao,
     abrir_campanha_recall,
     homologar_campanha_recall,
     obter_dossie_recall_lote,
@@ -1112,7 +1115,30 @@ class LoteEnvaseViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsTenantMember, RequiresModuleEnvase]
 
     def get_queryset(self):
-        return super().get_queryset().select_related('gas', 'responsavel_tecnico_fk')
+        return super().get_queryset().select_related(
+            'gas', 'responsavel_tecnico_fk'
+        ).prefetch_related(
+            Prefetch(
+                'historico_qualidade',
+                queryset=HistoricoQualidadeLote.objects.order_by('-criado_em'),
+                to_attr='historicos_ordenados'
+            )
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        request = self.request
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            tenant = getattr(request, 'tenant', None)
+            tenant_id = getattr(tenant, 'id', None) or getattr(request, 'tenant_id', None)
+            try:
+                obter_rt_vinculado_para_liberacao(request.user, tenant_id=tenant_id)
+                context['usuario_pode_liberar_rt'] = True
+            except PermissionError:
+                context['usuario_pode_liberar_rt'] = False
+        else:
+            context['usuario_pode_liberar_rt'] = False
+        return context
 
     @action(detail=True, methods=['post'], url_path='qualidade')
     def atualizar_qualidade(self, request, pk=None):
@@ -1131,14 +1157,21 @@ class LoteEnvaseViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
                 justificativa=justificativa,
                 usuario=request.user
             )
-            return Response(LoteEnvaseSerializer(lote_atualizado).data, status=status.HTTP_200_OK)
+            return Response(LoteEnvaseSerializer(lote_atualizado, context=self.get_serializer_context()).data, status=status.HTTP_200_OK)
         except PermissionError as e:
-            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'detail': str(e), 'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
         except ValidationError as e:
             msg = e.message if hasattr(e, 'message') else str(e)
-            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': msg, 'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'], url_path='historico-qualidade')
+    def historico_qualidade(self, request, pk=None):
+        """
+        Retorna a trilha imutável de histórico de qualidade deste lote (Sprint 01.00).
+        """
+        lote = self.get_object()
+        historico = lote.historico_qualidade.select_related('usuario', 'responsavel_tecnico').order_by('-criado_em')
+        return Response(HistoricoQualidadeLoteSerializer(historico, many=True).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='fechar')
     def fechar(self, request, pk=None):
