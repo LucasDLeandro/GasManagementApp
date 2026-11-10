@@ -27,6 +27,7 @@ from produtos.models import (
 )
 from produtos.admin import HistoricoQualidadeLoteAdmin
 from django.contrib.admin.sites import AdminSite
+from django.db.models import ProtectedError
 from django.test.utils import CaptureQueriesContext
 from django.db import connection
 from produtos.services.ciclo_cilindro import registrar_envase_cilindro
@@ -62,6 +63,7 @@ class LotesCQRegrasETests(TestCase):
         self.rt_sem_vinculo = self._usuario('rt.semvinculo', 'RESPONSAVEL_TECNICO', tenant=self.tenant)
         self.gerente = self._usuario('gerente.norte', 'GERENTE', tenant=self.tenant)
         self.operador = self._usuario('operador.norte', 'OPERADOR_PATIO', tenant=self.tenant)
+        self.vendedor = self._usuario('vendedor.norte', 'VENDEDOR', tenant=self.tenant)
         self.superusuario = User.objects.create_superuser('admin.baros', 'admin@baros.test', 'Senha-123456')
 
         # Vínculo formal do RT ativo e criação de lote e cilindros
@@ -422,5 +424,76 @@ class LotesCQRegrasETests(TestCase):
         self.assertEqual(resp_ger.status_code, 200)
         html_ger = resp_ger.content.decode()
         self.assertIn('id="tbody-lotes-cq"', html_ger)
+
+    # --------------------------------------------------------------------------
+    # 7. Testes de segurança e restrição de edição/exclusão (Revisão Sprint 01.00)
+    # --------------------------------------------------------------------------
+    def test_vendedor_patch_lote_retorna_403(self):
+        """Vendedor não pode alterar lote (apenas ADMIN, GERENTE ou RT)."""
+        self.client.force_authenticate(self.vendedor)
+        resp = self.client.patch(
+            f'/produtos/api/lotes/{self.lote_quarentena.id}/',
+            {'pureza_percentual': '99.90'},
+            format='json'
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_patch_pureza_em_lote_aprovado_retorna_400(self):
+        """Lote em APROVADO ou REPROVADO não pode ser alterado via PATCH/PUT."""
+        self.client.force_authenticate(self.gerente)
+        resp = self.client.patch(
+            f'/produtos/api/lotes/{self.lote_aprovado.id}/',
+            {'pureza_percentual': '99.99'},
+            format='json'
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        conteudo = str(resp.json())
+        self.assertIn("Lote liberado não pode ser alterado", conteudo)
+
+    def test_delete_lote_retorna_405(self):
+        """Exclusão de lote é proibida (DELETE responde 405 Method Not Allowed)."""
+        self.client.force_authenticate(self.rt_usuario)
+        resp = self.client.delete(f'/produtos/api/lotes/{self.lote_quarentena.id}/')
+        self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_historico_qualidade_on_delete_protect(self):
+        """FK lote em HistoricoQualidadeLote possui on_delete=PROTECT impedindo delete em cascata."""
+        with tenant_context(self.tenant):
+            HistoricoQualidadeLote.objects.create(
+                tenant=self.tenant,
+                lote=self.lote_quarentena,
+                status_anterior='QUARENTENA',
+                status_novo='APROVADO',
+                usuario=self.rt_usuario,
+                responsavel_tecnico=self.rt_registro,
+                rt_nome_snapshot='Dr. Lucas Silva',
+                rt_registro_snapshot='CRF-DF 12345',
+                justificativa='Aprovado para teste de proteção'
+            )
+            with self.assertRaises(ProtectedError):
+                self.lote_quarentena.delete()
+
+    def test_serializer_snapshots_rt_e_codigo_lote_read_only_apos_criacao(self):
+        """Snapshots do RT e codigo_lote após criado são somente leitura no serializer."""
+        self.client.force_authenticate(self.gerente)
+        codigo_original = self.lote_quarentena.codigo_lote
+        resp = self.client.patch(
+            f'/produtos/api/lotes/{self.lote_quarentena.id}/',
+            {
+                'codigo_lote': 'NOVO-CODIGO-HACK',
+                'rt_nome_snapshot': 'Invasor Falso',
+                'rt_registro_snapshot': 'CRQ-XX 99999',
+                'responsavel_tecnico': 'Outro RT',
+                'pureza_percentual': '99.75'
+            },
+            format='json'
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.lote_quarentena.refresh_from_db()
+        self.assertEqual(self.lote_quarentena.codigo_lote, codigo_original)
+        self.assertNotEqual(self.lote_quarentena.rt_nome_snapshot, 'Invasor Falso')
+        self.assertNotEqual(self.lote_quarentena.rt_registro_snapshot, 'CRQ-XX 99999')
+        self.assertEqual(self.lote_quarentena.pureza_percentual, Decimal('99.75'))
+
 
 

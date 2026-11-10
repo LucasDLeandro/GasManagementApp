@@ -298,7 +298,7 @@ class HistoricoQualidadeLote(TenantAwareModel):
     """
     lote = models.ForeignKey(
         LoteEnvase,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='historico_qualidade',
         verbose_name="Lote de Envase"
     )

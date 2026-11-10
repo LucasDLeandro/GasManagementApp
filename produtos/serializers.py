@@ -167,8 +167,27 @@ class LoteEnvaseSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'tenant', 'status_qualidade', 'criado_em', 'atualizado_em',
-            'ultima_liberacao', 'transicoes_permitidas'
+            'ultima_liberacao', 'transicoes_permitidas',
+            'responsavel_tecnico', 'responsavel_tecnico_fk',
+            'rt_nome_snapshot', 'rt_conselho_snapshot', 'rt_registro_snapshot'
         ]
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance is not None and 'codigo_lote' in fields:
+            fields['codigo_lote'].read_only = True
+        return fields
+
+    def validate_codigo_lote(self, value):
+        if self.instance is not None and self.instance.codigo_lote != value:
+            raise serializers.ValidationError("O código do lote não pode ser alterado após a criação.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is not None and self.instance.status_qualidade != 'QUARENTENA':
+            raise serializers.ValidationError("Lote liberado não pode ser alterado.")
+        return attrs
 
     def get_ultima_liberacao(self, obj):
         # Otimização anti N+1 (prefetched se disponível)

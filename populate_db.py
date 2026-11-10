@@ -751,7 +751,7 @@ def run():
 
     user_rt_bsb, _ = User.objects.get_or_create(
         username="rt.bsb",
-        defaults={"email": "rt@bsbgases.com.br", "first_name": "Camila", "last_name": "Rocha", "tipo_usuario": "RESPONSAVEL_TECNICO"}
+        defaults={"email": "rt@bsbgases.com.br", "first_name": "Camila", "last_name": "Rocha", "tipo_usuario": "SUPERVISOR"}
     )
     if not user_rt_bsb.check_password(default_pwd):
         user_rt_bsb.set_password(default_pwd)

@@ -1110,9 +1110,49 @@ class LoteEnvaseViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     API endpoint para gestão e consulta de Lotes de Envase com isolamento de Tenant.
     Permite alteração de qualidade ('QUARENTENA', 'APROVADO', 'REPROVADO') restrita ao RT.
     """
+    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
     queryset = LoteEnvase.unscoped.all()
     serializer_class = LoteEnvaseSerializer
     permission_classes = [IsTenantMember, RequiresModuleEnvase]
+
+    def _obter_papel_usuario(self, request):
+        if getattr(request.user, 'is_superuser', False):
+            return 'ADMIN'
+        membership = getattr(request, 'membership', None)
+        if not membership:
+            from core.models import Membership
+            tenant = getattr(request, 'tenant', None)
+            if tenant:
+                membership = Membership.objects.filter(user=request.user, tenant=tenant, ativo=True).first()
+        return membership.papel if membership else None
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        papel = self._obter_papel_usuario(request)
+        if papel not in ('ADMIN', 'GERENTE', 'RESPONSAVEL_TECNICO'):
+            return Response(
+                {'detail': 'Edição de lotes restrita a administradores, gerentes ou Responsável Técnico.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if instance.status_qualidade != 'QUARENTENA':
+            return Response(
+                {'detail': 'Lote liberado não pode ser alterado.', 'error': 'Lote liberado não pode ser alterado.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'Exclusão de lotes de envase não é permitida.', 'error': 'Exclusão de lotes de envase não é permitida.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
 
     def get_queryset(self):
         return super().get_queryset().select_related(
