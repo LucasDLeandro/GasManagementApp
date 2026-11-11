@@ -52,4 +52,14 @@ def liberar_bloqueio_venda(venda: Venda, usuario, motivo: str) -> LiberacaoBloqu
     venda.status = 'Pendente'
     venda.save(update_fields=['status', 'data_atualizacao'])
 
+    from vendas.services.status import registrar_historico_venda
+    registrar_historico_venda(
+        venda=venda,
+        novo_status='Pendente',
+        status_anterior='BLOQUEADO_FINANCEIRO',
+        usuario=usuario,
+        origem='TELA',
+        observacoes=motivo_limpo
+    )
+
     return liberacao

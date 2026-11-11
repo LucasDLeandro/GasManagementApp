@@ -3,8 +3,9 @@
 Arquivo curto e atualizado a cada sprint (pelo agente, no fim da sprint, e pelo dono quando fizer merge ou deploy). Para o histórico completo, veja `docs/sprints/relatorios/` e `docs/PLANO_CORRECAO_E_EVOLUCAO.md`.
 
 ## Onde estamos (11/11/2026)
-- Fases 0 e 1 concluídas; Fase 2 (Produtos) em andamento na branch `sprint-01.02/etiquetas`.
-- Sprint 01.02 concluída; **próxima sprint:** `01B Painéis: monitor operacional e home de gestão` (dividir antes de começar).
+- Fases 0 e 1 concluídas; Fase 2 (Produtos) em andamento na branch `sprint-01b.00/historico-status`.
+- Sprint 01B dividida em 3 entregas (01B.00, 01B.01, 01B.02).
+- Entrega 01B.00 concluída; **próxima entrega:** `01B.01 Monitor de TV` na branch `sprint-01b.01/monitor`.
 
 ## Ambiente de teste (AWS)
 - EC2 t3.small, Ubuntu 24.04, Python 3.14, gunicorn + nginx + HTTPS (Let's Encrypt), SQLite, `DEBUG=False`.
@@ -18,4 +19,6 @@ Arquivo curto e atualizado a cada sprint (pelo agente, no fim da sprint, e pelo 
 | 01.00 Lotes e CQ | concluída | `sprint-01.00/lotes-cq` | `docs/sprints/relatorios/SPRINT_01_00.md` |
 | 01.01 Ativos e drawer | concluída | `sprint-01.01/ativos-drawer` | `docs/sprints/relatorios/SPRINT_01_01.md` |
 | 01.02 Etiquetas | concluída | `sprint-01.02/etiquetas` | `docs/sprints/relatorios/SPRINT_01_02.md` |
-| 01B Painéis | a fazer (dividir antes de começar) | — | — |
+| 01B.00 Histórico de status | concluída | `sprint-01b.00/historico-status` | `docs/sprints/relatorios/SPRINT_01B_00.md` |
+| 01B.01 Monitor de TV | a fazer | `sprint-01b.01/monitor` | — |
+| 01B.02 Home de gestão | a fazer | `sprint-01b.02/home-gestao` | — |

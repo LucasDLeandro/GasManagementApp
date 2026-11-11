@@ -619,8 +619,22 @@ class Entrega(TenantAwareModel):
                 )
 
     def save(self, *args, **kwargs):
+        is_new = not self.pk
         self.clean()
         super().save(*args, **kwargs)
+        if is_new:
+            try:
+                HistoricoStatusEntrega.unscoped.create(
+                    tenant=self.tenant,
+                    entrega=self,
+                    status_anterior=None,
+                    status_novo=self.status,
+                    alterado_por=self.motorista,
+                    origem='TELA' if self.motorista else 'SISTEMA',
+                    observacoes='Criação da entrega.'
+                )
+            except Exception:
+                pass
         if self.status == 'Concluída':
             try:
                 from .services.rentabilidade import consolidar_custo_viagem
@@ -2998,6 +3012,80 @@ class TrajetoEntrega(TenantAwareModel):
 
     def __str__(self):
         return f"Trajeto Entrega #{self.entrega_id} ({self.distancia_total_km} km, {self.pontos_contagem} pts)"
+
+
+class HistoricoStatusEntrega(TenantAwareModel):
+    """
+    Rastreabilidade temporal completa de mudanças de status da Entrega (Sprint 01B - Tarefa 01B.1).
+    Permite calcular tempo de permanência em cada etapa e auditar responsáveis.
+    """
+    ORIGEM_CHOICES = [
+        ('TELA', 'Tela'),
+        ('API', 'API'),
+        ('APP_CAMPO', 'App de Campo'),
+        ('SISTEMA', 'Sistema'),
+    ]
+
+    entrega = models.ForeignKey(
+        Entrega,
+        on_delete=models.CASCADE,
+        related_name='historico_status',
+        verbose_name="Entrega"
+    )
+    status_anterior = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+        verbose_name="Status Anterior"
+    )
+    status_novo = models.CharField(
+        max_length=30,
+        db_index=True,
+        verbose_name="Novo Status"
+    )
+    alterado_em = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        verbose_name="Alterado em"
+    )
+    alterado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        verbose_name="Alterado por"
+    )
+    origem = models.CharField(
+        max_length=20,
+        choices=ORIGEM_CHOICES,
+        default='SISTEMA',
+        verbose_name="Origem da Alteração"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        default='',
+        verbose_name="Observações / Justificativa"
+    )
+
+    class Meta:
+        verbose_name = "Histórico de Status da Entrega"
+        verbose_name_plural = "Históricos de Status de Entregas"
+        ordering = ['-alterado_em']
+
+    def __str__(self):
+        return f"Entrega #{self.entrega_id}: {self.status_anterior or 'Início'} → {self.status_novo} ({self.alterado_em})"
+
+    def clean(self):
+        super().clean()
+        if not self.tenant_id and self.entrega_id:
+            self.tenant = self.entrega.tenant
+
+    def save(self, *args, **kwargs):
+        if not self.tenant_id and self.entrega_id:
+            self.tenant = self.entrega.tenant
+        super().save(*args, **kwargs)
+
 
 
 

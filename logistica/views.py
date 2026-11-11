@@ -800,8 +800,12 @@ class EntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         super().perform_create(serializer)
 
     def perform_update(self, serializer):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from logistica.services.status import transicionar_entrega
+        from vendas.services.status import transicionar_venda
+
         instance = serializer.instance
-        novo_status = serializer.validated_data.get('status', instance.status)
+        novo_status = self.request.data.get('status')
         novo_veiculo = serializer.validated_data.get('veiculo', instance.veiculo)
         
         veiculo_final = novo_veiculo or instance.veiculo
@@ -822,10 +826,31 @@ class EntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
             self._validar_aptidao_veiculo(veiculo_final, self.request.data, entrega=instance)
 
         updated_entrega = serializer.save()
-        if novo_status == 'Em Rota':
-            updated_entrega.vendas.filter(status__in=['Pendente', 'Em Separação']).update(status='Em Rota')
-        elif novo_status == 'Concluída':
-            updated_entrega.vendas.filter(status='Em Rota').update(status='Entregue')
+
+        if novo_status and novo_status != instance.status:
+            user = self.request.user if (self.request and self.request.user and self.request.user.is_authenticated) else None
+            try:
+                transicionar_entrega(
+                    entrega=updated_entrega,
+                    novo_status=novo_status,
+                    usuario=user,
+                    origem='TELA',
+                    observacoes="Atualização de status via EntregaViewSet."
+                )
+            except DjangoValidationError as e:
+                raise DRFValidationError({'status': e.messages if hasattr(e, 'messages') else [str(e)]})
+
+            if novo_status == 'Em Rota':
+                for v in updated_entrega.vendas.filter(status__in=['Pendente', 'Em Separação']):
+                    if v.status == 'Pendente':
+                        transicionar_venda(v, 'Em Separação', usuario=user, origem='SISTEMA')
+                    transicionar_venda(v, 'Em Rota', usuario=user, origem='SISTEMA')
+            elif novo_status == 'Concluída':
+                for v in updated_entrega.vendas.filter(status='Em Rota'):
+                    transicionar_venda(v, 'Entregue', usuario=user, origem='SISTEMA')
+            elif novo_status == 'Cancelada':
+                for v in updated_entrega.vendas.exclude(status='Cancelada'):
+                    transicionar_venda(v, 'Cancelada', usuario=user, origem='SISTEMA')
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1093,8 +1118,10 @@ class EntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         Finaliza a rota/romaneio de entrega e dispara webhook 'romaneio.concluido'.
         """
         entrega = self.get_object()
-        entrega.status = 'Concluída'
-        entrega.save(update_fields=['status'])
+        if entrega.status != 'Concluída':
+            from logistica.services.status import transicionar_entrega
+            transicionar_entrega(entrega, 'Concluída', usuario=request.user, origem='TELA', observacoes='Conclusão manual de romaneio.')
+            entrega.save(update_fields=['status'])
 
         # Dispara webhook para sistemas externos / ERP
         try:
@@ -1287,7 +1314,8 @@ class EntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
             # Se a saída estiver liberada e o operador solicitar iniciar rota
             iniciar_rota = str(request.data.get('iniciar_rota', '')).lower() in ('true', '1')
             if iniciar_rota and saida_liberada and entrega.status == 'Agendada':
-                entrega.status = 'Em Rota'
+                from logistica.services.status import transicionar_entrega
+                transicionar_entrega(entrega, 'Em Rota', usuario=request.user, origem='TELA', observacoes='Conferência de saída liberada.')
                 entrega.data_saida = timezone.now()
                 entrega.save(update_fields=['status', 'data_saida'])
 

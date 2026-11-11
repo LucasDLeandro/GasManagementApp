@@ -353,6 +353,7 @@ class TabelaFreteSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class EntregaSerializer(serializers.ModelSerializer):
+    status = serializers.CharField(read_only=True)
     veiculo_placa = serializers.CharField(source='veiculo.placa', read_only=True)
     veiculo_modelo = serializers.CharField(source='veiculo.modelo', read_only=True)
     veiculo_capacidade = serializers.DecimalField(source='veiculo.capacidade_carga', max_digits=10, decimal_places=2, read_only=True)
@@ -374,6 +375,7 @@ class EntregaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Entrega
         fields = '__all__'
+        read_only_fields = ['status']
 
     def get_veiculo_foto_url(self, obj):
         if obj.veiculo and obj.veiculo.foto_principal:

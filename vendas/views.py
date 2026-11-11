@@ -208,7 +208,8 @@ class VendaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
             nova_entrega = Entrega.objects.create(tenant=venda.tenant, status='Agendada')
             venda.entrega = nova_entrega
         if venda.status == 'Pendente':
-            venda.status = 'Em Separação'
+            from vendas.services.status import transicionar_venda
+            transicionar_venda(venda, 'Em Separação', request.user, origem='TELA')
         venda.save()
         return Response({
             'status': 'sucesso',

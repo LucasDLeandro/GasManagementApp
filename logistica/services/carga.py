@@ -358,7 +358,8 @@ def liberar_carga_bloqueada(
     )
 
     # Permite transição para Em Rota
-    entrega.status = 'Em Rota'
+    from logistica.services.status import transicionar_entrega
+    transicionar_entrega(entrega, 'Em Rota', usuario=responsavel, origem='TELA', observacoes='Despacho com liberação formal.')
     entrega.data_saida = timezone.now()
     entrega.save(update_fields=['status', 'data_saida'])
 
@@ -384,7 +385,8 @@ def despachar_entrega_para_rota(entrega: Entrega, usuario=None) -> Entrega:
                 f"Exige liberação formal por gestor autorizado."
             )
 
-    entrega.status = 'Em Rota'
+    from logistica.services.status import transicionar_entrega
+    transicionar_entrega(entrega, 'Em Rota', usuario=usuario, origem='TELA', observacoes='Despacho para rota.')
     entrega.data_saida = timezone.now()
     entrega.save(update_fields=['status', 'data_saida'])
     return entrega
