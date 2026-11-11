@@ -1,26 +1,35 @@
 /**
- * Baros - Cilindros Ativo 360° & Drawer de Auditoria (Fase 1)
- * Modular Vanilla JS com zero dependências externas e suporte a RBAC nativo.
+ * Baros - Cilindros Ativo 360° & Drawer de Auditoria (Sprint 01.01)
+ * Modular Vanilla JS com zero dependências externas, sincronização bidirecional de URL,
+ * contadores agregados da frota e construção de DOM 100% segura contra XSS.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --------------------------------------------------------------------------
     // Estado local da tela de ativos
+    // --------------------------------------------------------------------------
     let currentPage = 1;
-    let currentFilter = 'todos';
+    let currentFilter = 'todos'; // 'todos' | 'CHEIO_DISPONIVEL' | 'EM_POSSE_CLIENTE' | 'VAZIO_TRIAGEM' | 'EM_RETESTE' | 'RESERVADO_ROTA' | 'bloqueio_sanitario' | 'reteste_vencido' | 'reteste_30_dias' | 'extravio_candidato' | 'proprio'
     let currentSearch = '';
+    let currentGas = '';
+    let currentPropriedade = '';
     let totalCilindros = 0;
     let activeCilindroId = null;
     let activeCilindroData = null;
+    let lastFocusedElement = null;
 
+    // --------------------------------------------------------------------------
     // Elementos DOM principais
+    // --------------------------------------------------------------------------
     const tbodyCilindros = document.getElementById('cilindros-tbody');
     const inputSearch = document.getElementById('input-busca-cilindros');
     const paginationInfo = document.getElementById('pagination-info');
     const btnPrevPage = document.getElementById('btn-prev-page');
     const btnNextPage = document.getElementById('btn-next-page');
     const filterPills = document.querySelectorAll('.pill-filter-btn');
+    const kpiCards = document.querySelectorAll('.ativos-kpi-grid .metric-card--clickable');
 
-    // Dialog Drawer & Modais Contextuais
+    // Drawer & Modais Contextuais
     const drawerDialog = document.getElementById('cylinder-drawer');
     const btnCloseDrawer = document.getElementById('btn-close-drawer');
 
@@ -30,51 +39,218 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalEstorno = document.getElementById('modal-estorno-ledger');
     const modalEtiqueta = document.getElementById('modal-etiqueta-termica');
 
-    function getAuthHeaders() {
-        const token = localStorage.getItem('access_token');
-        const headers = {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')
-        };
-        if (token) headers['Authorization'] = 'Bearer ' + token;
-        return headers;
-    }
-
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
+    // --------------------------------------------------------------------------
+    // Utilitários de DOM seguro (Zero XSS)
+    // --------------------------------------------------------------------------
+    function el(tag, className = '', textContent = '', attributes = {}) {
+        const elemento = document.createElement(tag);
+        if (className) elemento.className = className;
+        if (textContent !== undefined && textContent !== null && textContent !== '') {
+            elemento.textContent = textContent;
+        }
+        for (const [chave, valor] of Object.entries(attributes)) {
+            if (valor !== null && valor !== undefined) {
+                elemento.setAttribute(chave, valor);
             }
         }
-        return cookieValue;
+        return elemento;
+    }
+
+    function formatarData(dataIso) {
+        if (!dataIso) return '-';
+        const parts = dataIso.split('T')[0].split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return dataIso;
     }
 
     function getOgivaClass(sigla) {
-        if (!sigla) return 'ogiva-oxigenio-ind';
-        const s = sigla.toUpperCase();
-        if (s.includes('MED')) return 'ogiva-oxigenio-med';
-        if (s.includes('IND')) return 'ogiva-oxigenio-ind';
-        if (s.includes('N2') || s.includes('NIT')) return 'ogiva-nitrogenio';
-        if (s.includes('AR') || s.includes('ARG')) return 'ogiva-argonio';
-        if (s.includes('CO2')) return 'ogiva-co2';
-        if (s.includes('AC') || s.includes('ACET')) return 'ogiva-acetileno';
-        if (s.includes('AR-COMP')) return 'ogiva-ar-comp';
-        return 'ogiva-oxigenio-ind';
+        if (!sigla) return 'ogiva-dot--oxigenio-ind';
+        const s = String(sigla).toUpperCase();
+        if (s.includes('MED')) return 'ogiva-dot--oxigenio-med';
+        if (s.includes('IND')) return 'ogiva-dot--oxigenio-ind';
+        if (s.includes('N2') || s.includes('NIT')) return 'ogiva-dot--nitrogenio';
+        if (s.includes('AR') || s.includes('ARG')) return 'ogiva-dot--argonio';
+        if (s.includes('CO2')) return 'ogiva-dot--co2';
+        if (s.includes('AC') || s.includes('ACET')) return 'ogiva-dot--acetileno';
+        if (s.includes('AR-COMP')) return 'ogiva-dot--ar-comp';
+        return 'ogiva-dot--oxigenio-ind';
     }
 
-    // ==============================================================================
-    // 1. CARREGAMENTO E PAGINAÇÃO DE CILINDROS
-    // ==============================================================================
+    function ligarFechar(dialogo) {
+        if (!dialogo) return;
+        dialogo.querySelectorAll('[data-fechar-dialogo]').forEach(b => b.addEventListener('click', () => dialogo.close()));
+    }
+
+    function limparErros(form) {
+        if (!form) return;
+        form.querySelectorAll('.ds-field-error').forEach(item => item.remove());
+        form.querySelectorAll('.ds-invalid').forEach(item => item.classList.remove('ds-invalid'));
+    }
+
+    function rotuloCilindro() {
+        return activeCilindroData ? `${activeCilindroData.codigo_qr} · ${activeCilindroData.gas_sigla} · série ${activeCilindroData.numero_serie_ogiva}` : '';
+    }
+
+    function aposAcao(mensagem) {
+        if (window.Baros && typeof Baros.sucesso === 'function') {
+            Baros.sucesso(mensagem);
+        }
+        if (activeCilindroId) {
+            abrirDrawerAtivo(activeCilindroId);
+        }
+        carregarResumoFrota();
+        carregarCilindros(currentPage);
+    }
+
+    // --------------------------------------------------------------------------
+    // 1. SINCRONIZAÇÃO DE FILTROS COM A URL
+    // --------------------------------------------------------------------------
+    function lerFiltrosDaUrl() {
+        const params = new URLSearchParams(window.location.search);
+
+        const statusParam = params.get('status');
+        const bloqueioParam = params.get('bloqueio_sanitario');
+        const retesteAteDiasParam = params.get('reteste_ate_dias');
+        const retesteParam = params.get('reteste_vencido');
+        const filtroParam = params.get('filtro');
+        const gasParam = params.get('gas');
+        const propriedadeParam = params.get('propriedade');
+        const searchParam = params.get('search') || params.get('q');
+        const pageParam = parseInt(params.get('page'), 10);
+
+        if (statusParam) {
+            currentFilter = statusParam;
+        } else if (bloqueioParam === 'true') {
+            currentFilter = 'bloqueio_sanitario';
+        } else if (retesteAteDiasParam) {
+            currentFilter = 'reteste_30_dias';
+        } else if (retesteParam === 'true') {
+            currentFilter = 'reteste_vencido';
+        } else if (filtroParam === 'extravio_candidato') {
+            currentFilter = 'extravio_candidato';
+        } else if (propriedadeParam === 'DISTRIBUIDORA') {
+            currentFilter = 'proprio';
+        } else {
+            currentFilter = 'todos';
+        }
+
+        if (searchParam) {
+            currentSearch = searchParam;
+            if (inputSearch) inputSearch.value = searchParam;
+        }
+
+        if (gasParam) currentGas = gasParam;
+        if (propriedadeParam) currentPropriedade = propriedadeParam;
+        if (!isNaN(pageParam) && pageParam > 0) currentPage = pageParam;
+
+        sincronizarUiFiltros();
+    }
+
+    function sincronizarUiFiltros() {
+        // Atualiza pílulas
+        filterPills.forEach(pill => {
+            const f = pill.getAttribute('data-filter');
+            if (f === currentFilter) {
+                pill.classList.add('active');
+            } else {
+                pill.classList.remove('active');
+            }
+        });
+
+        // Atualiza cards de métricas
+        kpiCards.forEach(card => {
+            const f = card.getAttribute('data-filtro');
+            if (f === currentFilter) {
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
+            }
+        });
+    }
+
+    function atualizarUrlFiltros() {
+        const url = new URL(window.location.href);
+        const params = url.searchParams;
+
+        // Limpa parâmetros de filtro anteriores
+        params.delete('status');
+        params.delete('bloqueio_sanitario');
+        params.delete('reteste_vencido');
+        params.delete('reteste_ate_dias');
+        params.delete('filtro');
+        params.delete('propriedade');
+
+        if (currentFilter === 'CHEIO_DISPONIVEL') params.set('status', 'CHEIO_DISPONIVEL');
+        else if (currentFilter === 'EM_POSSE_CLIENTE') params.set('status', 'EM_POSSE_CLIENTE');
+        else if (currentFilter === 'VAZIO_TRIAGEM') params.set('status', 'VAZIO_TRIAGEM');
+        else if (currentFilter === 'EM_RETESTE') params.set('status', 'EM_RETESTE');
+        else if (currentFilter === 'RESERVADO_ROTA') params.set('status', 'RESERVADO_ROTA');
+        else if (currentFilter === 'bloqueio_sanitario') params.set('bloqueio_sanitario', 'true');
+        else if (currentFilter === 'reteste_vencido') params.set('reteste_vencido', 'true');
+        else if (currentFilter === 'reteste_30_dias') params.set('reteste_ate_dias', '30');
+        else if (currentFilter === 'extravio_candidato') params.set('filtro', 'extravio_candidato');
+        else if (currentFilter === 'proprio') params.set('propriedade', 'DISTRIBUIDORA');
+
+        if (currentSearch) {
+            params.set('q', currentSearch);
+        } else {
+            params.delete('q');
+            params.delete('search');
+        }
+
+        if (currentPage > 1) {
+            params.set('page', String(currentPage));
+        } else {
+            params.delete('page');
+        }
+
+        window.history.replaceState(null, '', url.pathname + (params.toString() ? '?' + params.toString() : ''));
+    }
+
+    function aplicarFiltro(filtroNome) {
+        currentFilter = filtroNome;
+        currentPage = 1;
+        sincronizarUiFiltros();
+        atualizarUrlFiltros();
+        carregarCilindros(1);
+    }
+
+    // --------------------------------------------------------------------------
+    // 2. RESUMO AGREGADO DA FROTA (CARDS DE KPI)
+    // --------------------------------------------------------------------------
+    async function carregarResumoFrota() {
+        try {
+            const data = await Baros.api('/produtos/api/cilindros/resumo/');
+            const setVal = (id, val) => {
+                const node = document.getElementById(id);
+                if (node) node.textContent = (val !== undefined && val !== null) ? Number(val).toLocaleString('pt-BR') : '0';
+            };
+
+            setVal('kpi-frota-total', data.total);
+            setVal('kpi-frota-cheios', data.cheios_patio);
+            setVal('kpi-frota-clientes', data.em_clientes);
+            setVal('kpi-frota-triagem', data.vazios_triagem);
+            setVal('kpi-frota-rota', data.em_rota);
+            setVal('kpi-frota-reteste', data.em_reteste);
+            setVal('kpi-frota-bloqueados', data.bloqueados);
+            setVal('kpi-frota-vencidos', data.reteste_vencido);
+            setVal('kpi-frota-30dias', data.reteste_30_dias);
+        } catch (err) {
+            console.error("Erro ao carregar resumo da frota:", err);
+        }
+    }
+
+    // --------------------------------------------------------------------------
+    // 3. CARREGAMENTO E PAGINAÇÃO DE CILINDROS
+    // --------------------------------------------------------------------------
     async function carregarCilindros(page = 1) {
         currentPage = page;
         if (tbodyCilindros) {
-            tbodyCilindros.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--color-text-muted); padding: 30px;">Carregando frota de cilindros...</td></tr>';
+            tbodyCilindros.innerHTML = '';
+            const trLoading = el('tr');
+            const tdLoading = el('td', 'ativos-table-loading', 'Carregando frota de cilindros...', { colspan: '8' });
+            trLoading.appendChild(tdLoading);
+            tbodyCilindros.appendChild(trLoading);
         }
 
         let url = `/produtos/api/cilindros/?page=${page}`;
@@ -85,117 +261,179 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentFilter === 'CHEIO_DISPONIVEL') url += '&status=CHEIO_DISPONIVEL';
         else if (currentFilter === 'EM_POSSE_CLIENTE') url += '&status=EM_POSSE_CLIENTE';
         else if (currentFilter === 'VAZIO_TRIAGEM') url += '&status=VAZIO_TRIAGEM';
+        else if (currentFilter === 'EM_RETESTE') url += '&status=EM_RETESTE';
+        else if (currentFilter === 'RESERVADO_ROTA') url += '&status=RESERVADO_ROTA';
         else if (currentFilter === 'bloqueio_sanitario') url += '&bloqueio_sanitario=true';
         else if (currentFilter === 'reteste_vencido') url += '&reteste_vencido=true';
+        else if (currentFilter === 'reteste_30_dias') url += '&reteste_ate_dias=30';
+        else if (currentFilter === 'extravio_candidato') url += '&filtro=extravio_candidato';
         else if (currentFilter === 'proprio') url += '&propriedade=DISTRIBUIDORA';
 
         try {
-            const res = await fetch(url, { headers: getAuthHeaders() });
-            if (!res.ok) throw new Error("Erro ao consultar API de cilindros");
-            const data = await res.json();
-
+            const data = await Baros.api(url);
             const cilindros = data.results || (Array.isArray(data) ? data : []);
             totalCilindros = data.count || cilindros.length;
 
             renderTabelaCilindros(cilindros);
             atualizarControlesPaginacao(data.count, data.next, data.previous);
+            atualizarUrlFiltros();
         } catch (err) {
             console.error("Erro ao carregar cilindros:", err);
             if (tbodyCilindros) {
-                tbodyCilindros.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--color-danger); padding: 30px;">Erro ao carregar ativos: ${err.message}</td></tr>`;
+                tbodyCilindros.innerHTML = '';
+                const trErro = el('tr');
+                const tdErro = el('td', 'ativos-table-empty', '', { colspan: '8' });
+                const wrapperErro = el('div', 'ds-empty ds-empty--danger');
+                const tituloErro = el('div', 'ds-empty__title', 'Falha ao consultar frota de cilindros');
+                const msgErro = el('div', 'ds-empty__description', err.message || 'Erro inesperado na comunicação.');
+                const btnRetry = el('button', 'btn-secondary', 'Tentar novamente', { type: 'button' });
+                btnRetry.addEventListener('click', () => carregarCilindros(currentPage));
+
+                wrapperErro.appendChild(tituloErro);
+                wrapperErro.appendChild(msgErro);
+                wrapperErro.appendChild(btnRetry);
+                tdErro.appendChild(wrapperErro);
+                trErro.appendChild(tdErro);
+                tbodyCilindros.appendChild(trErro);
             }
         }
     }
 
     function renderTabelaCilindros(cilindros) {
         if (!tbodyCilindros) return;
+        tbodyCilindros.innerHTML = '';
+
         if (cilindros.length === 0) {
-            tbodyCilindros.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--color-text-muted); padding: 40px;">Nenhum cilindro encontrado com os filtros selecionados.</td></tr>';
+            const trVazio = el('tr');
+            const tdVazio = el('td', 'ativos-table-empty', 'Nenhum cilindro encontrado com os filtros selecionados.', { colspan: '8' });
+            trVazio.appendChild(tdVazio);
+            tbodyCilindros.appendChild(trVazio);
             return;
         }
 
-        tbodyCilindros.innerHTML = cilindros.map(c => {
-            const ogivaClass = getOgivaClass(c.gas_sigla);
-            let statusBadge = '<span class="badge-status badge-normal">Disponível</span>';
-            if (c.status === 'EM_POSSE_CLIENTE') {
-                statusBadge = '<span class="badge-status" style="background:#e0f2fe; color:#0369a1;">Em Cliente</span>';
-            } else if (c.status === 'VAZIO_TRIAGEM') {
-                statusBadge = '<span class="badge-status" style="background:#fef3c7; color:#92400e;">Vazio / Triagem</span>';
-            } else if (c.status === 'EM_RETESTE') {
-                statusBadge = '<span class="badge-status" style="background:#f3e8ff; color:#7e22ce;">Em Reteste</span>';
-            } else if (c.status === 'RESERVADO_ROTA') {
-                statusBadge = '<span class="badge-status" style="background:#e0e7ff; color:#3730a3;">Em Rota</span>';
-            } else if (c.status === 'BAIXADO') {
-                statusBadge = '<span class="badge-status badge-critico">Baixado</span>';
-            }
+        cilindros.forEach(c => {
+            const tr = el('tr', 'cilindro-row', '', { 'data-id': String(c.id) });
 
-            let retesteBadge = `<span style="color: var(--color-text); font-weight: 500;">${formatarData(c.data_proximo_reteste)}</span>`;
-            if (c.reteste_vencido) {
-                retesteBadge = `<span style="color: var(--status-danger); font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    VENCIDO (${formatarData(c.data_proximo_reteste)})
-                </span>`;
-            }
-
-            let bloqueioBadge = '<span style="color: var(--status-approved); font-weight: 600;">Livre</span>';
-            if (c.bloqueio_sanitario) {
-                bloqueioBadge = `<span class="badge-status badge-critico" title="${c.motivo_bloqueio_sanitario || 'Bloqueio Ativo'}">BLOQUEADO</span>`;
-            }
-
-            return `
-                <tr style="cursor: pointer;" data-id="${c.id}" class="cilindro-row">
-                    <td>
-                        <div class="tech-id-badge">
-                            ${c.codigo_qr}
-                            <button class="copy-btn" data-copy="${c.codigo_qr}" title="Copiar QR Code">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                            </button>
-                        </div>
-                        <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 3px;">
-                            Série: <strong class="font-mono">${c.numero_serie_ogiva}</strong>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="gas-badge">
-                            <span class="ogiva-dot ${ogivaClass}"></span>
-                            <strong>${c.gas_sigla || 'GÁS'}</strong>
-                        </div>
-                    </td>
-                    <td>
-                        <strong>${c.volume_litros || c.modelo_descricao || '-'}L</strong>
-                        <div style="font-size: 11px; color: var(--color-text-muted);">${c.tara_real_kg ? c.tara_real_kg + ' kg' : 'Tara s/ aferição'}</div>
-                    </td>
-                    <td>${statusBadge}</td>
-                    <td>${retesteBadge}</td>
-                    <td>${bloqueioBadge}</td>
-                    <td>
-                        ${c.cliente_posse_nome ? `<strong>${c.cliente_posse_nome}</strong>` : '<span style="color: var(--color-text-muted);">Pátio Central</span>'}
-                    </td>
-                    <td>
-                        <button class="action-queue-btn btn-abrir-drawer" data-id="${c.id}" style="padding: 5px 10px; font-size: 12px;">
-                            Auditar Ativo
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        // Event listener de clique nas linhas e botões
-        document.querySelectorAll('.cilindro-row').forEach(row => {
-            row.addEventListener('click', (e) => {
-                if (e.target.closest('.copy-btn')) return;
-                const id = row.getAttribute('data-id');
-                abrirDrawerAtivo(id);
-            });
-        });
-
-        document.querySelectorAll('.btn-abrir-drawer').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            // Coluna 1: Código QR / Ogiva
+            const tdQr = el('td');
+            const divBadge = el('div', 'tech-id-badge font-mono', c.codigo_qr);
+            const btnCopy = el('button', 'copy-btn', '', { type: 'button', 'data-copy': c.codigo_qr, title: 'Copiar QR Code' });
+            btnCopy.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+            btnCopy.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const id = btn.getAttribute('data-id');
-                abrirDrawerAtivo(id);
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(c.codigo_qr);
+                    if (window.Baros && typeof Baros.sucesso === 'function') Baros.sucesso('Código QR copiado!');
+                }
             });
+            divBadge.appendChild(btnCopy);
+            tdQr.appendChild(divBadge);
+
+            const divSerie = el('div', 'drawer-header-subtitle');
+            divSerie.appendChild(document.createTextNode('Série: '));
+            divSerie.appendChild(el('strong', 'font-mono', c.numero_serie_ogiva || '-'));
+            tdQr.appendChild(divSerie);
+            tr.appendChild(tdQr);
+
+            // Coluna 2: Gás
+            const tdGas = el('td');
+            const divGas = el('div', 'ogiva-badge');
+            const dotGas = el('span', `ogiva-dot ${getOgivaClass(c.gas_sigla)}`);
+            const strongGas = el('strong', '', c.gas_sigla || 'GÁS');
+            divGas.appendChild(dotGas);
+            divGas.appendChild(strongGas);
+            tdGas.appendChild(divGas);
+            tr.appendChild(tdGas);
+
+            // Coluna 3: Capacidade / Tara
+            const tdCap = el('td');
+            const strongCap = el('strong', '', `${c.volume_litros || c.modelo_descricao || '-'}L`);
+            const divTara = el('div', 'drawer-header-subtitle', c.tara_real_kg ? `${c.tara_real_kg} kg` : 'Tara s/ aferição');
+            tdCap.appendChild(strongCap);
+            tdCap.appendChild(divTara);
+            tr.appendChild(tdCap);
+
+            // Coluna 4: Status Operacional
+            const tdStatus = el('td');
+            let statusClasse = 'badge-status-approved';
+            let statusTexto = 'Disponível';
+
+            if (c.status === 'EM_POSSE_CLIENTE') {
+                statusClasse = 'badge-status-transit';
+                statusTexto = 'Em Cliente';
+            } else if (c.status === 'VAZIO_TRIAGEM') {
+                statusClasse = 'badge-status-warning';
+                statusTexto = 'Vazio / Triagem';
+            } else if (c.status === 'EM_RETESTE' || c.status === 'EM_REQUALIFICACAO') {
+                statusClasse = 'badge-status-warning';
+                statusTexto = 'Em Reteste';
+            } else if (c.status === 'RESERVADO_ROTA') {
+                statusClasse = 'badge-status-transit';
+                statusTexto = 'Em Rota';
+            } else if (c.status === 'BAIXADO') {
+                statusClasse = 'badge-status-danger';
+                statusTexto = 'Baixado';
+            }
+            const spanStatus = el('span', `badge ${statusClasse}`, statusTexto);
+            tdStatus.appendChild(spanStatus);
+            tr.appendChild(tdStatus);
+
+            // Coluna 5: Reteste INMETRO
+            const tdReteste = el('td');
+            if (c.reteste_vencido) {
+                const spanVenc = el('span', 'badge badge-status-danger', `VENCIDO (${formatarData(c.data_proximo_reteste)})`);
+                tdReteste.appendChild(spanVenc);
+            } else {
+                const spanOk = el('span', '', formatarData(c.data_proximo_reteste));
+                tdReteste.appendChild(spanOk);
+            }
+            tr.appendChild(tdReteste);
+
+            // Coluna 6: Bloqueio ANVISA
+            const tdBloq = el('td');
+            if (c.bloqueio_sanitario) {
+                const spanBloq = el('span', 'badge badge-status-danger', 'BLOQUEADO', {
+                    title: c.motivo_bloqueio_sanitario || 'Bloqueio Sanitário Ativo'
+                });
+                tdBloq.appendChild(spanBloq);
+            } else {
+                const spanLivre = el('span', 'badge badge-status-approved', 'Livre');
+                tdBloq.appendChild(spanLivre);
+            }
+            tr.appendChild(tdBloq);
+
+            // Coluna 7: Localização Atual
+            const tdPosse = el('td');
+            if (c.cliente_posse_nome) {
+                const strongCliente = el('strong', '', c.cliente_posse_nome);
+                tdPosse.appendChild(strongCliente);
+            } else {
+                const spanPatio = el('span', 'drawer-muted-text', 'Pátio Central');
+                tdPosse.appendChild(spanPatio);
+            }
+            tr.appendChild(tdPosse);
+
+            // Coluna 8: Ações
+            const tdAcoes = el('td', 'text-right');
+            const btnAuditar = el('button', 'btn-secondary btn-abrir-drawer', 'Auditar Ativo', {
+                type: 'button',
+                'data-id': String(c.id)
+            });
+            btnAuditar.addEventListener('click', (e) => {
+                e.stopPropagation();
+                lastFocusedElement = btnAuditar;
+                abrirDrawerAtivo(c.id);
+            });
+            tdAcoes.appendChild(btnAuditar);
+            tr.appendChild(tdAcoes);
+
+            // Clique na linha abre o drawer
+            tr.addEventListener('click', () => {
+                lastFocusedElement = tr;
+                abrirDrawerAtivo(c.id);
+            });
+
+            tbodyCilindros.appendChild(tr);
         });
     }
 
@@ -207,16 +445,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnNextPage) btnNextPage.disabled = !next;
     }
 
-    function formatarData(dataIso) {
-        if (!dataIso) return '-';
-        const parts = dataIso.split('-');
-        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        return dataIso;
-    }
-
-    // ==============================================================================
-    // 2. GAVETA LATERAL DESLIZANTE (DRAWER / <dialog> NATIVO)
-    // ==============================================================================
+    // --------------------------------------------------------------------------
+    // 4. GAVETA LATERAL DESLIZANTE (DRAWER / <dialog> NATIVO SEGURO)
+    // --------------------------------------------------------------------------
     async function abrirDrawerAtivo(cilindroId) {
         activeCilindroId = cilindroId;
         if (!drawerDialog) {
@@ -224,13 +455,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Limpa e abre o dialog nativo
         const elQrTitle = document.getElementById('drawer-qr-title');
         const elSerieTitle = document.getElementById('drawer-serie-title');
         const elTimeline = document.getElementById('drawer-timeline-container');
         if (elQrTitle) elQrTitle.textContent = 'Carregando...';
         if (elSerieTitle) elSerieTitle.textContent = '';
-        if (elTimeline) elTimeline.innerHTML = '<p style="color: var(--color-text-muted);">Carregando histórico do ledger...</p>';
+        if (elTimeline) {
+            elTimeline.innerHTML = '';
+            elTimeline.appendChild(el('p', 'drawer-muted-text', 'Carregando histórico do ledger...'));
+        }
 
         if (!drawerDialog.open) {
             drawerDialog.showModal();
@@ -238,35 +471,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // Busca dados do cilindro
-            const resCil = await fetch(`/produtos/api/cilindros/${cilindroId}/`, { headers: getAuthHeaders() });
-            if (!resCil.ok) throw new Error("Erro ao buscar detalhes do cilindro");
-            activeCilindroData = await resCil.json();
-
+            activeCilindroData = await Baros.api(`/produtos/api/cilindros/${cilindroId}/`);
             renderDetalhesDrawer(activeCilindroData);
 
             // Busca timeline do ledger
-            const resTimeline = await fetch(`/produtos/api/cilindros/${cilindroId}/timeline/`, { headers: getAuthHeaders() });
-            if (resTimeline.ok) {
-                const timeline = await resTimeline.json();
+            try {
+                const timeline = await Baros.api(`/produtos/api/cilindros/${cilindroId}/timeline/`);
                 renderTimelineLedger(timeline);
+            } catch (errTimeline) {
+                console.error("Erro na timeline:", errTimeline);
+                if (elTimeline) {
+                    elTimeline.innerHTML = '';
+                    elTimeline.appendChild(el('p', 'drawer-muted-text', 'Nenhuma movimentação registrada no livro-razão (Ledger).'));
+                }
             }
 
             // Busca histórico perpétuo de retestes (Sprint 8B)
-            const resRetestes = await fetch(`/produtos/api/cilindros/${cilindroId}/timeline-retestes/`, { headers: getAuthHeaders() });
-            if (resRetestes.ok) {
-                const retestes = await resRetestes.json();
+            try {
+                const retestes = await Baros.api(`/produtos/api/cilindros/${cilindroId}/timeline-retestes/`);
                 renderTimelineRetestes(retestes);
+            } catch (errRetestes) {
+                console.error("Erro nos retestes:", errRetestes);
             }
         } catch (err) {
             console.error("Erro no drawer:", err);
-            document.getElementById('drawer-timeline-container').innerHTML = `<p style="color: var(--status-danger);">Erro: ${err.message}</p>`;
+            if (elTimeline) {
+                elTimeline.innerHTML = '';
+                const pErro = el('p', 'text-danger', `Erro: ${err.message || 'Falha ao buscar detalhes'}`);
+                elTimeline.appendChild(pErro);
+            }
         }
     }
 
+    function fecharDrawer() {
+        if (drawerDialog && drawerDialog.open) {
+            drawerDialog.close();
+        }
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+        }
+    }
+
+    if (btnCloseDrawer && drawerDialog) {
+        btnCloseDrawer.addEventListener('click', fecharDrawer);
+    }
+
+    // Tecla Esc fecha gaveta e devolve o foco
+    if (drawerDialog) {
+        drawerDialog.addEventListener('cancel', (e) => {
+            e.preventDefault();
+            fecharDrawer();
+        });
+        drawerDialog.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                fecharDrawer();
+            }
+        });
+    }
+
     function renderDetalhesDrawer(c) {
-        document.getElementById('drawer-qr-title').textContent = c.codigo_qr;
-        document.getElementById('drawer-serie-title').textContent = `Série: ${c.numero_serie_ogiva}`;
-        document.getElementById('drawer-link-passaporte').href = `/v/cilindro/${encodeURIComponent(c.codigo_qr)}/`;
+        const setTxt = (id, val) => {
+            const node = document.getElementById(id);
+            if (node) node.textContent = (val !== undefined && val !== null && val !== '') ? String(val) : '-';
+        };
+
+        setTxt('drawer-qr-title', c.codigo_qr);
+        setTxt('drawer-serie-title', `Série: ${c.numero_serie_ogiva || '-'}`);
+
+        const linkPassaporte = document.getElementById('drawer-link-passaporte');
+        if (linkPassaporte) {
+            linkPassaporte.href = `/v/cilindro/${encodeURIComponent(c.codigo_qr)}/`;
+        }
 
         const linkCasco = document.getElementById('drawer-link-etiqueta-casco');
         if (linkCasco) {
@@ -276,46 +552,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const linkColarinho = document.getElementById('drawer-link-etiqueta-colarinho');
         if (linkColarinho) {
             if (c.envase_atual) {
-                linkColarinho.style.display = 'inline-flex';
+                linkColarinho.classList.remove('is-hidden');
                 linkColarinho.href = `/produtos/cilindros/${c.id}/etiqueta-colarinho/`;
             } else {
-                linkColarinho.style.display = 'none';
+                linkColarinho.classList.add('is-hidden');
             }
         }
 
-        // Preenche Ficha Técnica
-        document.getElementById('drawer-gas-nome').textContent = `${c.gas_nome} (${c.gas_sigla})`;
-        document.getElementById('drawer-capacidade').textContent = `${c.volume_litros || '-'}L (${c.pressao_servico_bar || 200} bar)`;
-        document.getElementById('drawer-tara').textContent = c.tara_real_kg ? `${c.tara_real_kg} kg` : 'Não aferida';
-        document.getElementById('drawer-fabricante').textContent = `${c.fabricante} (${c.ano_fabricacao})`;
-        document.getElementById('drawer-reteste').textContent = `${formatarData(c.data_proximo_reteste)} ${c.reteste_vencido ? '⚠️ (VENCIDO)' : '✅'}`;
-        document.getElementById('drawer-status').textContent = c.status_display;
-        document.getElementById('drawer-posse').textContent = c.cliente_posse_nome ? `${c.cliente_posse_nome} (desde ${formatarData(c.posse_desde ? c.posse_desde.split('T')[0] : '')})` : 'Pátio Central';
+        // Ficha Técnica
+        setTxt('drawer-gas-nome', `${c.gas_nome || '-'} (${c.gas_sigla || '-'})`);
+        setTxt('drawer-capacidade', `${c.volume_litros || '-'}L (${c.pressao_servico_bar || 200} bar)`);
+        setTxt('drawer-tara', c.tara_real_kg ? `${c.tara_real_kg} kg` : 'Não aferida');
+        setTxt('drawer-fabricante', `${c.fabricante || '-'} (${c.ano_fabricacao || '-'})`);
+        setTxt('drawer-reteste', `${formatarData(c.data_proximo_reteste)} ${c.reteste_vencido ? '⚠️ (VENCIDO)' : '✅'}`);
+        setTxt('drawer-status', c.status_display || c.status);
+        setTxt('drawer-posse', c.cliente_posse_nome ? `${c.cliente_posse_nome} (desde ${formatarData(c.posse_desde ? c.posse_desde.split('T')[0] : '')})` : 'Pátio Central');
 
-        // Preenche Card Patrimônio & CAPEX (Sprint 8A)
-        const elProp = document.getElementById('drawer-patrimonio-propriedade');
-        if (elProp) elProp.textContent = c.propriedade_display || c.propriedade || '-';
-        const elPatNum = document.getElementById('drawer-patrimonio-numero');
-        if (elPatNum) elPatNum.textContent = c.numero_patrimonio || 'Não tombado';
-        const elValAq = document.getElementById('drawer-patrimonio-valor-aquisicao');
-        if (elValAq) elValAq.textContent = c.valor_aquisicao ? `R$ ${Number(c.valor_aquisicao).toFixed(2)}` : '-';
-        const elValCont = document.getElementById('drawer-patrimonio-valor-contabil');
-        if (elValCont) elValCont.textContent = c.valor_contabil_liquido_atual ? `R$ ${Number(c.valor_contabil_liquido_atual).toFixed(2)}` : '-';
-        const elLote = document.getElementById('drawer-patrimonio-lote');
-        if (elLote) elLote.textContent = c.lote_aquisicao ? `Lote #${c.lote_aquisicao}` : '-';
-        const elNfe = document.getElementById('drawer-patrimonio-nfe');
-        if (elNfe) elNfe.textContent = c.chave_nfe_aquisicao ? `${c.chave_nfe_aquisicao.slice(0, 6)}...${c.chave_nfe_aquisicao.slice(-6)}` : '-';
+        // Card Patrimônio & CAPEX (Sprint 8A)
+        setTxt('drawer-patrimonio-propriedade', c.propriedade_display || c.propriedade);
+        setTxt('drawer-patrimonio-numero', c.numero_patrimonio || 'Não tombado');
+        setTxt('drawer-patrimonio-valor-aquisicao', c.valor_aquisicao ? `R$ ${Number(c.valor_aquisicao).toFixed(2)}` : '-');
+        setTxt('drawer-patrimonio-valor-contabil', c.valor_contabil_liquido_atual ? `R$ ${Number(c.valor_contabil_liquido_atual).toFixed(2)}` : '-');
+        setTxt('drawer-patrimonio-lote', c.lote_aquisicao ? `Lote #${c.lote_aquisicao}` : '-');
+        setTxt('drawer-patrimonio-nfe', c.chave_nfe_aquisicao ? `${c.chave_nfe_aquisicao.slice(0, 6)}...${c.chave_nfe_aquisicao.slice(-6)}` : '-');
 
         // Atualiza botão de bloqueio sanitário
         const btnToggleBloqueio = document.getElementById('drawer-btn-bloqueio');
         if (btnToggleBloqueio) {
             if (c.bloqueio_sanitario) {
                 btnToggleBloqueio.textContent = 'Liberar Bloqueio Sanitário';
-                btnToggleBloqueio.style.background = '#059669';
+                btnToggleBloqueio.classList.remove('action-queue-btn--danger');
+                btnToggleBloqueio.classList.add('action-queue-btn--primary');
                 btnToggleBloqueio.setAttribute('data-action', 'DESBLOQUEIO');
             } else {
                 btnToggleBloqueio.textContent = 'Acionar Bloqueio Sanitário';
-                btnToggleBloqueio.style.background = '#dc2626';
+                btnToggleBloqueio.classList.remove('action-queue-btn--primary');
+                btnToggleBloqueio.classList.add('action-queue-btn--danger');
                 btnToggleBloqueio.setAttribute('data-action', 'BLOQUEIO');
             }
         }
@@ -324,57 +596,77 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTimelineLedger(movs) {
         const container = document.getElementById('drawer-timeline-container');
         if (!container) return;
+        container.innerHTML = '';
 
         if (!movs || movs.length === 0) {
-            container.innerHTML = '<p style="color: var(--color-text-muted); font-size: 13px;">Nenhuma movimentação registrada no livro-razão (Ledger).</p>';
+            container.appendChild(el('p', 'drawer-muted-text', 'Nenhuma movimentação registrada no livro-razão (Ledger).'));
             return;
         }
 
-        container.innerHTML = movs.map(m => {
-            let dotClass = 'dot-approved';
-            if (m.tipo === 'ESTORNO') dotClass = 'dot-estorno';
-            else if (m.tipo === 'ENTREGA_CLIENTE') dotClass = 'dot-transit';
-            else if (m.tipo === 'RECOLHA_CLIENTE') dotClass = 'dot-warning';
-            else if (m.tipo === 'BAIXA') dotClass = 'dot-danger';
+        movs.forEach(m => {
+            const item = el('div', 'timeline-item');
 
-            return `
-                <div class="timeline-item">
-                    <div class="timeline-dot ${dotClass}">
-                        <div style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></div>
-                    </div>
-                    <div class="timeline-content">
-                        <div class="timeline-header">
-                            <span class="timeline-title">
-                                ${m.tipo_display}
-                                ${m.estornada ? '<span style="color: #8b5cf6; font-size: 11px; margin-left: 6px;">[ESTORNADA]</span>' : ''}
-                            </span>
-                            <span class="timeline-time">${new Date(m.registrado_em).toLocaleString('pt-BR')}</span>
-                        </div>
-                        <p class="timeline-desc">
-                            ${m.cliente_nome ? `Cliente: <strong>${m.cliente_nome}</strong><br>` : ''}
-                            Transição: ${m.status_anterior} &rarr; <strong>${m.status_novo}</strong><br>
-                            Registrado por: <em>${m.registrado_por_nome}</em>
-                            ${m.observacao ? `<br><span style="color: var(--color-text);">${m.observacao}</span>` : ''}
-                        </p>
-                        ${!m.estornada && m.tipo !== 'ESTORNO' ? `
-                            <div style="margin-top: 6px; text-align: right;">
-                                <button class="btn-iniciar-estorno" data-mov-id="${m.id}" data-tipo="${m.tipo_display}" style="background: none; border: 1px solid var(--color-border); border-radius: 4px; padding: 2px 8px; font-size: 11px; color: var(--color-text-muted); cursor: pointer;">
-                                    Estornar Lançamento
-                                </button>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
+            let dotClasse = 'dot-approved';
+            if (m.tipo === 'ESTORNO') dotClasse = 'dot-estorno';
+            else if (m.tipo === 'ENTREGA_CLIENTE') dotClasse = 'dot-transit';
+            else if (m.tipo === 'RECOLHA_CLIENTE') dotClasse = 'dot-warning';
+            else if (m.tipo === 'BAIXA') dotClasse = 'dot-danger';
 
-        // Listeners para estorno de movimentações individuais
-        document.querySelectorAll('.btn-iniciar-estorno').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const movId = btn.getAttribute('data-mov-id');
-                const tipo = btn.getAttribute('data-tipo');
-                iniciarModalEstorno(movId, tipo);
-            });
+            const dot = el('div', `timeline-dot ${dotClasse}`);
+            const dotInner = el('div', '', '', { style: 'width: 6px; height: 6px; border-radius: 50%; background: currentColor;' });
+            dot.appendChild(dotInner);
+            item.appendChild(dot);
+
+            const content = el('div', 'timeline-content');
+            const header = el('div', 'timeline-header');
+
+            const title = el('span', 'timeline-title');
+            title.appendChild(document.createTextNode(m.tipo_display || m.tipo));
+            if (m.estornada) {
+                const tagEstornada = el('span', 'drawer-header-subtitle font-mono', ' [ESTORNADA]');
+                title.appendChild(tagEstornada);
+            }
+            header.appendChild(title);
+
+            const time = el('span', 'timeline-time', new Date(m.registrado_em).toLocaleString('pt-BR'));
+            header.appendChild(time);
+            content.appendChild(header);
+
+            const desc = el('p', 'timeline-desc');
+            if (m.cliente_nome) {
+                desc.appendChild(document.createTextNode('Cliente: '));
+                desc.appendChild(el('strong', '', m.cliente_nome));
+                desc.appendChild(document.createElement('br'));
+            }
+            desc.appendChild(document.createTextNode(`Transição: ${m.status_anterior || '-'} → `));
+            desc.appendChild(el('strong', '', m.status_novo || '-'));
+            desc.appendChild(document.createElement('br'));
+
+            desc.appendChild(document.createTextNode('Registrado por: '));
+            desc.appendChild(el('em', '', m.registrado_por_nome || 'Sistema'));
+
+            if (m.observacao) {
+                desc.appendChild(document.createElement('br'));
+                desc.appendChild(el('span', '', m.observacao));
+            }
+            content.appendChild(desc);
+
+            if (!m.estornada && m.tipo !== 'ESTORNO') {
+                const divEstorno = el('div', 'text-right');
+                const btnEstorno = el('button', 'btn-page font-sm', 'Estornar Lançamento', {
+                    type: 'button',
+                    'data-mov-id': String(m.id),
+                    'data-tipo': m.tipo_display || m.tipo
+                });
+                btnEstorno.addEventListener('click', () => {
+                    iniciarModalEstorno(m.id, m.tipo_display || m.tipo);
+                });
+                divEstorno.appendChild(btnEstorno);
+                content.appendChild(divEstorno);
+            }
+
+            item.appendChild(content);
+            container.appendChild(item);
         });
     }
 
@@ -382,6 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('drawer-retestes-timeline');
         const countBadge = document.getElementById('drawer-reteste-count');
         if (!container) return;
+        container.innerHTML = '';
 
         if (countBadge) {
             const qtd = retestes ? retestes.length : 0;
@@ -389,64 +682,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!retestes || retestes.length === 0) {
-            container.innerHTML = `<p style="color: var(--color-text-muted); font-size: 12px; margin: 4px 0;">Nenhum ensaio hidrostático registrado.</p>`;
+            container.appendChild(el('p', 'drawer-muted-text', 'Nenhum ensaio hidrostático registrado.'));
             return;
         }
 
-        container.innerHTML = retestes.map(r => {
+        retestes.forEach(r => {
             const isAprovado = r.resultado === 'APROVADO';
-            const badgeColor = isAprovado ? '#10b981' : '#ef4444';
-            const badgeBg = isAprovado ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
-            const retificaBadge = r.retifica ? `<span style="font-size: 10px; background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 1px 4px; border-radius: 3px; margin-left: 6px;">Retificação</span>` : '';
+            const card = el('div', 'drawer-card-box');
 
-            return `
-                <div style="background: rgba(30, 41, 59, 0.5); border-left: 3px solid ${badgeColor}; padding: 8px 10px; border-radius: 4px; font-size: 12px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <span style="font-weight: 700; color: #f1f5f9;">
-                            ${formatarData(r.data_execucao)}
-                            ${retificaBadge}
-                        </span>
-                        <span style="font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor};">
-                            ${r.resultado_display || r.resultado}
-                        </span>
-                    </div>
-                    <div style="color: #94a3b8; font-size: 11px; display: flex; flex-direction: column; gap: 2px;">
-                        <div><strong>Certificado:</strong> ${r.numero_certificado || 'Carga Legada'} | <strong>Oficina:</strong> ${r.oficina_nome || '-'}</div>
-                        <div><strong>Exp. Permanente:</strong> ${r.expansao_permanente_percentual ? r.expansao_permanente_percentual + '%' : '-'} (Limite: ${r.limite_expansao_percentual_aplicado}%)</div>
-                        ${r.tara_real_kg ? `<div><strong>Tara Aferida:</strong> ${r.tara_real_kg} kg ${r.variacao_tara_percentual ? `(Var: ${r.variacao_tara_percentual}%)` : ''}</div>` : ''}
-                        ${r.data_proximo_reteste ? `<div><strong>Próximo Vencimento:</strong> ${formatarData(r.data_proximo_reteste)}</div>` : ''}
-                        ${r.motivo_reprovacao ? `<div style="color: #f87171;"><strong>Motivo:</strong> ${r.motivo_reprovacao}</div>` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
+            const header = el('div', 'drawer-card-title drawer-card-title--between');
+            const spanData = el('span', '', formatarData(r.data_execucao));
+            if (r.retifica) {
+                const badgeRetifica = el('span', 'drawer-badge-count', 'Retificação');
+                spanData.appendChild(badgeRetifica);
+            }
+            header.appendChild(spanData);
 
-    if (btnCloseDrawer && drawerDialog) {
-        btnCloseDrawer.addEventListener('click', () => drawerDialog.close());
-    }
+            const badgeRes = el('span', `badge ${isAprovado ? 'badge-status-approved' : 'badge-status-danger'}`, r.resultado_display || r.resultado);
+            header.appendChild(badgeRes);
+            card.appendChild(header);
 
-    // ==============================================================================
-    // 3. AÇÕES CONTEXTUAIS E MODAIS
-    // ==============================================================================
+            const corpo = el('div', 'drawer-header-subtitle');
+            corpo.appendChild(el('div', '', `Certificado: ${r.numero_certificado || 'Carga Legada'} | Oficina: ${r.oficina_nome || '-'}`));
+            corpo.appendChild(el('div', '', `Exp. Permanente: ${r.expansao_permanente_percentual ? r.expansao_permanente_percentual + '%' : '-'} (Limite: ${r.limite_expansao_percentual_aplicado || '-'}%)`));
+            if (r.tara_real_kg) {
+                corpo.appendChild(el('div', '', `Tara Aferida: ${r.tara_real_kg} kg ${r.variacao_tara_percentual ? `(Var: ${r.variacao_tara_percentual}%)` : ''}`));
+            }
+            if (r.data_proximo_reteste) {
+                corpo.appendChild(el('div', '', `Próximo Vencimento: ${formatarData(r.data_proximo_reteste)}`));
+            }
+            if (r.motivo_reprovacao) {
+                const divMotivo = el('div', 'text-danger', `Motivo: ${r.motivo_reprovacao}`);
+                corpo.appendChild(divMotivo);
+            }
 
-    // 3.1 Bloqueio / Liberação Sanitária (RT) — Design System v1
-    function ligarFechar(dialogo) {
-        dialogo.querySelectorAll('[data-fechar-dialogo]').forEach(b => b.addEventListener('click', () => dialogo.close()));
-    }
-    function limparErros(form) {
-        form.querySelectorAll('.ds-field-error').forEach(el => el.remove());
-        form.querySelectorAll('.ds-invalid').forEach(el => el.classList.remove('ds-invalid'));
-    }
-    function rotuloCilindro() {
-        return activeCilindroData ? `${activeCilindroData.codigo_qr} · ${activeCilindroData.gas_sigla} · série ${activeCilindroData.numero_serie_ogiva}` : '';
-    }
-    function aposAcao(mensagem) {
-        Baros.sucesso(mensagem);
-        abrirDrawerAtivo(activeCilindroId);
-        carregarCilindros(currentPage);
+            card.appendChild(corpo);
+            container.appendChild(card);
+        });
     }
 
+    // --------------------------------------------------------------------------
+    // 5. AÇÕES CONTEXTUAIS E MODAIS
+    // --------------------------------------------------------------------------
+
+    // 5.1 Bloqueio / Liberação Sanitária (RT)
     const btnDrawerBloqueio = document.getElementById('drawer-btn-bloqueio');
     if (btnDrawerBloqueio && modalBloqueio) {
         const formBloqueio = document.getElementById('form-bloqueio-sanitario');
@@ -466,15 +745,16 @@ document.addEventListener('DOMContentLoaded', () => {
             modalBloqueio.showModal();
         });
 
-        document.getElementById('btn-cancelar-bloqueio').addEventListener('click', () => modalBloqueio.close());
+        const btnCancBloq = document.getElementById('btn-cancelar-bloqueio');
+        if (btnCancBloq) btnCancBloq.addEventListener('click', () => modalBloqueio.close());
 
         formBloqueio.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!Baros.validarCampos(formBloqueio)) return;
+            if (window.Baros && typeof Baros.validarCampos === 'function' && !Baros.validarCampos(formBloqueio)) return;
             const acao = document.getElementById('bloqueio-acao-input').value;
             const bloquear = acao === 'BLOQUEIO';
-            // Confirmação dupla: a intervenção sanitária é registrada para sempre
             modalBloqueio.close();
+
             const ok = await Baros.confirmar({
                 titulo: bloquear ? 'Confirmar o bloqueio?' : 'Confirmar a liberação?',
                 texto: rotuloCilindro() + (bloquear ? '. O cilindro não poderá ser expedido até ser liberado.' : '. O cilindro volta a poder ser expedido.'),
@@ -482,6 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 perigo: bloquear,
             });
             if (!ok) { modalBloqueio.showModal(); return; }
+
             try {
                 await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/bloqueio-sanitario/`, {
                     method: 'POST',
@@ -489,12 +770,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 aposAcao(bloquear ? 'Cilindro bloqueado.' : 'Bloqueio liberado.');
             } catch (err) {
-                Baros.erro(err.mensagem);
+                if (window.Baros && typeof Baros.erro === 'function') Baros.erro(err.message || 'Erro ao processar bloqueio');
             }
         });
     }
 
-    // 3.2 Retorno de Reteste (variação de tara ao vivo; tolerância de 5% — DECISOES 8B.3)
+    // 5.2 Retorno de Reteste (variação de tara ao vivo; tolerância de 5%)
     const btnDrawerReteste = document.getElementById('drawer-btn-reteste');
     if (btnDrawerReteste && modalReteste) {
         const formReteste = document.getElementById('form-retorno-reteste');
@@ -519,40 +800,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 avisoTara.textContent = texto;
             }
         }
-        campoTara.addEventListener('input', atualizarVariacaoTara);
+        if (campoTara) campoTara.addEventListener('input', atualizarVariacaoTara);
 
         btnDrawerReteste.addEventListener('click', () => {
             limparErros(formReteste);
-            document.getElementById('reteste-data-realizado').valueAsDate = new Date();
-            campoTara.value = activeCilindroData && activeCilindroData.tara_real_kg ? activeCilindroData.tara_real_kg : '';
-            document.getElementById('reteste-obs').value = '';
+            const dtField = document.getElementById('reteste-data-realizado');
+            if (dtField) dtField.valueAsDate = new Date();
+            if (campoTara) campoTara.value = activeCilindroData && activeCilindroData.tara_real_kg ? activeCilindroData.tara_real_kg : '';
+            const obsField = document.getElementById('reteste-obs');
+            if (obsField) obsField.value = '';
             atualizarVariacaoTara();
             modalReteste.showModal();
         });
 
-        document.getElementById('btn-cancelar-reteste').addEventListener('click', () => modalReteste.close());
+        const btnCancRet = document.getElementById('btn-cancelar-reteste');
+        if (btnCancRet) btnCancRet.addEventListener('click', () => modalReteste.close());
 
-        formReteste.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!Baros.validarCampos(formReteste)) return;
-            try {
-                await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/retorno-reteste/`, {
-                    method: 'POST',
-                    body: {
-                        nova_data_reteste: document.getElementById('reteste-data-realizado').value,
-                        nova_tara_kg: campoTara.value,
-                        observacao: document.getElementById('reteste-obs').value.trim(),
-                    },
-                });
-                modalReteste.close();
-                aposAcao('Reteste registrado e validade renovada.');
-            } catch (err) {
-                Baros.mostrarErrosApi(formReteste, err);
-            }
-        });
+        if (formReteste) {
+            formReteste.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (window.Baros && typeof Baros.validarCampos === 'function' && !Baros.validarCampos(formReteste)) return;
+                try {
+                    await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/retorno-reteste/`, {
+                        method: 'POST',
+                        body: {
+                            nova_data_reteste: document.getElementById('reteste-data-realizado').value,
+                            nova_tara_kg: campoTara.value,
+                            observacao: document.getElementById('reteste-obs').value.trim(),
+                        },
+                    });
+                    modalReteste.close();
+                    aposAcao('Reteste registrado e validade renovada.');
+                } catch (err) {
+                    if (window.Baros && typeof Baros.mostrarErrosApi === 'function') {
+                        Baros.mostrarErrosApi(formReteste, err);
+                    }
+                }
+            });
+        }
     }
 
-    // 3.3 Reclassificar Gás
+    // 5.3 Reclassificar Gás
     const btnDrawerReclassificar = document.getElementById('drawer-btn-reclassificar');
     if (btnDrawerReclassificar && modalReclassificar) {
         const formReclassificar = document.getElementById('form-reclassificar-gas');
@@ -566,7 +854,6 @@ document.addEventListener('DOMContentLoaded', () => {
             selectGas.appendChild(new Option('Carregando gases...', ''));
             modalReclassificar.showModal();
             try {
-                // Gases reais do cadastro global (antes a lista era fixa no código, com IDs presumidos).
                 const gases = await Baros.api('/produtos/api/catalogo/gases/');
                 const gasAtual = activeCilindroData ? activeCilindroData.gas_dedicado : null;
                 selectGas.innerHTML = '';
@@ -581,31 +868,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        document.getElementById('btn-cancelar-reclassificar').addEventListener('click', () => modalReclassificar.close());
+        const btnCancReclass = document.getElementById('btn-cancelar-reclassificar');
+        if (btnCancReclass) btnCancReclass.addEventListener('click', () => modalReclassificar.close());
 
-        formReclassificar.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!Baros.validarCampos(formReclassificar)) return;
-            try {
-                await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/reclassificar/`, {
-                    method: 'POST',
-                    body: {
-                        novo_gas_id: document.getElementById('reclassificar-novo-gas').value,
-                        descontaminacao_purga_executada: document.getElementById('check-purga').checked,
-                        troca_valvula_executada: document.getElementById('check-valvula').checked,
-                        adequacao_pintura_executada: document.getElementById('check-pintura').checked,
-                        observacoes: document.getElementById('reclassificar-obs').value.trim(),
-                    },
-                });
-                modalReclassificar.close();
-                aposAcao('Cilindro reclassificado.');
-            } catch (err) {
-                Baros.mostrarErrosApi(formReclassificar, err);
-            }
-        });
+        if (formReclassificar) {
+            formReclassificar.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (window.Baros && typeof Baros.validarCampos === 'function' && !Baros.validarCampos(formReclassificar)) return;
+                try {
+                    await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/reclassificar/`, {
+                        method: 'POST',
+                        body: {
+                            novo_gas_id: document.getElementById('reclassificar-novo-gas').value,
+                            descontaminacao_purga_executada: document.getElementById('check-purga').checked,
+                            troca_valvula_executada: document.getElementById('check-valvula').checked,
+                            adequacao_pintura_executada: document.getElementById('check-pintura').checked,
+                            observacoes: document.getElementById('reclassificar-obs').value.trim(),
+                        },
+                    });
+                    modalReclassificar.close();
+                    aposAcao('Cilindro reclassificado.');
+                } catch (err) {
+                    if (window.Baros && typeof Baros.mostrarErrosApi === 'function') {
+                        Baros.mostrarErrosApi(formReclassificar, err);
+                    }
+                }
+            });
+        }
     }
 
-    // 3.4 Estorno Auditado do Ledger
+    // 5.4 Estorno Auditado do Ledger
     function iniciarModalEstorno(movId, tipo) {
         if (!modalEstorno) return;
         const formEstorno = document.getElementById('form-estorno-ledger');
@@ -619,11 +911,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modalEstorno) {
         const formEstorno = document.getElementById('form-estorno-ledger');
         ligarFechar(modalEstorno);
-        document.getElementById('btn-cancelar-estorno').addEventListener('click', () => modalEstorno.close());
+        const btnCancEstorno = document.getElementById('btn-cancelar-estorno');
+        if (btnCancEstorno) btnCancEstorno.addEventListener('click', () => modalEstorno.close());
 
         formEstorno.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!Baros.validarCampos(formEstorno)) return;
+            if (window.Baros && typeof Baros.validarCampos === 'function' && !Baros.validarCampos(formEstorno)) return;
             try {
                 await Baros.api(`/produtos/api/cilindros/${activeCilindroId}/estorno/`, {
                     method: 'POST',
@@ -635,36 +928,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 modalEstorno.close();
                 aposAcao('Lançamento estornado.');
             } catch (err) {
-                Baros.mostrarErrosApi(formEstorno, err);
+                if (window.Baros && typeof Baros.mostrarErrosApi === 'function') {
+                    Baros.mostrarErrosApi(formEstorno, err);
+                }
             }
         });
     }
 
-    // 3.5 Etiqueta Térmica QR Patrimonial 60x40mm
+    // 5.5 Etiqueta Térmica QR Patrimonial 60x40mm (Preview do servidor via iframe)
     const btnDrawerEtiqueta = document.getElementById('drawer-btn-etiqueta');
     if (btnDrawerEtiqueta && modalEtiqueta) {
+        const iframeEtiqueta = document.getElementById('iframe-etiqueta-casco');
+        const btnNovaAbaEtiqueta = document.getElementById('btn-etiqueta-nova-aba');
+        const btnImprimirIframe = document.getElementById('btn-imprimir-etiqueta-casco');
+
         btnDrawerEtiqueta.addEventListener('click', () => {
             if (!activeCilindroData) return;
-            document.getElementById('label-qr-code').textContent = activeCilindroData.codigo_qr;
-            document.getElementById('label-serie').textContent = activeCilindroData.numero_serie_ogiva;
-            document.getElementById('label-gas').textContent = `${activeCilindroData.gas_sigla} - ${activeCilindroData.gas_nome}`;
-            document.getElementById('label-tara').textContent = `Tara: ${activeCilindroData.tara_real_kg || '-'} kg | Vol: ${activeCilindroData.volume_litros || '-'}L`;
-            document.getElementById('label-reteste').textContent = `Reteste: ${formatarData(activeCilindroData.data_proximo_reteste)}`;
+            const urlEtiqueta = `/produtos/cilindros/${activeCilindroData.id}/etiqueta-casco/`;
+            if (iframeEtiqueta) {
+                iframeEtiqueta.src = urlEtiqueta;
+            }
+            if (btnNovaAbaEtiqueta) {
+                btnNovaAbaEtiqueta.href = urlEtiqueta;
+            }
             modalEtiqueta.showModal();
         });
 
-        document.getElementById('btn-fechar-etiqueta').addEventListener('click', () => modalEtiqueta.close());
+        if (btnImprimirIframe) {
+            btnImprimirIframe.addEventListener('click', () => {
+                if (iframeEtiqueta && iframeEtiqueta.contentWindow) {
+                    iframeEtiqueta.contentWindow.focus();
+                    iframeEtiqueta.contentWindow.print();
+                }
+            });
+        }
+
+        const btnFecharEtiqueta = document.getElementById('btn-fechar-etiqueta');
+        if (btnFecharEtiqueta) btnFecharEtiqueta.addEventListener('click', () => modalEtiqueta.close());
     }
 
-    // ==============================================================================
-    // 4. FILTROS E BUSCA INSTANTÂNEA
-    // ==============================================================================
+    // --------------------------------------------------------------------------
+    // 6. FILTROS RÁPIDOS E BUSCA
+    // --------------------------------------------------------------------------
     if (inputSearch) {
         let timeout = null;
         inputSearch.addEventListener('input', (e) => {
             clearTimeout(timeout);
             timeout = setTimeout(() => {
-                currentSearch = e.target.value;
+                currentSearch = e.target.value.trim();
+                currentPage = 1;
+                atualizarUrlFiltros();
                 carregarCilindros(1);
             }, 300);
         });
@@ -672,10 +985,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     filterPills.forEach(pill => {
         pill.addEventListener('click', () => {
-            filterPills.forEach(p => p.classList.remove('active'));
-            pill.classList.add('active');
-            currentFilter = pill.getAttribute('data-filter');
-            carregarCilindros(1);
+            const f = pill.getAttribute('data-filter');
+            aplicarFiltro(f);
+        });
+    });
+
+    kpiCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const f = card.getAttribute('data-filtro');
+            aplicarFiltro(f);
         });
     });
 
@@ -691,17 +1009,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Carregamento inicial
-    carregarCilindros(1);
+    // --------------------------------------------------------------------------
+    // 7. INICIALIZAÇÃO
+    // --------------------------------------------------------------------------
+    lerFiltrosDaUrl();
+    carregarResumoFrota();
+    carregarCilindros(currentPage);
 
-    // Exposição global para a barra de comando (Ctrl+K)
+    // Exposição global para a barra de comando (Ctrl+K) e cadastro
     window.abrirDrawerAtivo = abrirDrawerAtivo;
+    window.CilindrosFrota = {
+        recarregar: () => {
+            carregarResumoFrota();
+            carregarCilindros(1);
+        },
+        abrir: (id) => abrirDrawerAtivo(id)
+    };
 
     // Abertura automática caso haja parâmetro cilindro_id ou abrir_drawer na URL
     const urlParams = new URLSearchParams(window.location.search);
-    // Permite que outras telas (ex.: cadastro de cilindro) recarreguem a lista e abram o drawer.
-    window.CilindrosFrota = { recarregar: () => carregarCilindros(1), abrir: (id) => abrirDrawerAtivo(id) };
-
     const paramCilindroId = urlParams.get('cilindro_id') || urlParams.get('abrir_drawer');
     if (paramCilindroId) {
         setTimeout(() => abrirDrawerAtivo(paramCilindroId), 300);

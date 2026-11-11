@@ -360,7 +360,7 @@ const RampaEnvase = {
             this.cilindrosBatelada = [];
             this.renderizarGrid();
             this.mostrarFeedback('Batelada gravada. Pronto para a próxima.', 'ok');
-            if (envaseIds) abrirModalEtiquetasColarinho(envaseIds);
+            if (envaseIds) abrirModalEtiquetasColarinho(envaseIds, data.lote_id);
         } catch (e) {
             AudioFeedback.error();
             Baros.erro(e.mensagem || 'Não foi possível concluir a batelada.');
@@ -375,67 +375,35 @@ const RampaEnvase = {
 // 2. MODAL DE ETIQUETAS DE COLARINHO DO LOTE (ABNT NBR 12176 / IN 129/2022)
 // ==============================================================================
 
-async function abrirModalEtiquetasColarinho(envaseIds) {
+function abrirModalEtiquetasColarinho(envaseIds, loteId) {
     const dialog = document.getElementById('modal-etiquetas-colarinho');
-    const container = document.getElementById('collar-tags-container');
-    if (!dialog || !container) return;
+    const iframe = document.getElementById('iframe-etiquetas-colarinho');
+    const btnNovaAba = document.getElementById('btn-colarinho-nova-aba');
+    const btnImprimir = document.getElementById('btn-imprimir-etiqueta-colarinho');
+    if (!dialog || !iframe) return;
 
-    container.innerHTML = '<div style="padding: 20px; color: var(--color-text-muted);">Gerando etiquetas de colarinho regulamentares...</div>';
-    dialog.showModal();
-
-    try {
-        const res = await fetch(`/produtos/api/envases/etiquetas-colarinho/?envase_ids=${encodeURIComponent(envaseIds)}`, {
-            headers: getAuthHeaders()
-        });
-
-        if (!res.ok) {
-            container.innerHTML = '<div style="color: #dc2626; padding: 20px;">Falha ao obter dados das etiquetas de colarinho.</div>';
-            return;
-        }
-
-        const etiquetas = await res.json();
-        container.innerHTML = '';
-
-        if (!etiquetas || etiquetas.length === 0) {
-            container.innerHTML = '<div style="padding: 20px;">Nenhuma etiqueta encontrada.</div>';
-            return;
-        }
-
-        etiquetas.forEach(tag => {
-            const card = document.createElement('div');
-            card.className = 'collar-tag-preview';
-            card.innerHTML = `
-                <div class="collar-tag-header">
-                    ${tag.empresa_nome.toUpperCase()}
-                </div>
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; border-bottom: 1px solid #0f172a; padding-bottom: 2px;">
-                    <span>${tag.gas_nome.toUpperCase()}</span>
-                    <span>${tag.gas_sigla}</span>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10px;">
-                    <div><strong>LOTE:</strong> ${tag.lote_codigo}</div>
-                    <div><strong>PRESSÃO:</strong> ${tag.pressao_final_bar} bar</div>
-                    <div><strong>PUREZA:</strong> ${tag.pureza_percentual}%</div>
-                    <div><strong>VALIDADE:</strong> ${tag.data_validade}</div>
-                    <div><strong>ONU:</strong> ${tag.numero_onu || 'N/A'}</div>
-                    <div><strong>CLASSE:</strong> ${tag.classe_risco || '2.2'}</div>
-                </div>
-                <div style="border-top: 1px dashed #0f172a; padding-top: 4px; font-size: 10px;">
-                    <div><strong>CILINDRO:</strong> ${tag.cilindro_serie} (${tag.cilindro_qr})</div>
-                    <div><strong>MODELO:</strong> ${tag.modelo_descricao} (${tag.volume_litros}L)</div>
-                    <div><strong>PRÓX. RETESTE:</strong> ${tag.data_proximo_reteste}</div>
-                </div>
-                <div style="border-top: 1px solid #0f172a; padding-top: 3px; font-size: 8px; text-align: center;">
-                    RT: ${tag.rt_nome} (${tag.rt_registro})<br>
-                    ${tag.normas}
-                </div>
-            `;
-            container.appendChild(card);
-        });
-    } catch (e) {
-        console.error("Erro ao carregar etiquetas:", e);
-        container.innerHTML = '<div style="color: #dc2626; padding: 20px;">Erro na comunicação ao gerar etiquetas.</div>';
+    let url = '';
+    if (loteId) {
+        url = `/produtos/lotes/${loteId}/etiqueta-colarinho/`;
+        if (envaseIds) url += `?envase_ids=${encodeURIComponent(envaseIds)}`;
+    } else if (envaseIds) {
+        url = `/produtos/lotes/0/etiqueta-colarinho/?envase_ids=${encodeURIComponent(envaseIds)}`;
     }
+
+    iframe.src = url;
+    if (btnNovaAba) btnNovaAba.href = url;
+
+    if (btnImprimir && !btnImprimir._hasEtiquetaPrintHandler) {
+        btnImprimir._hasEtiquetaPrintHandler = true;
+        btnImprimir.addEventListener('click', () => {
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            }
+        });
+    }
+
+    dialog.showModal();
 }
 
 // ==============================================================================

@@ -3,6 +3,10 @@
    Formatos padronizados para bobinas térmicas Zebra / Elgin / Argox.
 ============================================================================== */
 
+@page {
+    margin: 0;
+}
+
 @page label60x40 {
     size: 60mm 40mm;
     margin: 0;
@@ -11,6 +15,14 @@
 @page labelColarinho {
     size: 70mm 120mm;
     margin: 0;
+}
+
+body.label-casco {
+    page: label60x40;
+}
+
+body.label-colarinho {
+    page: labelColarinho;
 }
 
 body.label-print-body {
@@ -316,6 +328,42 @@ body.label-print-body {
     line-height: 1.2;
     border-top: 0.3mm solid #cbd5e1;
     padding-top: 1.5mm;
+}
+
+.colarinho-cilindro-info {
+    border-top: 0.3mm dashed #0f172a;
+    padding-top: 1.5mm;
+    margin-top: 1.5mm;
+    margin-bottom: 1.5mm;
+    font-size: 5.5pt;
+    line-height: 1.2;
+    color: #0f172a;
+}
+
+.colarinho-empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px dashed #cbd5e1;
+    max-width: 400px;
+}
+
+.colarinho-empty-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 8px 0;
+}
+
+.colarinho-empty-text {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0;
+}
+
+.etiqueta-url-passaporte {
+    display: none;
 }
 
 /* ==============================================================================

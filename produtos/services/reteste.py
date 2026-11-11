@@ -2,6 +2,7 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal
 from django.db import transaction
+from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
@@ -17,6 +18,17 @@ from produtos.models import (
 )
 from produtos.services.ciclo_cilindro import validar_transicao_status_cilindro
 from produtos.services.baixa import baixar_cilindro_patrimonial
+
+
+def filtro_reteste_proximo_ou_vencido(dias=30, data_referencia=None):
+    """
+    Retorna o filtro Q para cilindros com reteste hidrostático vencendo em até `dias` dias
+    ou já vencidos. Exclui cilindros com status BAIXADO (Sprint 01.01).
+    """
+    hoje = data_referencia or timezone.localdate()
+    limite = hoje + timedelta(days=dias)
+    return Q(data_proximo_reteste__lte=limite) & ~Q(status='BAIXADO')
+
 
 
 @transaction.atomic

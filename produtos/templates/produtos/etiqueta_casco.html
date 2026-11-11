@@ -1,18 +1,15 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Etiqueta Patrimonial - {{ cilindro.numero_serie_ogiva }} (60x40mm)</title>
-    <link rel="stylesheet" href="/static/produtos/css/etiquetas.css">
-    <style>
-        @page {
-            size: 60mm 40mm;
-            margin: 0;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'produtos/css/etiquetas.css' %}?v=20261111_s0102">
 </head>
-<body class="label-print-body">
+
+<body class="label-print-body label-casco">
     <div class="label-toolbar">
         <button class="btn-print-action" onclick="window.print()">
             Imprimir Etiqueta (60x40mm)
@@ -23,7 +20,7 @@
     </div>
 
     <!-- Etiqueta 60x40mm -->
-    <div class="etiqueta-casco-preview">
+    <div class="etiqueta-casco-preview" data-size="60mm 40mm" data-url-passaporte="{{ url_passaporte }}">
         <div class="etiqueta-casco-header">
             <span class="etiqueta-casco-tenant">{{ tenant.nome_fantasia|default:tenant.razao_social }}</span>
             <span class="etiqueta-casco-gas">{{ cilindro.gas_dedicado.sigla }}</span>
@@ -31,14 +28,15 @@
 
         <div class="etiqueta-casco-body">
             <div class="etiqueta-casco-qr">
-                <img src="{{ qr_data_uri }}" alt="QR Code Passaporte">
+                <img src="{{ qr_data_uri }}" alt="QR Code Passaporte: {{ url_passaporte }}">
             </div>
             <div class="etiqueta-casco-info">
                 <p class="etiqueta-casco-serie-label">Série Ogiva</p>
                 <p class="etiqueta-casco-serie-val" id="etiqueta-serie-ogiva">{{ cilindro.numero_serie_ogiva }}</p>
                 <div class="etiqueta-casco-subinfo">
                     Gás: {{ cilindro.gas_dedicado.nome }}<br>
-                    Modelo: {{ cilindro.modelo.volume_hidraulico_litros }}L | {{ cilindro.modelo.pressao_servico_bar }} bar<br>
+                    Modelo: {{ cilindro.modelo.volume_hidraulico_litros }}L | {{ cilindro.modelo.pressao_servico_bar }}
+                    bar<br>
                     Tara: {{ cilindro.tara_real_kg|default:"N/A" }} kg
                 </div>
             </div>
@@ -48,6 +46,8 @@
             <span>QR: {{ cilindro.codigo_qr }}</span>
             <span>Reteste: {{ cilindro.data_proximo_reteste|date:"m/Y"|default:"N/D" }}</span>
         </div>
+        <span class="etiqueta-url-passaporte">{{ url_passaporte }}</span>
     </div>
 </body>
+
 </html>

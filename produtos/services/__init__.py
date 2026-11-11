@@ -22,4 +22,5 @@ from .reteste import (  # noqa: F401
     enviar_cilindros_para_reteste,
     registrar_retorno_reteste,
     retificar_reteste,
+    filtro_reteste_proximo_ou_vencido,
 )

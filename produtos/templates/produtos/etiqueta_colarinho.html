@@ -1,27 +1,28 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Etiqueta de Colarinho IN 129/2022 - Lote {{ lote.codigo_lote }}</title>
-    <link rel="stylesheet" href="/static/produtos/css/etiquetas.css">
-    <style>
-        @page {
-            size: 70mm 120mm;
-            margin: 0;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'produtos/css/etiquetas.css' %}?v=20261111_s0102">
 </head>
-<body class="label-print-body">
+
+<body class="label-print-body label-colarinho">
     <div class="label-toolbar">
+        {% if etiquetas %}
         <button class="btn-print-action" onclick="window.print()">
             Imprimir Colarinho (IN 129/2022)
         </button>
+        {% endif %}
         <button class="btn-close-action" onclick="window.close()">
             Fechar
         </button>
     </div>
 
+    {% if etiquetas %}
+    {% for item in etiquetas %}
     <!-- Etiqueta de Gargalo / Colarinho -->
     <div class="etiqueta-colarinho-preview">
         <div>
@@ -38,11 +39,11 @@
 
             <!-- Gás & Transporte ONU -->
             <div class="colarinho-gas-badge">
-                {{ gas.nome }} ({{ gas.sigla }})
+                {{ item.gas.nome }} ({{ item.gas.sigla }})
             </div>
 
             <div class="colarinho-transport-info">
-                ONU: {{ gas.numero_onu|default:"1072" }} &bull; Classe: {{ gas.classe_risco|default:"2.2" }}
+                ONU: {{ item.gas.numero_onu|default:"1072" }} &bull; Classe: {{ item.gas.classe_risco|default:"2.2" }}
             </div>
 
             <!-- Lote Farmacêutico / Químico -->
@@ -55,30 +56,43 @@
             <div class="colarinho-grid-dados">
                 <div class="colarinho-dado-item">
                     <span class="colarinho-dado-rotulo">Data de Envase</span>
-                    <span class="colarinho-dado-valor">{{ lote.data_envase|date:"d/m/Y" }}</span>
+                    <span class="colarinho-dado-valor">{{ item.data_envase|date:"d/m/Y" }}</span>
                 </div>
                 <div class="colarinho-dado-item">
                     <span class="colarinho-dado-rotulo">Prazo de Validade</span>
-                    <span class="colarinho-dado-valor">{{ lote.data_validade|date:"d/m/Y" }}</span>
+                    <span class="colarinho-dado-valor">{{ item.data_validade|date:"d/m/Y" }}</span>
                 </div>
                 <div class="colarinho-dado-item">
                     <span class="colarinho-dado-rotulo">Pressão Final (21°C)</span>
-                    <span class="colarinho-dado-valor">{{ pressao_bar|default:"200" }} bar</span>
+                    <span class="colarinho-dado-valor">{% if item.pressao_final_bar %}{{ item.pressao_final_bar }} bar{% else %}Pressão não aferida{% endif %}</span>
                 </div>
                 <div class="colarinho-dado-item">
                     <span class="colarinho-dado-rotulo">Pureza Mínima</span>
-                    <span class="colarinho-dado-valor">&ge; 99,5% v/v</span>
+                    <span class="colarinho-dado-valor">&ge; {{ item.pureza_percentual }}% v/v</span>
                 </div>
+                {% if item.massa_liquida_gas_kg %}
+                <div class="colarinho-dado-item">
+                    <span class="colarinho-dado-rotulo">Massa Líquida</span>
+                    <span class="colarinho-dado-valor">{{ item.massa_liquida_gas_kg }} kg</span>
+                </div>
+                {% endif %}
             </div>
+
+            <!-- Identificação do Cilindro -->
+            {% if item.cilindro %}
+            <div class="colarinho-cilindro-info">
+                <strong>Cilindro:</strong> {{ item.cilindro.numero_serie_ogiva }} (QR: {{ item.cilindro.codigo_qr }}) &bull; Modelo: {{ item.cilindro.modelo.descricao }} &bull; Reteste: {{ item.cilindro.data_proximo_reteste|date:"d/m/Y" }}
+            </div>
+            {% endif %}
 
             <!-- Responsável Técnico (RT) -->
             <div class="colarinho-rt-box">
                 <span class="colarinho-dado-rotulo">Responsável Técnico</span>
                 <span class="colarinho-rt-nome" id="colarinho-rt-info">
                     {% if rt %}
-                        {{ rt.nome_completo }} &bull; {{ rt.conselho_classe }}-{{ rt.uf_conselho }} {{ rt.numero_registro }}
+                    {{ rt.nome_completo }} &bull; {{ rt.conselho_classe }}-{{ rt.uf_conselho }} {{ rt.numero_registro }}
                     {% else %}
-                        Homologado pela Garantia da Qualidade
+                    Homologado pela Garantia da Qualidade
                     {% endif %}
                 </span>
             </div>
@@ -86,12 +100,20 @@
 
         <!-- Alerta Regulatório Legal IN 129/2022 -->
         <div class="colarinho-legal-warning">
-            {% if 'MED' in gas.sigla or gas.categoria == 'MEDICINAL' %}
+            {% if 'MED' in item.gas.sigla or item.gas.categoria == 'MEDICINAL' %}
             Gás Medicinal. Venda sob prescrição médica. Uso exclusivo hospitalar ou domiciliar com orientação médica.
             {% else %}
             Gás Comprimido Industrial. Manusear com EPIs adequados conforme FISPQ / FDS.
             {% endif %}
         </div>
     </div>
+    {% endfor %}
+    {% else %}
+    <div class="colarinho-empty-state">
+        <h2 class="colarinho-empty-title">Nenhum cilindro envasado neste lote</h2>
+        <p class="colarinho-empty-text">Ainda não foram registrados envases para este lote químico.</p>
+    </div>
+    {% endif %}
 </body>
+
 </html>

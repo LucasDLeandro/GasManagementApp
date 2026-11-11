@@ -1054,9 +1054,10 @@ class HomeView(LoginRequiredMixin, TemplateView):
                         'botao_texto': 'Revisar Cascos'
                     })
 
-            # Alertas de Reteste INMETRO (Universal)
+            # Alertas de Reteste INMETRO (Universal - Sprint 01.01)
+            from produtos.services.reteste import filtro_reteste_proximo_ou_vencido
             reteste_vencidos = Cilindro.objects.filter(
-                data_proximo_reteste__lte=hoje + datetime.timedelta(days=30)
+                filtro_reteste_proximo_ou_vencido(dias=30, data_referencia=hoje)
             ).count()
             if reteste_vencidos > 0:
                 fila_itens.append({
@@ -1065,7 +1066,7 @@ class HomeView(LoginRequiredMixin, TemplateView):
                     'count': reteste_vencidos,
                     'titulo': 'Retestes INMETRO Vencendo / Vencidos',
                     'descricao': 'Cilindros que precisam de teste hidrostático para continuar aptos a envase e expedição.',
-                    'link': '/produtos/?reteste_vencido=true',
+                    'link': '/produtos/?reteste_ate_dias=30',
                     'botao_texto': 'Ver Cilindros'
                 })
 
