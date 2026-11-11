@@ -322,21 +322,21 @@ class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
         Retorna indicadores agregados da frota de cilindros para o tenant (Sprint 01.01).
         Executa em consulta única via Count com filtros condicionais.
         """
-        hoje = timezone.localdate()
-        d30 = hoje + datetime.timedelta(days=30)
+        from .services.reteste import filtro_reteste_proximo_ou_vencido
 
+        hoje = timezone.localdate()
         base_qs = super().get_queryset()
 
         dados = base_qs.aggregate(
-            total=Count('id'),
+            total=Count('id', filter=~Q(status='BAIXADO')),
             cheios_patio=Count('id', filter=Q(status='CHEIO_DISPONIVEL')),
             em_clientes=Count('id', filter=Q(status='EM_POSSE_CLIENTE')),
             vazios_triagem=Count('id', filter=Q(status='VAZIO_TRIAGEM')),
             em_rota=Count('id', filter=Q(status='RESERVADO_ROTA')),
             em_reteste=Count('id', filter=Q(status__in=['EM_RETESTE', 'EM_REQUALIFICACAO'])),
-            bloqueados=Count('id', filter=Q(bloqueio_sanitario=True)),
+            bloqueados=Count('id', filter=Q(bloqueio_sanitario=True) & ~Q(status='BAIXADO')),
             reteste_vencido=Count('id', filter=Q(data_proximo_reteste__lt=hoje) & ~Q(status='BAIXADO')),
-            reteste_30_dias=Count('id', filter=Q(data_proximo_reteste__lte=d30) & ~Q(status='BAIXADO')),
+            reteste_30_dias=Count('id', filter=filtro_reteste_proximo_ou_vencido(dias=30, data_referencia=hoje)),
         )
         return Response(dados, status=status.HTTP_200_OK)
 

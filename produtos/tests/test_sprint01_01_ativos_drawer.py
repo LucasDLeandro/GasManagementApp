@@ -185,10 +185,15 @@ class AtivosDrawerTests(TestCase):
                 codigo_qr='C-VENC-30D', numero_serie_ogiva='S8', status='CHEIO_DISPONIVEL',
                 data_proximo_reteste=self.hoje + datetime.timedelta(days=10)
             )
-            # Baixado (não deve contar em reteste vencido nem 30 dias)
+            # Baixado (não deve contar em total, bloqueados, reteste vencido nem 30 dias)
             self._criar_cilindro(
                 codigo_qr='C-BAIX', numero_serie_ogiva='S9', status='BAIXADO',
                 data_proximo_reteste=self.hoje - datetime.timedelta(days=20)
+            )
+            self._criar_cilindro(
+                codigo_qr='C-BAIX-BLOQ', numero_serie_ogiva='S10', status='BAIXADO',
+                bloqueio_sanitario=True,
+                data_proximo_reteste=self.hoje - datetime.timedelta(days=10)
             )
 
         # Outro tenant com cilindros para verificar isolamento
@@ -209,45 +214,19 @@ class AtivosDrawerTests(TestCase):
         self.assertLessEqual(len(consultas_reais), 3, f"Muitas consultas no resumo: {len(consultas_reais)}")
 
         dados = resp.json()
-        # Tenant A tem 9 cilindros no total
-        self.assertEqual(dados['total'], 9)
+        # Tenant A tem 10 cilindros cadastrados, mas 2 são BAIXADOS -> total ativo é 8
+        self.assertEqual(dados['total'], 8)
         # CHEIO_DISPONIVEL: C-CHEIO, C-BLOQ, C-VENCIDO, C-VENC-30D -> 4
         self.assertEqual(dados['cheios_patio'], 4)
         self.assertEqual(dados['em_clientes'], 1)
         self.assertEqual(dados['vazios_triagem'], 1)
         self.assertEqual(dados['em_rota'], 1)
         self.assertEqual(dados['em_reteste'], 1)
+        # Bloqueados ativos: apenas C-BLOQ (C-BAIX-BLOQ é BAIXADO e deve ser desconsiderado) -> 1
         self.assertEqual(dados['bloqueados'], 1)
-        # reteste_vencido: C-VENCIDO (< hoje, ativo) -> 1 (C-BAIX é ignorado)
+        # reteste_vencido: C-VENCIDO (< hoje, ativo) -> 1 (C-BAIX e C-BAIX-BLOQ são ignorados)
         self.assertEqual(dados['reteste_vencido'], 1)
-        # reteste_30_dias: C-VENCIDO e C-VENC-30D -> 2 (C-BAIX é ignorado)
-        self.assertEqual(dados['reteste_30_dias'], 2)
-
-        self.client.force_authenticate(self.gerente)
-        with CaptureQueriesContext(connection) as queries:
-            resp = self.client.get('/produtos/api/cilindros/resumo/')
-            self.assertEqual(resp.status_code, status.HTTP_200_OK)
-
-        # Deve executar em no máximo 3 consultas SQL reais (desconsiderando SAVEPOINTs da transação de teste)
-        consultas_reais = [
-            q for q in queries
-            if not q['sql'].startswith('SAVEPOINT') and not q['sql'].startswith('RELEASE')
-        ]
-        self.assertLessEqual(len(consultas_reais), 3, f"Muitas consultas no resumo: {len(consultas_reais)}")
-
-        dados = resp.json()
-        # Tenant A tem 9 cilindros no total
-        self.assertEqual(dados['total'], 9)
-        # CHEIO_DISPONIVEL: C-CHEIO, C-BLOQ, C-VENCIDO, C-VENC-30D -> 4
-        self.assertEqual(dados['cheios_patio'], 4)
-        self.assertEqual(dados['em_clientes'], 1)
-        self.assertEqual(dados['vazios_triagem'], 1)
-        self.assertEqual(dados['em_rota'], 1)
-        self.assertEqual(dados['em_reteste'], 1)
-        self.assertEqual(dados['bloqueados'], 1)
-        # reteste_vencido: C-VENCIDO (< hoje, ativo) -> 1 (C-BAIX é ignorado)
-        self.assertEqual(dados['reteste_vencido'], 1)
-        # reteste_30_dias: C-VENCIDO e C-VENC-30D -> 2 (C-BAIX é ignorado)
+        # reteste_30_dias: C-VENCIDO e C-VENC-30D -> 2 (C-BAIX e C-BAIX-BLOQ são ignorados)
         self.assertEqual(dados['reteste_30_dias'], 2)
 
     def test_renderizacao_produtos_ativos_gerente(self):

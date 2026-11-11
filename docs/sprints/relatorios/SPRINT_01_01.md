@@ -19,14 +19,14 @@
   - Adicionada a action `GET /produtos/api/cilindros/resumo/` em `CilindroViewSet`.
   - Agrega todos os indicadores da frota em uma única consulta SQL com `aggregate()` e `Count(Case(When(...)))`:
     - `total`: cilindros ativos (exclui `BAIXADO`);
-    - `cheios_patio`: `status='CHEIO'`;
-    - `em_clientes`: `status='EM_CLIENTE'`;
+    - `cheios_patio`: `status='CHEIO_DISPONIVEL'`;
+    - `em_clientes`: `status='EM_POSSE_CLIENTE'`;
     - `vazios_triagem`: `status='VAZIO_TRIAGEM'`;
-    - `em_rota`: `status='EM_ROTA'`;
-    - `em_reteste`: `status='EM_RETESTE'`;
-    - `bloqueados`: `bloqueio_sanitario=True`;
-    - `reteste_vencido`: `data_proximo_reteste < hoje`;
-    - `reteste_30_dias`: critério de 30 dias usando `filtro_reteste_proximo_ou_vencido(30)`.
+    - `em_rota`: `status='RESERVADO_ROTA'`;
+    - `em_reteste`: `status='EM_RETESTE'` ou `'EM_REQUALIFICACAO'`;
+    - `bloqueados`: `bloqueio_sanitario=True` (exclui `BAIXADO`);
+    - `reteste_vencido`: `data_proximo_reteste < hoje` (exclui `BAIXADO`);
+    - `reteste_30_dias`: critério de 30 dias usando `filtro_reteste_proximo_ou_vencido(30)` (exclui `BAIXADO`).
   - Executa no máximo 3 consultas ao banco por requisição (resolução de membership/tenant + aggregate), com isolamento estrito por tenant.
 
 ### Frontend
@@ -45,7 +45,7 @@
   - Abre pela direita com largura padrão de 480px e 100vw em telas até 640px (`@media (max-width: 640px)`).
   - Fecha ao pressionar a tecla `Esc` ou clicar fora/no botão fechar, devolvendo o foco para o elemento disparador (botão "Ver detalhes" da linha da tabela).
   - Seções organizadas: Identificação, Situação Atual, Patrimônio/CAPEX, Próximo Reteste, Linha do Tempo do Ledger e Retestes Anteriores.
-  - Botões de ação exibidos de acordo com o papel do usuário logado (`window.BAROS_USER_PAPEL`).
+  - Botões de ação exibidos no drawer de acordo com as permissões do usuário logado (controlados no template pelo context processor).
 - **Eliminação completa de estilos inline:**
   - Removidos todos os estilos inline (`style="`):
     - `_aba_ativos.html`: 20 → 0
