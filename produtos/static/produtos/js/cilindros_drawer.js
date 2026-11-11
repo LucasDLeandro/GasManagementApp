@@ -935,18 +935,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 5.5 Etiqueta Térmica QR Patrimonial 60x40mm
+    // 5.5 Etiqueta Térmica QR Patrimonial 60x40mm (Preview do servidor via iframe)
     const btnDrawerEtiqueta = document.getElementById('drawer-btn-etiqueta');
     if (btnDrawerEtiqueta && modalEtiqueta) {
+        const iframeEtiqueta = document.getElementById('iframe-etiqueta-casco');
+        const btnNovaAbaEtiqueta = document.getElementById('btn-etiqueta-nova-aba');
+        const btnImprimirIframe = document.getElementById('btn-imprimir-etiqueta-casco');
+
         btnDrawerEtiqueta.addEventListener('click', () => {
             if (!activeCilindroData) return;
-            document.getElementById('label-qr-code').textContent = activeCilindroData.codigo_qr;
-            document.getElementById('label-serie').textContent = activeCilindroData.numero_serie_ogiva;
-            document.getElementById('label-gas').textContent = `${activeCilindroData.gas_sigla} - ${activeCilindroData.gas_nome}`;
-            document.getElementById('label-tara').textContent = `Tara: ${activeCilindroData.tara_real_kg || '-'} kg | Vol: ${activeCilindroData.volume_litros || '-'}L`;
-            document.getElementById('label-reteste').textContent = `Reteste: ${formatarData(activeCilindroData.data_proximo_reteste)}`;
+            const urlEtiqueta = `/produtos/cilindros/${activeCilindroData.id}/etiqueta-casco/`;
+            if (iframeEtiqueta) {
+                iframeEtiqueta.src = urlEtiqueta;
+            }
+            if (btnNovaAbaEtiqueta) {
+                btnNovaAbaEtiqueta.href = urlEtiqueta;
+            }
             modalEtiqueta.showModal();
         });
+
+        if (btnImprimirIframe) {
+            btnImprimirIframe.addEventListener('click', () => {
+                if (iframeEtiqueta && iframeEtiqueta.contentWindow) {
+                    iframeEtiqueta.contentWindow.focus();
+                    iframeEtiqueta.contentWindow.print();
+                }
+            });
+        }
 
         const btnFecharEtiqueta = document.getElementById('btn-fechar-etiqueta');
         if (btnFecharEtiqueta) btnFecharEtiqueta.addEventListener('click', () => modalEtiqueta.close());

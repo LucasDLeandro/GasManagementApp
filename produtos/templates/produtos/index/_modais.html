@@ -1,177 +1,175 @@
+<!-- ============================================================================== -->
+<!-- MODAIS DE AÇÃO DO CILINDRO (Design System v1) — produtos/js/cilindros_drawer.js -->
+<!-- ============================================================================== -->
 
-    <!-- ============================================================================== -->
-    <!-- MODAIS DE AÇÃO DO CILINDRO (Design System v1) — produtos/js/cilindros_drawer.js -->
-    <!-- ============================================================================== -->
+<!-- 1. Bloqueio / liberação sanitária (RT) -->
+<dialog id="modal-bloqueio-sanitario" class="action-modal ds-dialog" aria-labelledby="modal-bloqueio-acao-title">
+    <form id="form-bloqueio-sanitario" novalidate>
+        <div class="modal-header">
+            <h3 id="modal-bloqueio-acao-title">Bloqueio sanitário</h3>
+            <button type="button" class="close-modal" id="btn-cancelar-bloqueio" aria-label="Fechar">×</button>
+        </div>
+        <p class="ds-page-subtitle ds-mb">Ação do Responsável Técnico (CRF/CRQ). Fica registrada para sempre na trilha
+            de auditoria sanitária.</p>
+        <input type="hidden" id="bloqueio-acao-input" value="BLOQUEIO">
+        <div class="ds-dialog-alvo" id="bloqueio-alvo"></div>
+        <div class="form-group">
+            <label for="bloqueio-justificativa">Justificativa técnica *</label>
+            <textarea id="bloqueio-justificativa" name="motivo" rows="3" required minlength="10"
+                placeholder="Ex.: suspeita de óleo ou particulado na válvula; quarentena por recolhimento suspeito."></textarea>
+            <span class="ds-field-help">Mínimo de 10 caracteres.</span>
+        </div>
+        <div class="form-actions">
+            <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
+            <button type="submit" class="btn-danger" id="btn-confirmar-bloqueio">Bloquear cilindro</button>
+        </div>
+    </form>
+</dialog>
 
-    <!-- 1. Bloqueio / liberação sanitária (RT) -->
-    <dialog id="modal-bloqueio-sanitario" class="action-modal ds-dialog" aria-labelledby="modal-bloqueio-acao-title">
-        <form id="form-bloqueio-sanitario" novalidate>
-            <div class="modal-header">
-                <h3 id="modal-bloqueio-acao-title">Bloqueio sanitário</h3>
-                <button type="button" class="close-modal" id="btn-cancelar-bloqueio" aria-label="Fechar">×</button>
-            </div>
-            <p class="ds-page-subtitle ds-mb">Ação do Responsável Técnico (CRF/CRQ). Fica registrada para sempre na trilha de auditoria sanitária.</p>
-            <input type="hidden" id="bloqueio-acao-input" value="BLOQUEIO">
-            <div class="ds-dialog-alvo" id="bloqueio-alvo"></div>
+<!-- 2. Retorno de reteste hidrostático -->
+<dialog id="modal-retorno-reteste" class="action-modal ds-dialog" aria-labelledby="titulo-reteste">
+    <form id="form-retorno-reteste" novalidate>
+        <div class="modal-header">
+            <h3 id="titulo-reteste">Registrar retorno de reteste</h3>
+            <button type="button" class="close-modal" id="btn-cancelar-reteste" aria-label="Fechar">×</button>
+        </div>
+        <p class="ds-page-subtitle ds-mb">Renova a validade normativa e registra a tara aferida na requalificadora
+            (INMETRO).</p>
+        <div class="form-grid">
             <div class="form-group">
-                <label for="bloqueio-justificativa">Justificativa técnica *</label>
-                <textarea id="bloqueio-justificativa" name="motivo" rows="3" required minlength="10"
-                          placeholder="Ex.: suspeita de óleo ou particulado na válvula; quarentena por recolhimento suspeito."></textarea>
-                <span class="ds-field-help">Mínimo de 10 caracteres.</span>
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
-                <button type="submit" class="btn-danger" id="btn-confirmar-bloqueio">Bloquear cilindro</button>
-            </div>
-        </form>
-    </dialog>
-
-    <!-- 2. Retorno de reteste hidrostático -->
-    <dialog id="modal-retorno-reteste" class="action-modal ds-dialog" aria-labelledby="titulo-reteste">
-        <form id="form-retorno-reteste" novalidate>
-            <div class="modal-header">
-                <h3 id="titulo-reteste">Registrar retorno de reteste</h3>
-                <button type="button" class="close-modal" id="btn-cancelar-reteste" aria-label="Fechar">×</button>
-            </div>
-            <p class="ds-page-subtitle ds-mb">Renova a validade normativa e registra a tara aferida na requalificadora (INMETRO).</p>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="reteste-data-realizado">Data do teste *</label>
-                    <input type="date" id="reteste-data-realizado" name="nova_data_reteste" required>
-                </div>
-                <div class="form-group">
-                    <label for="reteste-nova-tara">Tara aferida (kg)</label>
-                    <input type="number" step="0.01" min="0" id="reteste-nova-tara" name="nova_tara_kg" class="font-mono">
-                    <span class="ds-field-help" id="reteste-variacao-tara">Tara atual: —</span>
-                </div>
-                <div class="form-group full-width">
-                    <label for="reteste-obs">Nº do laudo / observações</label>
-                    <input type="text" id="reteste-obs" name="observacao" maxlength="255" placeholder="Ex.: Laudo 4921/2026 · aprovado">
-                </div>
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
-                <button type="submit" class="btn-primary">Registrar reteste</button>
-            </div>
-        </form>
-    </dialog>
-
-    <!-- 3. Reclassificação de gás dedicado -->
-    <dialog id="modal-reclassificar-gas" class="action-modal ds-dialog" aria-labelledby="titulo-reclassificar">
-        <form id="form-reclassificar-gas" novalidate>
-            <div class="modal-header">
-                <h3 id="titulo-reclassificar">Reclassificar gás dedicado</h3>
-                <button type="button" class="close-modal" id="btn-cancelar-reclassificar" aria-label="Fechar">×</button>
-            </div>
-            <p class="ds-page-subtitle ds-mb">Conversão auditada do gás do cilindro. Para gás <strong>medicinal</strong>, a homologação exige o Responsável Técnico: faça a operação com o usuário do RT.</p>
-            <div class="form-group">
-                <label for="reclassificar-novo-gas">Gás de destino *</label>
-                <select id="reclassificar-novo-gas" name="novo_gas_id" required></select>
-            </div>
-            <div class="modal-section-card ds-mt">
-                <h4 class="modal-section-title">Checklist obrigatório (ABNT NBR 12176)</h4>
-                <div class="ds-checklist">
-                    <label class="ds-check"><input type="checkbox" id="check-purga" required> Descontaminação e purga (vácuo/térmica) executada</label>
-                    <label class="ds-check"><input type="checkbox" id="check-valvula" required> Válvula do novo gás instalada e torqueada</label>
-                    <label class="ds-check"><input type="checkbox" id="check-pintura" required> Pintura de corpo e ogiva adequada ao novo gás</label>
-                </div>
+                <label for="reteste-data-realizado">Data do teste *</label>
+                <input type="date" id="reteste-data-realizado" name="nova_data_reteste" required>
             </div>
             <div class="form-group">
-                <label for="reclassificar-obs">Observações</label>
-                <textarea id="reclassificar-obs" name="observacoes" rows="2" placeholder="Laudo de descontaminação e testes efetuados."></textarea>
+                <label for="reteste-nova-tara">Tara aferida (kg)</label>
+                <input type="number" step="0.01" min="0" id="reteste-nova-tara" name="nova_tara_kg" class="font-mono">
+                <span class="ds-field-help" id="reteste-variacao-tara">Tara atual: —</span>
             </div>
-            <div class="form-actions">
-                <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
-                <button type="submit" class="btn-primary">Reclassificar</button>
-            </div>
-        </form>
-    </dialog>
-
-    <!-- 4. Estorno auditado no ledger -->
-    <dialog id="modal-estorno-ledger" class="action-modal ds-dialog" aria-labelledby="titulo-estorno">
-        <form id="form-estorno-ledger" novalidate>
-            <div class="modal-header">
-                <h3 id="titulo-estorno">Estornar lançamento</h3>
-                <button type="button" class="close-modal" id="btn-cancelar-estorno" aria-label="Fechar">×</button>
-            </div>
-            <p class="ds-page-subtitle ds-mb">O histórico do cilindro não é apagado: o estorno cria um lançamento contrário que desfaz o efeito, com seu nome e o motivo.</p>
-            <input type="hidden" id="estorno-mov-id">
-            <div class="ds-dialog-alvo" id="estorno-mov-desc"></div>
-            <div class="form-group">
-                <label for="estorno-justificativa">Motivo do estorno *</label>
-                <textarea id="estorno-justificativa" name="justificativa" rows="3" required minlength="10"
-                          placeholder="Ex.: bipagem por engano no romaneio 104; o cilindro ficou no pátio."></textarea>
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
-                <button type="submit" class="btn-danger">Estornar</button>
-            </div>
-        </form>
-    </dialog>
-
-    <!-- ============================================================================== -->
-    <!-- MODAL 5: ETIQUETA TÉRMICA PATRIMONIAL (60x40mm)                                -->
-    <!-- ============================================================================== -->
-    <dialog id="modal-etiqueta-termica" class="action-modal" style="max-width: 440px;">
-        <h3 style="margin-top:0; color:var(--color-text);">Etiqueta Patrimonial (60x40mm)</h3>
-        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 12px;">Layout térmico industrial para identificação física em ogiva.</p>
-        
-        <div class="thermal-label-preview">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #000; padding-bottom: 4px;">
-                <div>
-                    <strong style="font-size: 13px; letter-spacing: -0.5px;">BAROS PATRIMÔNIO</strong>
-                    <div style="font-size: 10px; font-weight: bold;" id="label-gas">OXIGÊNIO</div>
-                </div>
-                <div style="font-size: 11px; font-weight: bold;" id="label-serie">OGV-0000</div>
-            </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0;">
-                <div style="font-size: 10px; line-height: 1.3;">
-                    <div id="label-tara">Tara: 52.4 kg | Vol: 50L</div>
-                    <div id="label-reteste">Reteste: 10/2026</div>
-                    <div style="margin-top: 4px; font-size: 11px; font-weight: bold;" id="label-qr-code">CIL-1002</div>
-                </div>
-                <div style="width: 60px; height: 60px; border: 1px solid #000; display: flex; align-items: center; justify-content: center; font-size: 9px; text-align: center;">
-                    [ QR CODE 2D ]
-                </div>
-            </div>
-            <div style="border-top: 1px solid #000; padding-top: 3px; font-size: 8px; text-align: center; font-weight: bold;">
-                CONFORME ABNT NBR 12176 / INMETRO
+            <div class="form-group full-width">
+                <label for="reteste-obs">Nº do laudo / observações</label>
+                <input type="text" id="reteste-obs" name="observacao" maxlength="255"
+                    placeholder="Ex.: Laudo 4921/2026 · aprovado">
             </div>
         </div>
-
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
-            <button type="button" id="btn-fechar-etiqueta" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;">Fechar</button>
-            <button type="button" onclick="window.print()" class="action-queue-btn" style="background: var(--color-primary);">Imprimir Etiqueta</button>
+        <div class="form-actions">
+            <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
+            <button type="submit" class="btn-primary">Registrar reteste</button>
         </div>
-    </dialog>
+    </form>
+</dialog>
 
-    <!-- ============================================================================== -->
-    <!-- MODAL 6: ETIQUETAS DE COLARINHO DO LOTE (ABNT NBR 12176 / IN 129/2022)         -->
-    <!-- ============================================================================== -->
-    <dialog id="modal-etiquetas-colarinho" class="action-modal" style="max-width: 800px; width: 90%;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; margin-bottom: 16px;">
-            <div>
-                <h3 style="margin: 0; color: var(--color-text); font-size: 18px; font-weight: 700;">Etiquetas de Colarinho do Lote</h3>
-                <span style="font-size: 12px; color: var(--color-text-muted);">Anel de identificação física em conformidade com ABNT NBR 12176 e IN nº 129/2022 (ANVISA).</span>
+<!-- 3. Reclassificação de gás dedicado -->
+<dialog id="modal-reclassificar-gas" class="action-modal ds-dialog" aria-labelledby="titulo-reclassificar">
+    <form id="form-reclassificar-gas" novalidate>
+        <div class="modal-header">
+            <h3 id="titulo-reclassificar">Reclassificar gás dedicado</h3>
+            <button type="button" class="close-modal" id="btn-cancelar-reclassificar" aria-label="Fechar">×</button>
+        </div>
+        <p class="ds-page-subtitle ds-mb">Conversão auditada do gás do cilindro. Para gás <strong>medicinal</strong>, a
+            homologação exige o Responsável Técnico: faça a operação com o usuário do RT.</p>
+        <div class="form-group">
+            <label for="reclassificar-novo-gas">Gás de destino *</label>
+            <select id="reclassificar-novo-gas" name="novo_gas_id" required></select>
+        </div>
+        <div class="modal-section-card ds-mt">
+            <h4 class="modal-section-title">Checklist obrigatório (ABNT NBR 12176)</h4>
+            <div class="ds-checklist">
+                <label class="ds-check"><input type="checkbox" id="check-purga" required> Descontaminação e purga
+                    (vácuo/térmica) executada</label>
+                <label class="ds-check"><input type="checkbox" id="check-valvula" required> Válvula do novo gás
+                    instalada e torqueada</label>
+                <label class="ds-check"><input type="checkbox" id="check-pintura" required> Pintura de corpo e ogiva
+                    adequada ao novo gás</label>
             </div>
-            <button type="button" class="drawer-close-btn" onclick="document.getElementById('modal-etiquetas-colarinho').close()">&times;</button>
         </div>
+        <div class="form-group">
+            <label for="reclassificar-obs">Observações</label>
+            <textarea id="reclassificar-obs" name="observacoes" rows="2"
+                placeholder="Laudo de descontaminação e testes efetuados."></textarea>
+        </div>
+        <div class="form-actions">
+            <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
+            <button type="submit" class="btn-primary">Reclassificar</button>
+        </div>
+    </form>
+</dialog>
 
-        <div id="collar-tags-container" class="collar-tags-grid">
-            <!-- Dinâmico via JS -->
+<!-- 4. Estorno auditado no ledger -->
+<dialog id="modal-estorno-ledger" class="action-modal ds-dialog" aria-labelledby="titulo-estorno">
+    <form id="form-estorno-ledger" novalidate>
+        <div class="modal-header">
+            <h3 id="titulo-estorno">Estornar lançamento</h3>
+            <button type="button" class="close-modal" id="btn-cancelar-estorno" aria-label="Fechar">×</button>
         </div>
+        <p class="ds-page-subtitle ds-mb">O histórico do cilindro não é apagado: o estorno cria um lançamento contrário
+            que desfaz o efeito, com seu nome e o motivo.</p>
+        <input type="hidden" id="estorno-mov-id">
+        <div class="ds-dialog-alvo" id="estorno-mov-desc"></div>
+        <div class="form-group">
+            <label for="estorno-justificativa">Motivo do estorno *</label>
+            <textarea id="estorno-justificativa" name="justificativa" rows="3" required minlength="10"
+                placeholder="Ex.: bipagem por engano no romaneio 104; o cilindro ficou no pátio."></textarea>
+        </div>
+        <div class="form-actions">
+            <button type="button" class="btn-outline" data-fechar-dialogo>Cancelar</button>
+            <button type="submit" class="btn-danger">Estornar</button>
+        </div>
+    </form>
+</dialog>
 
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 12px;">
-            <button type="button" class="btn-auth" style="background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" onclick="document.getElementById('modal-etiquetas-colarinho').close()">
-                Fechar
-            </button>
-            <button type="button" class="action-queue-btn" style="background: var(--color-primary); color: #fff;" onclick="window.print()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                    <rect x="6" y="14" width="12" height="8"></rect>
-                </svg>
-                Imprimir Todas as Etiquetas
-            </button>
+<!-- ============================================================================== -->
+<!-- MODAL 5: ETIQUETA TÉRMICA PATRIMONIAL (60x40mm) — PREVIEW IFRAME DO SERVIDOR   -->
+<!-- ============================================================================== -->
+<dialog id="modal-etiqueta-termica" class="action-modal ds-dialog" aria-labelledby="modal-etiqueta-titulo">
+    <div class="modal-header">
+        <div>
+            <h3 id="modal-etiqueta-titulo">Etiqueta Patrimonial (60x40mm)</h3>
+            <span class="ds-field-help">Pré-visualização do layout térmico oficial gerado pelo servidor.</span>
         </div>
-    </dialog>
+        <button type="button" class="close-modal" id="btn-fechar-etiqueta" aria-label="Fechar">×</button>
+    </div>
+
+    <div class="etiqueta-iframe-container">
+        <iframe id="iframe-etiqueta-casco" class="etiqueta-preview-iframe"
+            title="Pré-visualização da Etiqueta de Casco"></iframe>
+    </div>
+
+    <div class="form-actions">
+        <button type="button" class="btn-outline" data-fechar-dialogo>Fechar</button>
+        <a id="btn-etiqueta-nova-aba" href="#" target="_blank" rel="noopener" class="btn-outline">
+            Abrir em nova aba
+        </a>
+        <button type="button" id="btn-imprimir-etiqueta-casco" class="btn-primary">
+            Imprimir
+        </button>
+    </div>
+</dialog>
+
+<!-- ============================================================================== -->
+<!-- MODAL 6: ETIQUETAS DE COLARINHO DO LOTE (ABNT NBR 12176 / IN 129/2022)         -->
+<!-- ============================================================================== -->
+<dialog id="modal-etiquetas-colarinho" class="action-modal ds-dialog" aria-labelledby="modal-colarinho-titulo">
+    <div class="modal-header">
+        <div>
+            <h3 id="modal-colarinho-titulo">Etiquetas de Colarinho do Lote</h3>
+            <span class="ds-field-help">Anel de identificação física em conformidade com ABNT NBR 12176 e IN nº 129/2022
+                (ANVISA).</span>
+        </div>
+        <button type="button" class="close-modal" id="btn-fechar-colarinho" aria-label="Fechar">×</button>
+    </div>
+
+    <div class="etiqueta-iframe-container">
+        <iframe id="iframe-etiquetas-colarinho" class="etiqueta-preview-iframe etiqueta-preview-iframe--colarinho"
+            title="Pré-visualização das Etiquetas de Colarinho"></iframe>
+    </div>
+
+    <div class="form-actions">
+        <button type="button" class="btn-outline" data-fechar-dialogo>Fechar</button>
+        <a id="btn-colarinho-nova-aba" href="#" target="_blank" rel="noopener" class="btn-outline">
+            Abrir em nova aba
+        </a>
+        <button type="button" id="btn-imprimir-etiqueta-colarinho" class="btn-primary">
+            Imprimir
+        </button>
+    </div>
+</dialog>
