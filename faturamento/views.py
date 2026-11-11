@@ -81,7 +81,8 @@ class WebhookGatewayPagamentoView(APIView):
 
             # Se vinculada a uma venda a prazo/pendente, atualiza status se aplicável
             if fatura.venda and fatura.venda.status == 'Pendente':
-                fatura.venda.status = 'Em Separação'
+                from vendas.services.status import transicionar_venda
+                transicionar_venda(fatura.venda, 'Em Separação', None, origem='API', observacoes='Pagamento de fatura confirmado.')
                 fatura.venda.save(update_fields=['status', 'data_atualizacao'])
 
         elif status_cobranca in ['VENCIDA', 'EXPIRED']:

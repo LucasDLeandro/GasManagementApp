@@ -57,6 +57,23 @@ class Venda(TenantAwareModel):
     def __str__(self):
         return f"Venda #{self.id} - {self.cliente.nome} ({self.status})"
 
+    def save(self, *args, **kwargs):
+        is_new = not self.pk
+        super().save(*args, **kwargs)
+        if is_new:
+            try:
+                HistoricoStatusVenda.unscoped.create(
+                    tenant=self.tenant,
+                    venda=self,
+                    status_anterior=None,
+                    status_novo=self.status,
+                    alterado_por=self.vendedor,
+                    origem='TELA' if self.vendedor else 'SISTEMA',
+                    observacoes='Criação da venda.'
+                )
+            except Exception:
+                pass
+
     def calcular_total(self):
         total_itens = sum(item.valor_total for item in self.itens.all())
         desconto = self.valor_desconto or Decimal('0.00')
@@ -251,5 +268,79 @@ class LiberacaoBloqueio(TenantAwareModel):
 
     def __str__(self):
         return f"Liberação Venda #{self.venda_id} por {self.usuario} em {self.data.strftime('%d/%m/%Y %H:%M')}"
+
+
+class HistoricoStatusVenda(TenantAwareModel):
+    """
+    Rastreabilidade temporal completa de mudanças de status da Venda (Sprint 01B - Tarefa 01B.1).
+    Permite calcular tempo de permanência em cada etapa e auditar responsáveis.
+    """
+    ORIGEM_CHOICES = [
+        ('TELA', 'Tela'),
+        ('API', 'API'),
+        ('APP_CAMPO', 'App de Campo'),
+        ('SISTEMA', 'Sistema'),
+    ]
+
+    venda = models.ForeignKey(
+        Venda,
+        on_delete=models.CASCADE,
+        related_name='historico_status',
+        verbose_name="Venda"
+    )
+    status_anterior = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+        verbose_name="Status Anterior"
+    )
+    status_novo = models.CharField(
+        max_length=30,
+        db_index=True,
+        verbose_name="Novo Status"
+    )
+    alterado_em = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        verbose_name="Alterado em"
+    )
+    alterado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        verbose_name="Alterado por"
+    )
+    origem = models.CharField(
+        max_length=20,
+        choices=ORIGEM_CHOICES,
+        default='SISTEMA',
+        verbose_name="Origem da Alteração"
+    )
+    observacoes = models.TextField(
+        blank=True,
+        default='',
+        verbose_name="Observações / Justificativa"
+    )
+
+    class Meta:
+        verbose_name = "Histórico de Status da Venda"
+        verbose_name_plural = "Históricos de Status de Vendas"
+        ordering = ['-alterado_em']
+
+    def __str__(self):
+        return f"Venda #{self.venda_id}: {self.status_anterior or 'Início'} → {self.status_novo} ({self.alterado_em})"
+
+    def clean(self):
+        super().clean()
+        if not self.tenant_id and self.venda_id:
+            self.tenant = self.venda.tenant
+
+    def save(self, *args, **kwargs):
+        if not self.tenant_id and self.venda_id:
+            self.tenant = self.venda.tenant
+        super().save(*args, **kwargs)
+
 
 

@@ -42,7 +42,9 @@ def validar_transicao_venda(venda, novo_status: str) -> None:
 
 
 def validar_papel_alteracao(usuario, tenant) -> None:
-    if usuario.is_superuser:
+    if usuario is None:
+        return
+    if getattr(usuario, 'is_superuser', False):
         return
     autorizado = Membership.objects.filter(
         tenant=tenant, user=usuario, ativo=True, papel__in=PAPEIS_ALTERAR_STATUS
@@ -58,8 +60,35 @@ def estoque_ja_baixado(venda) -> bool:
     ).exists()
 
 
-def transicionar_venda(venda, novo_status: str, usuario) -> None:
-    """Valida papel e transição. Não salva: quem chama aplica os efeitos e salva."""
+def registrar_historico_venda(
+    venda,
+    novo_status: str,
+    status_anterior: str = None,
+    usuario=None,
+    origem: str = 'TELA',
+    observacoes: str = ''
+):
+    """Registra uma entrada no histórico de status da Venda."""
+    from vendas.models import HistoricoStatusVenda
+    return HistoricoStatusVenda.unscoped.create(
+        tenant=venda.tenant,
+        venda=venda,
+        status_anterior=status_anterior,
+        status_novo=novo_status,
+        alterado_por=usuario if (usuario and hasattr(usuario, 'pk') and usuario.pk) else None,
+        origem=origem,
+        observacoes=observacoes
+    )
+
+
+def transicionar_venda(
+    venda,
+    novo_status: str,
+    usuario,
+    origem: str = 'TELA',
+    observacoes: str = ''
+) -> None:
+    """Valida papel e transição. Atualiza o status da venda e registra o histórico."""
     validar_papel_alteracao(usuario, venda.tenant)
     validar_transicao_venda(venda, novo_status)
     if novo_status == 'Cancelada' and estoque_ja_baixado(venda):
@@ -67,4 +96,30 @@ def transicionar_venda(venda, novo_status: str, usuario) -> None:
             "Esta venda já foi faturada (estoque baixado e contabilizado). "
             "O cancelamento após o faturamento exige estorno, ainda não disponível."
         )
+    status_anterior = venda.status
     venda.status = novo_status
+    if venda.pk:
+        registrar_historico_venda(
+            venda=venda,
+            novo_status=novo_status,
+            status_anterior=status_anterior,
+            usuario=usuario,
+            origem=origem,
+            observacoes=observacoes
+        )
+
+
+def desde_quando_no_status(venda):
+    """
+    Retorna datetime em que a venda entrou no status atual.
+    Busca o último registro de HistoricoStatusVenda com status_novo == venda.status.
+    Fallback: data_atualizacao ou data_venda.
+    """
+    from vendas.models import HistoricoStatusVenda
+    ultimo_hist = HistoricoStatusVenda.unscoped.filter(
+        venda=venda, status_novo=venda.status
+    ).order_by('-alterado_em').first()
+    if ultimo_hist and ultimo_hist.alterado_em:
+        return ultimo_hist.alterado_em
+    return getattr(venda, 'data_atualizacao', None) or getattr(venda, 'data_venda', None)
+
