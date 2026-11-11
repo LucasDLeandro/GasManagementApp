@@ -3,7 +3,7 @@ import datetime
 from django.http import HttpResponse, FileResponse
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.db.models import Q, Prefetch
+from django.db.models import Q, Prefetch, Count
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -300,12 +300,45 @@ class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
             elif reteste_val.lower() in ('false', '0'):
                 qs = qs.filter(data_proximo_reteste__gte=today)
 
+        reteste_ate_dias = params.get('reteste_ate_dias')
+        if reteste_ate_dias is not None:
+            try:
+                dias = int(reteste_ate_dias)
+                from produtos.services.reteste import filtro_reteste_proximo_ou_vencido
+                qs = qs.filter(filtro_reteste_proximo_ou_vencido(dias=dias, data_referencia=timezone.now().date()))
+            except (ValueError, TypeError):
+                pass
+
         filtro = params.get('filtro')
         if filtro == 'extravio_candidato':
             limite = timezone.now() - datetime.timedelta(days=180)
             qs = qs.filter(status='EM_POSSE_CLIENTE', posse_desde__lte=limite)
 
         return qs
+
+    @action(detail=False, methods=['get'], url_path='resumo')
+    def resumo(self, request):
+        """
+        Retorna indicadores agregados da frota de cilindros para o tenant (Sprint 01.01).
+        Executa em consulta única via Count com filtros condicionais.
+        """
+        hoje = timezone.localdate()
+        d30 = hoje + datetime.timedelta(days=30)
+
+        base_qs = super().get_queryset()
+
+        dados = base_qs.aggregate(
+            total=Count('id'),
+            cheios_patio=Count('id', filter=Q(status='CHEIO_DISPONIVEL')),
+            em_clientes=Count('id', filter=Q(status='EM_POSSE_CLIENTE')),
+            vazios_triagem=Count('id', filter=Q(status='VAZIO_TRIAGEM')),
+            em_rota=Count('id', filter=Q(status='RESERVADO_ROTA')),
+            em_reteste=Count('id', filter=Q(status__in=['EM_RETESTE', 'EM_REQUALIFICACAO'])),
+            bloqueados=Count('id', filter=Q(bloqueio_sanitario=True)),
+            reteste_vencido=Count('id', filter=Q(data_proximo_reteste__lt=hoje) & ~Q(status='BAIXADO')),
+            reteste_30_dias=Count('id', filter=Q(data_proximo_reteste__lte=d30) & ~Q(status='BAIXADO')),
+        )
+        return Response(dados, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], url_path='calcular-indenizacao')
     def calcular_indenizacao(self, request, pk=None):
