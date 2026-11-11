@@ -41,7 +41,8 @@ class FaseFinalConsolidacaoTests(TestCase):
         self.tenant = Tenant.objects.create(
             cnpj='11.222.333/0001-44',
             razao_social='Oxigênio Medicinal Paulistano Ltda',
-            nome_fantasia='OxiPaulistano'
+            nome_fantasia='OxiPaulistano',
+            modulo_envase_ativo=True,
         )
 
         with tenant_context(self.tenant):

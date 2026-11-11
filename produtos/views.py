@@ -1,8 +1,8 @@
 import csv
 import datetime
-from django.http import HttpResponse, FileResponse
+from django.http import HttpResponse, FileResponse, HttpResponseBadRequest
 from django.utils import timezone
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.db.models import Q, Prefetch, Count
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
@@ -13,7 +13,7 @@ from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 
 
-from core.guards import assert_modulo, assert_tenant_writable
+from core.guards import assert_modulo, assert_tenant_writable, is_modulo_ativo
 from core.mixins import TenantViewSetMixin
 from core.permissions import (
     IsTenantMember,
@@ -1805,7 +1805,12 @@ class EtiquetaCascoView(LoginRequiredMixin, View):
 
         import qrcode
         url_passaporte = request.build_absolute_uri(f"/v/cilindro/{cilindro.codigo_qr}/")
-        qr = qrcode.QRCode(version=1, box_size=4, border=1)
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=10,
+            border=1,
+        )
         qr.add_data(url_passaporte)
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
@@ -1828,18 +1833,63 @@ class EtiquetaColarinhoView(LoginRequiredMixin, View):
     Acionável a partir de LoteEnvase (lote_id) ou de Cilindro com envase ativo (cilindro_id).
     """
     def get(self, request, pk=None, lote_id=None, cilindro_id=None):
+        tenant = getattr(request, 'tenant', None)
+        if not request.user.is_superuser:
+            if not tenant or not is_modulo_ativo(tenant, 'envase'):
+                raise PermissionDenied("Módulo de envase inativo para esta empresa.")
+
         target_lote_id = lote_id or (pk if 'lote' in request.path else None)
         target_cilindro_id = cilindro_id or (pk if 'cilindro' in request.path else None)
 
         lote = None
-        cilindro = None
-        pressao_bar = None
+        etiquetas = []
 
         if target_lote_id:
             lote = LoteEnvase.objects.filter(pk=target_lote_id).select_related('gas', 'responsavel_tecnico_fk', 'tenant').first()
             if not lote and request.user.is_superuser:
                 lote = LoteEnvase.unscoped.filter(pk=target_lote_id).select_related('gas', 'responsavel_tecnico_fk', 'tenant').first()
-            pressao_bar = 200
+            if not lote:
+                raise Http404("Lote de envase não encontrado.")
+
+            # Validação estrita de ?envase_ids=
+            envase_ids_param = request.GET.get('envase_ids')
+            ids_solicitados = None
+            if envase_ids_param is not None:
+                partes = [p.strip() for p in envase_ids_param.split(',')]
+                if not partes or any(not p.isdigit() for p in partes):
+                    return HttpResponseBadRequest("Parâmetro envase_ids inválido: informe apenas inteiros separados por vírgula.")
+                ids_solicitados = [int(p) for p in partes]
+                if not ids_solicitados:
+                    return HttpResponseBadRequest("Nenhum ID de envase informado.")
+
+            envases_qs = EnvaseCilindro.objects.filter(lote=lote).select_related(
+                'cilindro__gas_dedicado', 'cilindro__modelo', 'operador'
+            )
+            if request.user.is_superuser:
+                envases_qs = EnvaseCilindro.unscoped.filter(lote=lote).select_related(
+                    'cilindro__gas_dedicado', 'cilindro__modelo', 'operador'
+                )
+
+            if ids_solicitados is not None:
+                encontrados = list(envases_qs.filter(id__in=ids_solicitados).values_list('id', flat=True))
+                if set(encontrados) != set(ids_solicitados):
+                    return HttpResponseBadRequest("Um ou mais IDs de envase são inválidos ou não pertencem a este lote/empresa.")
+                envases_qs = envases_qs.filter(id__in=ids_solicitados)
+
+            for env in envases_qs:
+                etiquetas.append({
+                    'envase': env,
+                    'cilindro': env.cilindro,
+                    'pressao_final_bar': env.pressao_final_bar,
+                    'massa_liquida_gas_kg': env.massa_liquida_gas_kg,
+                    'data_envase': env.envasado_em,
+                    'data_validade': lote.data_validade,
+                    'pureza_percentual': lote.pureza_percentual,
+                    'lote': lote,
+                    'gas': env.cilindro.gas_dedicado or lote.gas,
+                    'tenant': lote.tenant,
+                })
+
         elif target_cilindro_id:
             cilindro = Cilindro.objects.filter(pk=target_cilindro_id).select_related(
                 'gas_dedicado', 'modelo', 'tenant', 'envase_atual__lote__responsavel_tecnico_fk', 'envase_atual__lote__gas'
@@ -1848,15 +1898,27 @@ class EtiquetaColarinhoView(LoginRequiredMixin, View):
                 cilindro = Cilindro.unscoped.filter(pk=target_cilindro_id).select_related(
                     'gas_dedicado', 'modelo', 'tenant', 'envase_atual__lote__responsavel_tecnico_fk', 'envase_atual__lote__gas'
                 ).first()
-            if cilindro and cilindro.envase_atual:
-                lote = cilindro.envase_atual.lote
-                pressao_bar = cilindro.envase_atual.pressao_final_bar or (cilindro.modelo.pressao_servico_bar if cilindro.modelo else 200)
+            if not cilindro or not cilindro.envase_atual:
+                raise Http404("Cilindro ou envase ativo não encontrado para impressão de colarinho.")
+
+            env = cilindro.envase_atual
+            lote = env.lote
+            etiquetas.append({
+                'envase': env,
+                'cilindro': cilindro,
+                'pressao_final_bar': env.pressao_final_bar or (cilindro.modelo.pressao_servico_bar if cilindro.modelo else 200),
+                'massa_liquida_gas_kg': env.massa_liquida_gas_kg,
+                'data_envase': env.envasado_em,
+                'data_validade': lote.data_validade,
+                'pureza_percentual': lote.pureza_percentual,
+                'lote': lote,
+                'gas': cilindro.gas_dedicado or lote.gas,
+                'tenant': cilindro.tenant,
+            })
 
         if not lote:
             raise Http404("Lote ou envase ativo não encontrado para impressão de colarinho.")
 
-        gas = lote.gas
-        tenant = lote.tenant
         rt = lote.responsavel_tecnico_fk
         if not rt and getattr(lote, 'rt_nome_snapshot', None):
             class RTSnapshot:
@@ -1867,17 +1929,15 @@ class EtiquetaColarinhoView(LoginRequiredMixin, View):
                     self.numero_registro = l.rt_registro_snapshot or ''
             rt = RTSnapshot(lote)
         if not rt:
-            perfil = getattr(tenant, 'perfil_regulatorio', None)
+            perfil = getattr(lote.tenant, 'perfil_regulatorio', None)
             if perfil:
                 rt = perfil.responsavel_tecnico_vigente
 
         return render(request, 'produtos/etiqueta_colarinho.html', {
             'lote': lote,
-            'cilindro': cilindro,
-            'gas': gas,
-            'tenant': tenant,
+            'etiquetas': etiquetas,
+            'tenant': lote.tenant,
             'rt': rt,
-            'pressao_bar': pressao_bar,
         })
 
 
