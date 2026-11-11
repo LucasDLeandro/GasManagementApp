@@ -11,7 +11,7 @@ from core.models import Membership
 
 TRANSICOES_VENDA: dict[str, set[str]] = {
     'Pendente': {'Faturada', 'Em Separação', 'Cancelada', 'BLOQUEADO_FINANCEIRO'},
-    'BLOQUEADO_FINANCEIRO': {'Cancelada', 'Pendente'},
+    'BLOQUEADO_FINANCEIRO': {'Cancelada'},
     'Faturada': {'Em Separação', 'Finalizada', 'Cancelada'},
     'Em Separação': {'Em Rota', 'Entregue', 'Finalizada', 'Cancelada'},
     'Em Rota': {'Entregue', 'Finalizada', 'Cancelada'},
@@ -36,13 +36,17 @@ def validar_origem_e_usuario(origem: str, usuario) -> None:
         raise ValidationError(f"Origem desconhecida: '{origem}'.")
 
 
-def validar_transicao_venda(venda, novo_status: str) -> None:
+def validar_transicao_venda(venda, novo_status: str, origem: str = 'TELA') -> None:
     atual = venda.status
     if novo_status == atual:
         raise ValidationError(f"A venda #{venda.id} já está em '{atual}'.")
-    if atual == 'BLOQUEADO_FINANCEIRO' and novo_status not in ('Cancelada', 'Pendente'):
+    if atual == 'BLOQUEADO_FINANCEIRO' and novo_status != 'Cancelada':
         raise ValidationError(
             "Venda bloqueada por crédito: libere o bloqueio (com motivo) antes de alterar o status."
+        )
+    if novo_status == 'BLOQUEADO_FINANCEIRO' and origem != 'SISTEMA':
+        raise ValidationError(
+            "O status 'BLOQUEADO_FINANCEIRO' é restrito ao sistema de avaliação de crédito."
         )
     permitidas = TRANSICOES_VENDA.get(atual, set())
     if novo_status not in permitidas:
@@ -102,8 +106,9 @@ def transicionar_venda(
 ) -> None:
     """Valida papel, origem e transição. Atualiza o status da venda e registra o histórico."""
     validar_origem_e_usuario(origem, usuario)
-    validar_papel_alteracao(usuario, venda.tenant)
-    validar_transicao_venda(venda, novo_status)
+    if origem in ('TELA', 'APP_CAMPO'):
+        validar_papel_alteracao(usuario, venda.tenant)
+    validar_transicao_venda(venda, novo_status, origem=origem)
     if novo_status == 'Cancelada' and estoque_ja_baixado(venda):
         raise ValidationError(
             "Esta venda já foi faturada (estoque baixado e contabilizado). "

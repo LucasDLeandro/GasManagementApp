@@ -2,7 +2,7 @@
 
 **Data:** 11/11/2026  
 **Branch:** `sprint-01b.00/historico-status`  
-**Status:** Concluída com sucesso após correções da revisão (Aguardando aprovação do dono para iniciar a Entrega 01B.01)
+**Status:** Concluída com sucesso após correções das revisões 1 e 2 (Aguardando aprovação do dono para iniciar a Entrega 01B.01)
 
 ---
 
@@ -16,11 +16,12 @@
   - `@transaction.atomic`: garante consistência atômica entre a alteração do modelo e a gravação do histórico.
   - O próprio `transicionar_venda` persiste `status` e `data_atualizacao` via `save(update_fields=['status', 'data_atualizacao'])`. Quem chama não precisa salvar o status novamente. Se a validação falhar, nem status nem histórico são alterados.
   - `validar_origem_e_usuario`: exige obrigatoriamente usuário autenticado para operações com `origem='TELA'` ou `'APP_CAMPO'`. `usuario=None` é aceito estritamente para `origem='SISTEMA'` ou `'API'`.
-  - `TRANSICOES_VENDA`: atualizado para permitir a transição comercial para `BLOQUEADO_FINANCEIRO` e a liberação formal para `Pendente`.
+  - **Checagem de papel restrita:** `validar_papel_alteracao` só é executada quando a origem for `'TELA'` ou `'APP_CAMPO'`. Em chamadas com `origem='SISTEMA'` (cascata de entrega, sinistros, avaliação de crédito), o usuário que iniciou o evento é gravado no histórico para auditoria sem que seja exigido papel comercial dele.
+  - `TRANSICOES_VENDA`: estritamente blindada. `BLOQUEADO_FINANCEIRO` só permite transição para `Cancelada` na máquina de estados. O desbloqueio é exclusivo do serviço formal `liberar_bloqueio_venda`. A entrada em `BLOQUEADO_FINANCEIRO` só é permitida via `origem='SISTEMA'`.
   - `desde_quando_no_status(venda)`: consulta temporal que retorna a data/hora em que a venda entrou no status atual, com fallback seguro para `data_atualizacao` ou `data_venda`.
 - **Rastreabilidade em todos os fluxos de Venda:**
   - `Venda.save()`: na criação (`is_new`), registra automaticamente a linha inicial do histórico.
-  - `vendas/serializers.py`: avaliação de crédito comercial na criação da venda agora transiciona formalmente para `BLOQUEADO_FINANCEIRO` com histórico (`origem='SISTEMA'`), substituindo o antigo `except Exception: pass` por tratamento e logging explícitos de `ValidationError` e `Exception` (Regra 3.9).
+  - `vendas/serializers.py`: avaliação de crédito comercial na criação da venda roda independentemente do módulo Financeiro (preservando o comportamento da Sprint 11C) e transiciona formalmente para `BLOQUEADO_FINANCEIRO` com histórico (`origem='SISTEMA'`), com tratamento e logging explícitos de `ValidationError` e `Exception` (Regra 3.9).
   - `vendas/services/liberacao_service.py` (`liberar_bloqueio_venda`): registra transição de `BLOQUEADO_FINANCEIRO` para `Pendente`.
   - `vendas/views.py` (`enviar_para_logistica`): transiciona via serviço de status.
   - `faturamento/views.py`: webhook de liquidação transiciona venda para `Em Separação` com rastro auditado.
@@ -54,18 +55,27 @@
 
 ---
 
-## 2. Correções da Revisão
+## 2. Correções Realizadas nas Revisões 1 e 2
 
-1. **Eliminação de alterações de status sem histórico e fim do `.update(status=)` em lote:**
+1. **Blindagem do Bloqueio Financeiro e Prevenção de Regressão do Bug 0.3.2 (Revisão 2):**
+   - `TRANSICOES_VENDA['BLOQUEADO_FINANCEIRO']` mantido estritamente como `{'Cancelada'}`.
+   - Qualquer tentativa de transicionar uma venda bloqueada para `Pendente` via tela ou API (ex.: action `alterar_status` chamada por VENDEDOR ou GERENTE) é sumariamente rejeitada com HTTP 400 (`test_13`).
+   - O desbloqueio continua sendo atribuição exclusiva de `vendas/services/liberacao_service.py::liberar_bloqueio_venda()`, que exige autorização formal, justificativa e grava LiberacaoBloqueio junto ao histórico.
+   - A transição `Pendente` → `BLOQUEADO_FINANCEIRO` é aceita apenas quando disparada com `origem='SISTEMA'`; chamadas diretas por usuário via API/tela recebem HTTP 400.
+2. **Cascata Automática com Auditoria de Usuário (Revisão 2):**
+   - A checagem de papel comercial em `transicionar_venda` (`validar_papel_alteracao`) foi restringida para `origem in ('TELA', 'APP_CAMPO')`.
+   - Quando um MOTORISTA despacha a entrega para `'Em Rota'` pelo PWA/API da logística, as vendas vinculadas transicionam com `origem='SISTEMA'`, gravando no histórico o `alterado_por=motorista` sem que o motorista precise ter permissões comerciais na empresa (`test_14`).
+3. **Avaliação de Crédito Comercial Desacoplada de Módulo (Revisão 2):**
+   - Restaurada a avaliação de crédito na criação do pedido independentemente da contratação do módulo financeiro (comportamento original da Sprint 11C), mantendo a gravação do histórico e o tratamento explícito de exceções.
+4. **Eliminação de alterações de status sem histórico e fim do `.update(status=)` em lote (Revisão 1):**
    - Em `EntregaViewSet.perform_update`, eliminou-se `updated_entrega.vendas.filter(...).update(status=...)`. Todas as vendas vinculadas são transicionadas uma a uma via `transicionar_venda` com `origem='SISTEMA'`.
    - `EntregaSerializer.status` tornado `read_only = True`. Mudanças de status via API/Tela passam obrigatoriamente pela validação e gravação de histórico.
-   - Em `vendas/serializers.py`, o bloqueio de crédito comercial na criação do pedido passa formalmente por `transicionar_venda(venda, 'BLOQUEADO_FINANCEIRO', origem='SISTEMA')` com auditoria dos motivos de bloqueio.
    - Em `logistica/services/seguros_sinistros.py`, cancelamentos de entregas/pedidos e reagendamento de viagens por sinistro passam por `transicionar_entrega` e `transicionar_venda`.
    - Adicionado teste estático rigoroso (`test_12_static_scan_sem_update_status_nem_atribuicao_direta_fora_services`) que varre o repositório inteiro via regex garantindo zero `.update(status=` em vendas/entregas e zero atribuições diretas fora dos serviços autorizados.
-2. **Consistência Atômica:**
+5. **Consistência Atômica (Revisão 1):**
    - `transicionar_venda` e `transicionar_entrega` decorados com `@transaction.atomic`. O próprio serviço persiste o novo status no banco de dados (`save(update_fields=[...])`).
    - Se qualquer validação falhar, nada é alterado no banco e nenhum histórico órfão é gravado (`test_09`).
-3. **Auditoria de Origem vs Usuário:**
+6. **Auditoria de Origem vs Usuário (Revisão 1):**
    - `usuario=None` só é aceito com `origem='SISTEMA'` ou `'API'`.
    - Com `origem='TELA'` ou `'APP_CAMPO'`, exige obrigatoriamente usuário autenticado, disparando `ValidationError` caso contrário (`test_08`).
 
@@ -78,7 +88,7 @@
 
 ---
 
-## 4. Decisões tomadas por premissa (Para validação do dono)
+## 4. Decisões tomadas por premissa e decisões pendentes para o dono
 
 ### Tabela `TRANSICOES_ENTREGA` (Premissas para validação do Dono do Produto)
 A máquina de estados da Entrega foi parametrizada em `logistica/services/status.py::TRANSICOES_ENTREGA` com as seguintes transições permitidas:
@@ -98,12 +108,15 @@ A máquina de estados da Entrega foi parametrizada em `logistica/services/status
 5. **`Cancelada` → `{'Agendada'}` (Premissa para o dono validar):**
    - Permite reativar ou reagendar uma entrega anteriormente cancelada para uma nova tentativa operacional sem necessidade de recriar o romaneio do zero.
 
+### Decisão pendente para o dono (Módulo Financeiro vs Avaliação de Crédito Comercial)
+- **Avaliação de crédito comercial na criação da venda:** Atualmente, a avaliação de crédito comercial ocorre independentemente de a empresa ter contratado o módulo Financeiro (comportamento herdado da Sprint 11C). Fica registrado como decisão pendente para o Dono do Produto definir se empresas sem o módulo Financeiro ativo devem ou não ter a avaliação e bloqueio automático de pedidos de venda.
+
 ---
 
 ## 5. Resultado da suíte de testes
 
 - **Comando:** `venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`
-- **Total de testes:** **722 passed**, 4 warnings em 2m54s.
+- **Total de testes:** **724 passed**, 4 warnings em 2m47s.
 - **Zero falhas.**
 
 ---
@@ -113,7 +126,8 @@ A máquina de estados da Entrega foi parametrizada em `logistica/services/status
 1. `eb3b84d`: `feat(vendas): modelo HistoricoStatusVenda, servico de transicao e rastreabilidade`
 2. `84f73f6`: `feat(logistica): modelo HistoricoStatusEntrega, servico de transicao e rastreabilidade`
 3. `4f42de0`: `test(vendas): testes de historico de status de vendas e entregas`
-4. `[commit de correções]`: `fix(vendas,logistica): fechamento de brechas de transicao sem historico, atomicidade e rastreabilidade estrita`
+4. `aed1fce`: `fix(vendas,logistica): correcoes da revisao da entrega 01b.00 para rastreabilidade estrita e atomicidade`
+5. `[commit atual]`: `fix(vendas): protecao contra desbloqueio indevido de credito e cascata com auditoria de usuario`
 
 ---
 
@@ -144,6 +158,8 @@ A máquina de estados da Entrega foi parametrizada em `logistica/services/status
 - [x] **Falha antes:** `EntregaSerializer.status` é `read_only` e PATCH na API transiciona individualmente cada venda vinculada (`test_10_entrega_serializer_status_read_only_e_patch_transiciona_vendas`).
 - [x] **Falha antes:** Cancelamento e reagendamento por sinistro usam serviços de transição auditados (`test_11_sinistros_reagendamento_e_cancelamento_usam_transicoes`).
 - [x] **Falha antes:** Verificação estática com zero `.update(status=` em vendas/entregas e zero atribuição direta fora dos serviços autorizados (`test_12_static_scan_sem_update_status_nem_atribuicao_direta_fora_services`).
+- [x] **Falha antes (Revisão 2):** `BLOQUEADO_FINANCEIRO` protegido contra desbloqueio indevido por vendedor/gerente em `alterar_status`, bloqueio direto por usuário negado, e liberação formal preservada (`test_13_revisao2_bloqueio_financeiro_protegido_contra_desbloqueio_indevido`).
+- [x] **Falha antes (Revisão 2):** Motorista despacha entrega em cascata automática sem erro de papel comercial e com auditoria de usuário (`test_14_revisao2_cascata_automatica_motorista_despacha_entrega_e_vendas_mudam`).
 
 ---
 
@@ -162,7 +178,7 @@ A máquina de estados da Entrega foi parametrizada em `logistica/services/status
 3. **Suíte Geral de Testes:**
    ```
    > venv/Scripts/python.exe -m pytest -q -p no:cacheprovider
-   ================= 722 passed, 4 warnings in 174.05s (0:02:54) =================
+   ================= 724 passed, 4 warnings in 167.18s (0:02:47) =================
    ```
 4. **Integridade de Documentação:**
    - Comentários e regras do sistema preservados.

@@ -534,5 +534,135 @@ class HistoricoStatusVendaEntregaTests(TestCase):
             ])
             self.assertTrue(eh_valido, f"Atribuição direta não permitida em: {l}")
 
+    # --------------------------------------------------------------------------
+    # 12. REVISÃO 2: BLOQUEIO FINANCEIRO PROTEGIDO CONTRA DESBLOQUEIO INDEVIDO (0.3.2)
+    # --------------------------------------------------------------------------
+
+    def test_13_revisao2_bloqueio_financeiro_protegido_contra_desbloqueio_indevido(self):
+        """
+        Garante que:
+        - BLOQUEADO_FINANCEIRO só transiciona para Cancelada na máquina de estados.
+        - VENDEDOR e GERENTE recebem 400 no alterar_status de BLOQUEADO_FINANCEIRO para Pendente.
+        - alterar_status para BLOQUEADO_FINANCEIRO recebe 400 (só aceito com origem='SISTEMA').
+        - liberar_bloqueio_venda formal continua funcionando e grava histórico.
+        """
+        from rest_framework.test import APIClient
+        from vendas.services.liberacao_service import liberar_bloqueio_venda
+
+        with tenant_context(self.tenant_a):
+            venda_bloqueada = Venda.objects.create(
+                tenant=self.tenant_a,
+                cliente=self.cliente_a,
+                status='BLOQUEADO_FINANCEIRO'
+            )
+            venda_pendente = Venda.objects.create(
+                tenant=self.tenant_a,
+                cliente=self.cliente_a,
+                status='Pendente'
+            )
+
+        client = APIClient()
+
+        # 1. VENDEDOR tenta alterar_status de BLOQUEADO_FINANCEIRO -> Pendente => 400
+        client.force_authenticate(user=self.user_vendedor)
+        resp = client.post(
+            f"/vendas/api/{venda_bloqueada.id}/alterar_status/",
+            {'status': 'Pendente'},
+            format='json'
+        )
+        self.assertEqual(resp.status_code, 400, "Vendedor não pode desbloquear venda via alterar_status")
+
+        # 2. GERENTE tenta alterar_status de BLOQUEADO_FINANCEIRO -> Pendente => 400
+        client.force_authenticate(user=self.user_gerente)
+        resp = client.post(
+            f"/vendas/api/{venda_bloqueada.id}/alterar_status/",
+            {'status': 'Pendente'},
+            format='json'
+        )
+        self.assertEqual(resp.status_code, 400, "Gerente não pode furar liberacao_bloqueio_venda via alterar_status")
+
+        # 3. Tentativa de alterar_status para BLOQUEADO_FINANCEIRO por tela/API => 400
+        resp = client.post(
+            f"/vendas/api/{venda_pendente.id}/alterar_status/",
+            {'status': 'BLOQUEADO_FINANCEIRO'},
+            format='json'
+        )
+        self.assertEqual(resp.status_code, 400, "BLOQUEADO_FINANCEIRO é restrito a avaliação de crédito comercial")
+
+        # 4. Liberação formal via liberar_bloqueio_venda funciona e grava histórico
+        with tenant_context(self.tenant_a):
+            liberar_bloqueio_venda(
+                venda_bloqueada,
+                usuario=self.user_gerente,
+                motivo="Limite extraordinário autorizado"
+            )
+            venda_bloqueada.refresh_from_db()
+            self.assertEqual(venda_bloqueada.status, 'Pendente')
+            self.assertTrue(venda_bloqueada.historico_status.filter(
+                status_anterior='BLOQUEADO_FINANCEIRO',
+                status_novo='Pendente',
+                alterado_por=self.user_gerente
+            ).exists())
+
+    # --------------------------------------------------------------------------
+    # 13. REVISÃO 2: CASCATA AUTOMÁTICA MOTORISTA DESPACHA ENTREGA
+    # --------------------------------------------------------------------------
+
+    def test_14_revisao2_cascata_automatica_motorista_despacha_entrega_e_vendas_mudam(self):
+        """
+        Quando um MOTORISTA despacha a entrega para 'Em Rota' (via PATCH),
+        as vendas vinculadas devem ser transicionadas com origem='SISTEMA'.
+        A validação de papel comercial não deve barrar o motorista,
+        mas o histórico deve registrar o usuário motorista que disparou o evento.
+        """
+        from rest_framework.test import APIClient
+
+        # Cria usuário motorista na empresa A
+        user_motorista = User.objects.create_user(
+            username="motorista_teste",
+            email="motorista@teste.com",
+            password="pwd"
+        )
+        Membership.objects.create(
+            tenant=self.tenant_a,
+            user=user_motorista,
+            papel='MOTORISTA',
+            ativo=True
+        )
+
+        with tenant_context(self.tenant_a):
+            entrega = Entrega.objects.create(
+                tenant=self.tenant_a,
+                status='Agendada'
+            )
+            venda = Venda.objects.create(
+                tenant=self.tenant_a,
+                cliente=self.cliente_a,
+                entrega=entrega,
+                status='Em Separação'
+            )
+
+        client = APIClient()
+        client.force_authenticate(user=user_motorista)
+
+        resp = client.patch(
+            f"/logistica/api/entregas/{entrega.id}/",
+            {'status': 'Em Rota'},
+            format='json'
+        )
+        self.assertEqual(resp.status_code, 200, f"Motorista deve conseguir despachar entrega: {resp.data}")
+
+        with tenant_context(self.tenant_a):
+            entrega.refresh_from_db()
+            venda.refresh_from_db()
+            self.assertEqual(entrega.status, 'Em Rota')
+            self.assertEqual(venda.status, 'Em Rota')
+
+            # Venda deve ter histórico de Em Rota com origem='SISTEMA' e alterado_por=user_motorista
+            hist = venda.historico_status.filter(status_novo='Em Rota').first()
+            self.assertIsNotNone(hist)
+            self.assertEqual(hist.origem, 'SISTEMA')
+            self.assertEqual(hist.alterado_por, user_motorista)
+
 
 
