@@ -89,7 +89,8 @@ def atualizar_status_parada(
     ).count()
 
     if paradas_restantes == 0 and entrega.status == 'Em Rota':
-        entrega.status = 'Concluída'
+        from logistica.services.status import transicionar_entrega
+        transicionar_entrega(entrega, 'Concluída', usuario=usuario, origem='APP_CAMPO', observacoes='Todas as paradas foram concluídas.')
         entrega.save(update_fields=['status'])
 
     return parada

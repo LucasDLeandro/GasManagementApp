@@ -1093,8 +1093,10 @@ class EntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         Finaliza a rota/romaneio de entrega e dispara webhook 'romaneio.concluido'.
         """
         entrega = self.get_object()
-        entrega.status = 'Concluída'
-        entrega.save(update_fields=['status'])
+        if entrega.status != 'Concluída':
+            from logistica.services.status import transicionar_entrega
+            transicionar_entrega(entrega, 'Concluída', usuario=request.user, origem='TELA', observacoes='Conclusão manual de romaneio.')
+            entrega.save(update_fields=['status'])
 
         # Dispara webhook para sistemas externos / ERP
         try:
@@ -1287,7 +1289,8 @@ class EntregaViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
             # Se a saída estiver liberada e o operador solicitar iniciar rota
             iniciar_rota = str(request.data.get('iniciar_rota', '')).lower() in ('true', '1')
             if iniciar_rota and saida_liberada and entrega.status == 'Agendada':
-                entrega.status = 'Em Rota'
+                from logistica.services.status import transicionar_entrega
+                transicionar_entrega(entrega, 'Em Rota', usuario=request.user, origem='TELA', observacoes='Conferência de saída liberada.')
                 entrega.data_saida = timezone.now()
                 entrega.save(update_fields=['status', 'data_saida'])
 
