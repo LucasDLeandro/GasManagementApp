@@ -15,7 +15,8 @@
 - **Validação e regras de negócio na geração de etiquetas de colarinho (`EtiquetaColarinhoView`):**
   - Implementada validação estrita do parâmetro `?envase_ids=`: aceita apenas inteiros positivos separados por vírgula; todos devem pertencer obrigatoriamente ao lote informado e à mesma empresa (tenant). Qualquer ID inválido, inexistente, de outro lote ou de outra empresa responde `400 Bad Request`.
   - Se o lote não possuir nenhum cilindro envasado (ou nenhum envase válido selecionado), a view renderiza um estado vazio sem conteúdo imprimível ("Nenhum cilindro envasado neste lote"), eliminando a emissão de colarinho genérico sem cilindro.
-  - Eliminação de valores fixos de pressão: cada etiqueta agora exibe a pressão real registrada no envase (`EnvaseCilindro.pressao_final_bar`) e, se preenchida, a massa líquida de gás (`EnvaseCilindro.massa_liquida_gas_kg`), além do código do cilindro correspondente.
+  - Eliminação de valores fixos de pressão: cada etiqueta agora exibe a pressão real registrada no envase (`EnvaseCilindro.pressao_final_bar`) e, se preenchida, a massa líquida de gás (`EnvaseCilindro.massa_liquida_gas_kg`), além do código do cilindro correspondente. Na rota por cilindro, removido o fallback para pressão de serviço do modelo ou 200 bar fixo.
+  - Exibição de "Pressão não aferida": sem `pressao_final_bar` no envase, o colarinho exibe "Pressão não aferida" (nunca um número não medido).
   - Guarda de autorização e módulo: acesso restrito a empresas com o módulo `envase` ativo (`empresa.modulo_envase_ativo`).
   - Isolamento multi-tenant: busca do lote filtrada pelo tenant atual (`LoteEnvase.objects.filter(empresa=tenant)`), com suporte a superusuário via `.unscoped`.
 - **Geração precisa do QR Code no casco (`EtiquetaCascoView`):**
@@ -50,6 +51,8 @@
    - Em `CilindroViewSet.resumo`, `total` e `bloqueados` não filtravam `status != 'BAIXADO'`. Ajustado para manter consistência com as regras da frota ativa.
 4. **Regressão de asserção em teste legado de consolidação:**
    - O teste `test_etiqueta_casco_60x40_geracao` em `core/tests/test_fase_final_consolidacao.py` procurava a string `"60mm 40mm"` dentro do HTML da etiqueta do casco (que antes residia no `<style>` removido) e o tenant não possuía o módulo `envase` ativo. Adicionado atributo semântico `data-size="60mm 40mm"` na tag container e ativado `modulo_envase_ativo=True` no tenant da fixture.
+5. **Pressão inventada no colarinho na rota por cilindro:**
+   - Na rota `/produtos/cilindros/<pk>/etiqueta-colarinho/`, havia fallback para a pressão de serviço do modelo ou 200 bar fixo. Removido o fallback e ajustado o template para renderizar "Pressão não aferida" quando não informada no envase.
 
 ---
 
@@ -77,7 +80,7 @@
 ## 5. Resultado da suíte de testes
 
 - **Comando:** `venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`
-- **Total de testes:** **709 passed**, 4 warnings em 2m51s.
+- **Total de testes:** **710 passed**, 4 warnings em 3m01s.
 - **Zero falhas.**
 
 ---
@@ -88,7 +91,8 @@
 2. `45d5af1`: `feat(produtos): views de etiqueta do casco e colarinho com dados reais de envase e isolamento`
 3. `05b37a7`: `feat(produtos): templates de etiquetas sem style inline e modais com preview iframe do servidor`
 4. `5446a47`: `test(produtos): testes da sprint 01.02 para etiquetas, medicao qr code e validacao de envases`
-5. `[commit seguinte]`: `docs: relatorio da sprint 01.02 e atualizacao do progresso`
+5. `616111f`: `docs: relatorio da sprint 01.02 e atualizacao do progresso`
+6. `fix(produtos): colarinho sem pressao inventada`
 
 ---
 
@@ -114,6 +118,7 @@
 - [x] Varredura estática: zero `style="` em `_modais.html`, zero `<style>` em `etiqueta_casco.html` e `etiqueta_colarinho.html`, e zero ocorrências de `[ QR CODE 2D ]` (`test_07_estatica_sem_style_inline_nem_layout_falso`).
 - [x] Varredura estática: `fase3_rampa_recebimento_lotes.js` sem montagem de etiqueta com `innerHTML` e sem cores fixas hexadecimais no colarinho (`test_08_estatica_rampa_sem_innerhtml_colarinho`).
 - [x] Resumo da frota exclui status `BAIXADO` e reaproveita o filtro unificado de reteste (`test_09_resumo_frota_exclui_baixados`).
+- [x] **Falha antes:** Rota por cilindro sem pressão inventada — envase sem `pressao_final_bar` não exibe "200 bar" e renderiza "Pressão não aferida" (`test_10_etiqueta_colarinho_rota_cilindro_sem_pressao_inventada`).
 
 ### Critérios de Aceite e Verificação em Navegador
 - [x] **Verificação automatizada e de integração:**
@@ -143,7 +148,7 @@ Abaixo estão os resultados das 7 verificações obrigatórias:
 3. **Suíte Geral de Testes:**
    ```
    > venv/Scripts/python.exe -m pytest -q -p no:cacheprovider
-   ================= 709 passed, 4 warnings in 171.82s (0:02:51) =================
+   ================= 710 passed, 4 warnings in 181.93s (0:03:01) =================
    ```
 4. **Verificação de Estilos Inline e Mockups Falsos:**
    ```
@@ -163,3 +168,4 @@ Abaixo estão os resultados das 7 verificações obrigatórias:
    - Comentários e regras existentes preservados.
 7. **Git Status:**
    - Working tree limpa antes do commit de documentação.
+

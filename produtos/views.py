@@ -1906,7 +1906,7 @@ class EtiquetaColarinhoView(LoginRequiredMixin, View):
             etiquetas.append({
                 'envase': env,
                 'cilindro': cilindro,
-                'pressao_final_bar': env.pressao_final_bar or (cilindro.modelo.pressao_servico_bar if cilindro.modelo else 200),
+                'pressao_final_bar': env.pressao_final_bar,
                 'massa_liquida_gas_kg': env.massa_liquida_gas_kg,
                 'data_envase': env.envasado_em,
                 'data_validade': lote.data_validade,

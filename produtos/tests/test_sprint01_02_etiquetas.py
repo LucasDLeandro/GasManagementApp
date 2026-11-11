@@ -399,3 +399,30 @@ class Sprint0102EtiquetasTests(TestCase):
         # ~0.629 mm por módulo (conforme ISO/IEC 18004, mínimo recomendado para leitura óptica confiável é 0.50mm)
         self.assertAlmostEqual(mm_por_modulo, 0.62857, places=4)
         self.assertGreater(mm_por_modulo, 0.50, "Dimensão do módulo inferior ao limite de legibilidade óptica")
+
+    # --------------------------------------------------------------------------
+    # 5. SEM PRESSÃO INVENTADA NO COLARINHO (ROTA POR CILINDRO)
+    # --------------------------------------------------------------------------
+
+    def test_10_etiqueta_colarinho_rota_cilindro_sem_pressao_inventada(self):
+        """
+        Rota por cilindro: quando o envase não possui pressao_final_bar,
+        não deve inventar pressão do modelo ou 200 bar fixo.
+        A página não contém '200 bar' e contém 'Pressão não aferida'.
+        """
+        from unittest.mock import patch, PropertyMock
+
+        with tenant_context(self.tenant):
+            self.cilindro_1.envase_atual = self.envase_1
+            self.cilindro_1.save()
+
+        self.client.force_login(self.user_comum)
+
+        with patch.object(EnvaseCilindro, 'pressao_final_bar', new_callable=PropertyMock, return_value=None):
+            resp = self.client.get(f"/produtos/cilindros/{self.cilindro_1.id}/etiqueta-colarinho/")
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        html = resp.content.decode("utf-8")
+        self.assertNotIn("200 bar", html)
+        self.assertIn("Pressão não aferida", html)
+

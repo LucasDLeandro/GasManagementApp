@@ -64,7 +64,7 @@
                 </div>
                 <div class="colarinho-dado-item">
                     <span class="colarinho-dado-rotulo">Pressão Final (21°C)</span>
-                    <span class="colarinho-dado-valor">{{ item.pressao_final_bar }} bar</span>
+                    <span class="colarinho-dado-valor">{% if item.pressao_final_bar %}{{ item.pressao_final_bar }} bar{% else %}Pressão não aferida{% endif %}</span>
                 </div>
                 <div class="colarinho-dado-item">
                     <span class="colarinho-dado-rotulo">Pureza Mínima</span>
