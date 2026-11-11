@@ -2,16 +2,28 @@
 Máquina de estados e rastreabilidade temporal da Entrega (Sprint 01B - Tarefa 01B.1).
 Toda transição de status de Entrega passa por transicionar_entrega() ou grava histórico.
 """
+from django.db import transaction
+from django.utils import timezone
 from django.core.exceptions import ValidationError
 from logistica.models import Entrega, HistoricoStatusEntrega
 
 TRANSICOES_ENTREGA: dict[str, set[str]] = {
     'Agendada': {'Em Produção', 'Em Rota', 'Cancelada'},
     'Em Produção': {'Em Rota', 'Cancelada'},
-    'Em Rota': {'Concluída', 'Cancelada'},
+    'Em Rota': {'Concluída', 'Cancelada', 'Agendada'},  # Agendada: reentrega após sinistro / avaria
     'Concluída': set(),
-    'Cancelada': {'Agendada'},  # Ex.: reentrega após sinistro
+    'Cancelada': {'Agendada'},  # Nova tentativa ou reativação
 }
+
+
+def validar_origem_e_usuario(origem: str, usuario) -> None:
+    if origem in ('SISTEMA', 'API'):
+        return
+    if origem in ('TELA', 'APP_CAMPO'):
+        if usuario is None or (hasattr(usuario, 'is_authenticated') and not usuario.is_authenticated):
+            raise ValidationError(f"Operações com origem '{origem}' exigem um usuário autenticado.")
+    else:
+        raise ValidationError(f"Origem desconhecida: '{origem}'.")
 
 
 def validar_transicao_entrega(entrega: Entrega, novo_status: str) -> None:
@@ -46,6 +58,7 @@ def registrar_historico_entrega(
     )
 
 
+@transaction.atomic
 def transicionar_entrega(
     entrega: Entrega,
     novo_status: str,
@@ -53,11 +66,17 @@ def transicionar_entrega(
     origem: str = 'SISTEMA',
     observacoes: str = ''
 ) -> None:
-    """Valida papel/transição, atualiza o status da entrega e registra o histórico."""
+    """Valida papel/transição/origem, atualiza o status da entrega e registra o histórico."""
+    validar_origem_e_usuario(origem, usuario)
     validar_transicao_entrega(entrega, novo_status)
     status_anterior = entrega.status
     entrega.status = novo_status
     if entrega.pk:
+        fields = ['status']
+        if novo_status == 'Em Rota' and not entrega.data_saida:
+            entrega.data_saida = timezone.now()
+            fields.append('data_saida')
+        entrega.save(update_fields=fields)
         registrar_historico_entrega(
             entrega=entrega,
             novo_status=novo_status,

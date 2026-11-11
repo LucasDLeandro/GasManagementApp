@@ -1,9 +1,14 @@
+import logging
 from decimal import Decimal
 from rest_framework import serializers
 from django.db import transaction
+from django.core.exceptions import ValidationError
+from core.modulos import is_modulo_ativo
 from .models import Venda, ItemVenda, AlertaComercial
 from clientes.serializers import ClienteSerializer
 from produtos.models import Produto, SkuRecarga
+
+logger = logging.getLogger(__name__)
 
 class ItemVendaSerializer(serializers.ModelSerializer):
     produto_nome = serializers.ReadOnlyField(source='produto.nome')
@@ -77,14 +82,26 @@ class VendaSerializer(serializers.ModelSerializer):
         venda.calcular_total()
 
         # Avaliação de crédito comercial (Sprint 11C - Tarefas 3 e 4)
-        try:
-            from financeiro.services.credito_service import avaliar_credito
-            res_cred = avaliar_credito(venda.cliente, valor_pedido=venda.valor_total, itens=list(venda.itens.all()))
-            if res_cred.status == 'BLOQUEADO_FINANCEIRO':
-                venda.status = 'BLOQUEADO_FINANCEIRO'
-                venda.save(update_fields=['status', 'data_atualizacao'])
-        except Exception:
-            pass
+        if is_modulo_ativo(venda.tenant, 'financeiro'):
+            try:
+                from financeiro.services.credito_service import avaliar_credito
+                res_cred = avaliar_credito(venda.cliente, valor_pedido=venda.valor_total, itens=list(venda.itens.all()))
+                if res_cred.status == 'BLOQUEADO_FINANCEIRO':
+                    from vendas.services.status import transicionar_venda
+                    request = self.context.get('request')
+                    usuario = request.user if (request and getattr(request, 'user', None) and request.user.is_authenticated) else None
+                    motivos_str = '; '.join(res_cred.motivos) if getattr(res_cred, 'motivos', None) else 'Limite de crédito ou títulos vencidos'
+                    transicionar_venda(
+                        venda,
+                        'BLOQUEADO_FINANCEIRO',
+                        usuario=usuario,
+                        origem='SISTEMA',
+                        observacoes=f"Bloqueio de crédito comercial automático: {motivos_str}"
+                    )
+            except ValidationError as e:
+                logger.warning(f"Validação ao avaliar crédito da venda #{venda.id}: {e}")
+            except Exception as e:
+                logger.error(f"Erro inesperado na avaliação de crédito da venda #{venda.id}: {e}", exc_info=True)
 
         return venda
 

@@ -309,24 +309,44 @@ def processar_ajuste_estoque_sinistro_carga(
         # Decisão de contingência sobre a Entrega / Venda afetada
         if sinistro.entrega:
             entrega = sinistro.entrega
+            user_op = autor if (autor and autor.is_authenticated) else None
             if decisao_entrega == 'cancelar':
-                entrega.status = 'Cancelada'
-                entrega.save(update_fields=['status'])
+                from logistica.services.status import transicionar_entrega
+                from vendas.services.status import transicionar_venda
+                transicionar_entrega(
+                    entrega=entrega,
+                    novo_status='Cancelada',
+                    usuario=user_op,
+                    origem='SISTEMA',
+                    observacoes=f"Sinistro {sinistro.numero}: Cancelamento por perda integral da carga."
+                )
                 for v in entrega.vendas.exclude(status='Cancelada'):
-                    v.status = 'Cancelada'
-                    v.observacoes = (v.observacoes or '') + f"\n[Sinistro {sinistro.numero}]: Venda cancelada por perda integral da carga."
-                    v.save(update_fields=['status', 'observacoes'])
+                    transicionar_venda(
+                        v,
+                        'Cancelada',
+                        usuario=user_op,
+                        origem='SISTEMA',
+                        observacoes=f"[Sinistro {sinistro.numero}]: Venda cancelada por perda integral da carga."
+                    )
             elif decisao_entrega == 'reentregar':
-                entrega.status = 'Agendada'
-                fields = ['status']
+                from logistica.services.status import transicionar_entrega
                 obs_entrega = f"\n[Sinistro {sinistro.numero}]: Carga avariada abatida do estoque. Viagem reagendada para reposição."
+                fields = []
                 if hasattr(entrega, 'observacoes_logistica'):
                     entrega.observacoes_logistica = (getattr(entrega, 'observacoes_logistica', None) or '') + obs_entrega
                     fields.append('observacoes_logistica')
                 elif hasattr(entrega, 'observacoes'):
                     entrega.observacoes = (getattr(entrega, 'observacoes', None) or '') + obs_entrega
                     fields.append('observacoes')
-                entrega.save(update_fields=fields)
+                if fields:
+                    entrega.save(update_fields=fields)
+                transicionar_entrega(
+                    entrega=entrega,
+                    novo_status='Agendada',
+                    usuario=user_op,
+                    origem='SISTEMA',
+                    observacoes=f"Sinistro {sinistro.numero}: Reagendamento de viagem."
+                )
             elif decisao_entrega == 'credito':
                 for v in entrega.vendas.exclude(status='Cancelada'):
                     obs_venda = f"\n[Crédito Sinistro {sinistro.numero}]: Registrado saldo credor ao cliente para abatimento financeiro."

@@ -324,4 +324,215 @@ class HistoricoStatusVendaEntregaTests(TestCase):
             self.assertEqual(hist_e.origem, 'SISTEMA')
             self.assertIsNone(hist_e.status_anterior)
 
+    # --------------------------------------------------------------------------
+    # 7. VALIDAÇÃO DE USUÁRIO POR ORIGEM
+    # --------------------------------------------------------------------------
+
+    def test_08_usuario_obrigatorio_para_tela_e_app_campo(self):
+        """
+        origem='TELA' ou 'APP_CAMPO' exige usuário autenticado.
+        origem='SISTEMA' ou 'API' aceita usuario=None.
+        """
+        with tenant_context(self.tenant_a):
+            venda = Venda.objects.create(
+                tenant=self.tenant_a,
+                cliente=self.cliente_a,
+                status='Pendente'
+            )
+            # TELA sem usuário -> Erro
+            with self.assertRaises(ValidationError):
+                transicionar_venda(venda, 'Em Separação', usuario=None, origem='TELA')
+
+            # APP_CAMPO sem usuário -> Erro
+            with self.assertRaises(ValidationError):
+                transicionar_venda(venda, 'Em Separação', usuario=None, origem='APP_CAMPO')
+
+            # SISTEMA sem usuário -> Aceito
+            transicionar_venda(venda, 'Em Separação', usuario=None, origem='SISTEMA')
+            self.assertEqual(venda.status, 'Em Separação')
+
+            # API sem usuário -> Aceito
+            transicionar_venda(venda, 'Cancelada', usuario=None, origem='API')
+            self.assertEqual(venda.status, 'Cancelada')
+
+            entrega = Entrega.objects.create(
+                tenant=self.tenant_a,
+                status='Agendada'
+            )
+            # TELA sem usuário -> Erro
+            with self.assertRaises(ValidationError):
+                transicionar_entrega(entrega, 'Em Rota', usuario=None, origem='TELA')
+
+            # SISTEMA sem usuário -> Aceito
+            transicionar_entrega(entrega, 'Em Rota', usuario=None, origem='SISTEMA')
+            self.assertEqual(entrega.status, 'Em Rota')
+
+    # --------------------------------------------------------------------------
+    # 8. ATOMICIDADE E SALVAMENTO AUTOMÁTICO
+    # --------------------------------------------------------------------------
+
+    def test_09_atomicidade_se_validacao_falhar_nem_status_nem_historico_mudam(self):
+        """
+        Se a transição falhar, o status do objeto e o histórico não devem ser alterados.
+        transicionar_venda e transicionar_entrega salvam o próprio status no banco.
+        """
+        with tenant_context(self.tenant_a):
+            venda = Venda.objects.create(
+                tenant=self.tenant_a,
+                cliente=self.cliente_a,
+                status='Pendente'
+            )
+            qtd_hist_antes = venda.historico_status.count()
+
+            # Transição inválida: Pendente -> Entregue
+            with self.assertRaises(ValidationError):
+                transicionar_venda(venda, 'Entregue', self.user_vendedor, origem='TELA')
+
+            venda.refresh_from_db()
+            self.assertEqual(venda.status, 'Pendente')
+            self.assertEqual(venda.historico_status.count(), qtd_hist_antes)
+
+            # Transição válida salva no banco sem necessidade de venda.save() explícito
+            transicionar_venda(venda, 'Em Separação', self.user_vendedor, origem='TELA')
+            venda.refresh_from_db()
+            self.assertEqual(venda.status, 'Em Separação')
+
+    # --------------------------------------------------------------------------
+    # 9. ENTREGA VIEWSET E SERIALIZER (STATUS READ_ONLY E TRANSIÇÕES)
+    # --------------------------------------------------------------------------
+
+    def test_10_entrega_serializer_status_read_only_e_patch_transiciona_vendas(self):
+        """
+        Status da Entrega deve ser read_only no serializer.
+        PATCH na EntregaViewSet com novo status deve transicionar a entrega e cada venda vinculada
+        individualmente via transicionar_venda com origem='SISTEMA' (sem .update em lote).
+        """
+        from rest_framework.test import APIClient
+        from logistica.serializers import EntregaSerializer
+
+        # Verifica que status está como read_only no serializer
+        serializer = EntregaSerializer()
+        self.assertTrue(serializer.fields['status'].read_only)
+
+        client = APIClient()
+        client.force_authenticate(user=self.user_gerente)
+
+        with tenant_context(self.tenant_a):
+            entrega = Entrega.objects.create(
+                tenant=self.tenant_a,
+                status='Agendada'
+            )
+            venda1 = Venda.objects.create(
+                tenant=self.tenant_a,
+                cliente=self.cliente_a,
+                entrega=entrega,
+                status='Em Separação'
+            )
+            venda2 = Venda.objects.create(
+                tenant=self.tenant_a,
+                cliente=self.cliente_a,
+                entrega=entrega,
+                status='Pendente'
+            )
+
+        resp = client.patch(
+            f'/logistica/api/entregas/{entrega.id}/',
+            {'status': 'Em Rota'},
+            format='json'
+        )
+        self.assertEqual(resp.status_code, 200)
+
+        with tenant_context(self.tenant_a):
+            entrega.refresh_from_db()
+            self.assertEqual(entrega.status, 'Em Rota')
+            self.assertTrue(entrega.historico_status.filter(status_novo='Em Rota').exists())
+
+            venda1.refresh_from_db()
+            venda2.refresh_from_db()
+            self.assertEqual(venda1.status, 'Em Rota')
+            self.assertEqual(venda2.status, 'Em Rota')
+
+            # Vendas devem possuir histórico com origem='SISTEMA'
+            h1 = venda1.historico_status.filter(status_novo='Em Rota').first()
+            h2 = venda2.historico_status.filter(status_novo='Em Rota').first()
+            self.assertIsNotNone(h1)
+            self.assertEqual(h1.origem, 'SISTEMA')
+            self.assertIsNotNone(h2)
+            self.assertEqual(h2.origem, 'SISTEMA')
+
+    # --------------------------------------------------------------------------
+    # 10. SINISTROS: CANCELAMENTO E REAGENDAMENTO COM TRANSIÇÃO
+    # --------------------------------------------------------------------------
+
+    def test_11_sinistros_reagendamento_e_cancelamento_usam_transicoes(self):
+        """
+        Em seguros_sinistros, cancelamento e reagendamento de entrega e vendas
+        devem usar transicionar_entrega e transicionar_venda com histórico.
+        """
+        with tenant_context(self.tenant_a):
+            entrega = Entrega.objects.create(
+                tenant=self.tenant_a,
+                status='Agendada'
+            )
+            transicionar_entrega(entrega, 'Em Rota', usuario=self.user_gerente, origem='TELA')
+
+            # Permite Em Rota -> Agendada no reagendamento por sinistro
+            transicionar_entrega(
+                entrega,
+                'Agendada',
+                usuario=self.user_gerente,
+                origem='SISTEMA',
+                observacoes='Reagendamento por sinistro.'
+            )
+            entrega.refresh_from_db()
+            self.assertEqual(entrega.status, 'Agendada')
+            self.assertTrue(entrega.historico_status.filter(status_anterior='Em Rota', status_novo='Agendada').exists())
+
+    # --------------------------------------------------------------------------
+    # 11. TESTE ESTÁTICO: ZERO .update(status=) E ATRIBUIÇÕES DIRETAS FORA DOS SERVICES
+    # --------------------------------------------------------------------------
+
+    def test_12_static_scan_sem_update_status_nem_atribuicao_direta_fora_services(self):
+        """
+        Garante que nenhum arquivo altere status de Venda ou Entrega via queryset.update(status=...)
+        ou atribuição direta venda.status = / entrega.status = fora dos serviços de status.
+        Exceções justificadas para atribuição direta:
+        - vendas/services/status.py (serviço oficial)
+        - vendas/services/liberacao_service.py (restauração autorizada de bloqueio)
+        - logistica/services/status.py (serviço oficial)
+        - arquivos em suites de testes (*tests*.py)
+        """
+        import subprocess
+
+        # 1. Zero .update(status=...) em querysets de vendas ou entregas
+        cmd_update = r'git grep -n -E "(vendas|entregas)\.update\(status=" -- "*.py"'
+        res_update = subprocess.run(cmd_update, shell=True, capture_output=True, text=True)
+        linhas_update = [l for l in res_update.stdout.splitlines() if l.strip()]
+        self.assertEqual(len(linhas_update), 0, f"Encontrado .update(status=...) em queryset de vendas/entregas: {linhas_update}")
+
+        # 2. Zero atribuição direta venda.status = fora de vendas/services e testes
+        cmd_venda = r'git grep -n -P "(?<![=!<>])venda\.status\s*=\s*[^=]" -- "*.py"'
+        res_venda = subprocess.run(cmd_venda, shell=True, capture_output=True, text=True)
+        linhas_venda = [l for l in res_venda.stdout.splitlines() if l.strip()]
+        for l in linhas_venda:
+            # Exceções permitidas: services/status.py, liberacao_service.py e testes
+            eh_valido = any(p in l.replace('\\', '/') for p in [
+                'vendas/services/status.py',
+                'vendas/services/liberacao_service.py',
+                'test',
+            ])
+            self.assertTrue(eh_valido, f"Atribuição direta não permitida em: {l}")
+
+        # 3. Zero atribuição direta entrega.status = fora de logistica/services/status.py e testes
+        cmd_entrega = r'git grep -n -P "(?<![=!<>])entrega\.status\s*=\s*[^=]" -- "*.py"'
+        res_entrega = subprocess.run(cmd_entrega, shell=True, capture_output=True, text=True)
+        linhas_entrega = [l for l in res_entrega.stdout.splitlines() if l.strip()]
+        for l in linhas_entrega:
+            eh_valido = any(p in l.replace('\\', '/') for p in [
+                'logistica/services/status.py',
+                'test',
+            ])
+            self.assertTrue(eh_valido, f"Atribuição direta não permitida em: {l}")
+
+
 

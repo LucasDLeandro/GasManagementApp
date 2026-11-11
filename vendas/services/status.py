@@ -4,13 +4,14 @@ Máquina de estados da Venda (Plano de Correção, tarefa 0.3.2).
 Toda mudança de status feita por usuário passa por transicionar_venda().
 O bloqueio financeiro só é desfeito por liberacao_service.liberar_bloqueio_venda().
 """
+from django.db import transaction
 from django.core.exceptions import PermissionDenied, ValidationError
 
 from core.models import Membership
 
 TRANSICOES_VENDA: dict[str, set[str]] = {
-    'Pendente': {'Faturada', 'Em Separação', 'Cancelada'},
-    'BLOQUEADO_FINANCEIRO': {'Cancelada'},
+    'Pendente': {'Faturada', 'Em Separação', 'Cancelada', 'BLOQUEADO_FINANCEIRO'},
+    'BLOQUEADO_FINANCEIRO': {'Cancelada', 'Pendente'},
     'Faturada': {'Em Separação', 'Finalizada', 'Cancelada'},
     'Em Separação': {'Em Rota', 'Entregue', 'Finalizada', 'Cancelada'},
     'Em Rota': {'Entregue', 'Finalizada', 'Cancelada'},
@@ -25,11 +26,21 @@ STATUS_FATURAMENTO = {'Faturada', 'Finalizada'}
 PAPEIS_ALTERAR_STATUS = {'ADMIN', 'GERENTE', 'VENDEDOR', 'OPERADOR_PATIO'}
 
 
+def validar_origem_e_usuario(origem: str, usuario) -> None:
+    if origem in ('SISTEMA', 'API'):
+        return
+    if origem in ('TELA', 'APP_CAMPO'):
+        if usuario is None or (hasattr(usuario, 'is_authenticated') and not usuario.is_authenticated):
+            raise ValidationError(f"Operações com origem '{origem}' exigem um usuário autenticado.")
+    else:
+        raise ValidationError(f"Origem desconhecida: '{origem}'.")
+
+
 def validar_transicao_venda(venda, novo_status: str) -> None:
     atual = venda.status
     if novo_status == atual:
         raise ValidationError(f"A venda #{venda.id} já está em '{atual}'.")
-    if atual == 'BLOQUEADO_FINANCEIRO' and novo_status != 'Cancelada':
+    if atual == 'BLOQUEADO_FINANCEIRO' and novo_status not in ('Cancelada', 'Pendente'):
         raise ValidationError(
             "Venda bloqueada por crédito: libere o bloqueio (com motivo) antes de alterar o status."
         )
@@ -81,6 +92,7 @@ def registrar_historico_venda(
     )
 
 
+@transaction.atomic
 def transicionar_venda(
     venda,
     novo_status: str,
@@ -88,7 +100,8 @@ def transicionar_venda(
     origem: str = 'TELA',
     observacoes: str = ''
 ) -> None:
-    """Valida papel e transição. Atualiza o status da venda e registra o histórico."""
+    """Valida papel, origem e transição. Atualiza o status da venda e registra o histórico."""
+    validar_origem_e_usuario(origem, usuario)
     validar_papel_alteracao(usuario, venda.tenant)
     validar_transicao_venda(venda, novo_status)
     if novo_status == 'Cancelada' and estoque_ja_baixado(venda):
@@ -99,6 +112,7 @@ def transicionar_venda(
     status_anterior = venda.status
     venda.status = novo_status
     if venda.pk:
+        venda.save(update_fields=['status', 'data_atualizacao'])
         registrar_historico_venda(
             venda=venda,
             novo_status=novo_status,
