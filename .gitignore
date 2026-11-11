@@ -50,3 +50,6 @@ staticfiles/
 
 # Chaves privadas
 *.pem
+
+# Output temporario / exports
+Claude outputs/
