@@ -1,71 +1,126 @@
-    <!-- ============================================================================== -->
-    <!-- ABA 1: ATIVOS 360° (CILINDROS DA FROTA)                                        -->
-    <!-- ============================================================================== -->
-    <div id="aba-conteudo-ativos">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-            <div>
-                <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0;">Frota de Cilindros & Ativos 360°</h2>
-                <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Gestão patrimonial com rastreabilidade imutável, ABNT NBR 12176 e controle regulatório INMETRO/ANVISA.</p>
-            </div>
-            
-            <div class="search-bar-container" style="margin: 0;">
-                <div class="search-input-wrapper">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                    <input type="text" id="input-busca-cilindros" placeholder="Buscar por QR, Nº Série Ogiva ou Fabricante...">
-                </div>
-            </div>
-            {% if pode_cadastrar_cilindro %}
-            <button type="button" class="btn-primary" id="btn-novo-cilindro">Cadastrar cilindro</button>
-            {% endif %}
+<!-- ============================================================================== -->
+<!-- ABA 1: ATIVOS 360° (CILINDROS DA FROTA) — REDESENHADA SPRINT 01.01              -->
+<!-- ============================================================================== -->
+<div id="aba-conteudo-ativos">
+    <div class="ativos-header">
+        <div>
+            <h2 class="ativos-title">Frota de Cilindros & Ativos 360°</h2>
+            <p class="ativos-subtitle">Gestão patrimonial com rastreabilidade imutável, ABNT NBR 12176 e controle
+                regulatório INMETRO/ANVISA.</p>
         </div>
 
-        <!-- Barra de Pílulas de Filtros Rápidos -->
-        <div class="filter-pills-bar">
-            <button class="pill-filter-btn active" data-filter="todos">Todos</button>
-            <button class="pill-filter-btn" data-filter="CHEIO_DISPONIVEL">Cheios no Pátio</button>
-            {% if tem_modulo_distribuicao %}
-            <button class="pill-filter-btn" data-filter="EM_POSSE_CLIENTE">Em Clientes</button>
-            {% endif %}
-            <button class="pill-filter-btn" data-filter="VAZIO_TRIAGEM">Vazios em Triagem</button>
-            <button class="pill-filter-btn" data-filter="bloqueio_sanitario">Bloqueio Sanitário</button>
-            <button class="pill-filter-btn" data-filter="reteste_vencido">Reteste Vencido</button>
-            <button class="pill-filter-btn" data-filter="proprio">Patrimônio Próprio</button>
-        </div>
-
-        <!-- Tabela Server-Side de Cilindros -->
-        <div class="table-container" style="border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-                <thead>
-                    <tr style="background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
-                        <th style="padding: 12px 16px;">Código QR / Ogiva</th>
-                        <th style="padding: 12px 16px;">Gás (ABNT NBR 12176)</th>
-                        <th style="padding: 12px 16px;">Capacidade / Tara</th>
-                        <th style="padding: 12px 16px;">Status Operacional</th>
-                        <th style="padding: 12px 16px;">Reteste INMETRO</th>
-                        <th style="padding: 12px 16px;">Bloqueio ANVISA</th>
-                        <th style="padding: 12px 16px;">Localização Atual</th>
-                        <th style="padding: 12px 16px; text-align: right;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="cilindros-tbody">
-                    <tr>
-                        <td colspan="8" style="text-align: center; color: var(--color-text-muted); padding: 30px;">Carregando frota de cilindros...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Paginação -->
-        <div class="pagination-bar">
-            <span id="pagination-info" style="font-size: 13px; color: var(--color-text-muted);">Página 1</span>
-            <div style="display: flex; gap: 8px;">
-                <button id="btn-prev-page" class="btn-auth" style="padding: 6px 14px; font-size: 13px; background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" disabled>&larr; Anterior</button>
-                <button id="btn-next-page" class="btn-auth" style="padding: 6px 14px; font-size: 13px; background: var(--color-surface); border: 1px solid var(--color-border); cursor: pointer;" disabled>Próxima &rarr;</button>
+        <div class="search-bar-container">
+            <div class="search-input-wrapper">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="input-busca-cilindros"
+                    placeholder="Buscar por QR, Nº Série Ogiva ou Fabricante...">
             </div>
+        </div>
+        {% if pode_cadastrar_cilindro %}
+        <button type="button" class="btn-primary" id="btn-novo-cilindro">Cadastrar cilindro</button>
+        {% endif %}
+    </div>
+
+    <!-- Cards de Métricas da Frota (Sprint 01.01) -->
+    <div class="ativos-kpi-grid" id="ativos-kpi-grid">
+        <div class="metric-card metric-card--clickable active" id="card-kpi-total" data-filtro="todos"
+            title="Filtrar todos os cilindros">
+            <span class="metric-card__label">Total da Frota</span>
+            <span class="metric-card__value font-mono" id="kpi-frota-total">-</span>
+        </div>
+        <div class="metric-card metric-card--approved metric-card--clickable" id="card-kpi-cheios"
+            data-filtro="CHEIO_DISPONIVEL" title="Filtrar cheios disponíveis no pátio">
+            <span class="metric-card__label">Cheios no Pátio</span>
+            <span class="metric-card__value font-mono" id="kpi-frota-cheios">-</span>
+        </div>
+        {% if tem_modulo_distribuicao %}
+        <div class="metric-card metric-card--transit metric-card--clickable" id="card-kpi-clientes"
+            data-filtro="EM_POSSE_CLIENTE" title="Filtrar cilindros em clientes">
+            <span class="metric-card__label">Em Clientes</span>
+            <span class="metric-card__value font-mono" id="kpi-frota-clientes">-</span>
+        </div>
+        {% endif %}
+        <div class="metric-card metric-card--warning metric-card--clickable" id="card-kpi-triagem"
+            data-filtro="VAZIO_TRIAGEM" title="Filtrar vazios em triagem">
+            <span class="metric-card__label">Vazios em Triagem</span>
+            <span class="metric-card__value font-mono" id="kpi-frota-triagem">-</span>
+        </div>
+        <div class="metric-card metric-card--transit metric-card--clickable" id="card-kpi-rota"
+            data-filtro="RESERVADO_ROTA" title="Filtrar cilindros em rota de entrega">
+            <span class="metric-card__label">Em Rota</span>
+            <span class="metric-card__value font-mono" id="kpi-frota-rota">-</span>
+        </div>
+        <div class="metric-card metric-card--warning metric-card--clickable" id="card-kpi-reteste"
+            data-filtro="EM_RETESTE" title="Filtrar cilindros em requalificação/reteste">
+            <span class="metric-card__label">Em Reteste</span>
+            <span class="metric-card__value font-mono" id="kpi-frota-reteste">-</span>
+        </div>
+        <div class="metric-card metric-card--danger metric-card--clickable" id="card-kpi-bloqueados"
+            data-filtro="bloqueio_sanitario" title="Filtrar com bloqueio sanitário ANVISA">
+            <span class="metric-card__label">Bloqueio Sanitário</span>
+            <span class="metric-card__value font-mono" id="kpi-frota-bloqueados">-</span>
+        </div>
+        <div class="metric-card metric-card--danger metric-card--clickable" id="card-kpi-vencidos"
+            data-filtro="reteste_vencido" title="Filtrar reteste INMETRO vencido">
+            <span class="metric-card__label">Reteste Vencido</span>
+            <span class="metric-card__value font-mono" id="kpi-frota-vencidos">-</span>
+        </div>
+        <div class="metric-card metric-card--warning metric-card--clickable" id="card-kpi-30dias"
+            data-filtro="reteste_30_dias" title="Filtrar reteste vencendo em até 30 dias">
+            <span class="metric-card__label">Reteste ≤ 30 Dias</span>
+            <span class="metric-card__value font-mono" id="kpi-frota-30dias">-</span>
         </div>
     </div>
 
-    {% if pode_cadastrar_cilindro %}{% include "produtos/index/_modal_cadastro_cilindro.html" %}{% endif %}
+    <!-- Barra de Pílulas de Filtros Rápidos -->
+    <div class="filter-pills-bar">
+        <button class="pill-filter-btn active" data-filter="todos">Todos</button>
+        <button class="pill-filter-btn" data-filter="CHEIO_DISPONIVEL">Cheios no Pátio</button>
+        {% if tem_modulo_distribuicao %}
+        <button class="pill-filter-btn" data-filter="EM_POSSE_CLIENTE">Em Clientes</button>
+        {% endif %}
+        <button class="pill-filter-btn" data-filter="VAZIO_TRIAGEM">Vazios em Triagem</button>
+        <button class="pill-filter-btn" data-filter="bloqueio_sanitario">Bloqueio Sanitário</button>
+        <button class="pill-filter-btn" data-filter="reteste_vencido">Reteste Vencido</button>
+        <button class="pill-filter-btn" data-filter="reteste_30_dias">Reteste ≤ 30 Dias</button>
+        <button class="pill-filter-btn" data-filter="extravio_candidato">Retenção > 180 Dias</button>
+        <button class="pill-filter-btn" data-filter="proprio">Patrimônio Próprio</button>
+    </div>
+
+    <!-- Tabela Server-Side de Cilindros -->
+    <div class="table-container ativos-table-container">
+        <table class="ativos-table">
+            <thead>
+                <tr>
+                    <th>Código QR / Ogiva</th>
+                    <th>Gás (ABNT NBR 12176)</th>
+                    <th>Capacidade / Tara</th>
+                    <th>Status Operacional</th>
+                    <th>Reteste INMETRO</th>
+                    <th>Bloqueio ANVISA</th>
+                    <th>Localização Atual</th>
+                    <th class="text-right">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="cilindros-tbody">
+                <tr>
+                    <td colspan="8" class="ativos-table-loading">Carregando frota de cilindros...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginação -->
+    <div class="pagination-bar">
+        <span id="pagination-info" class="ativos-pagination-info">Página 1</span>
+        <div class="ativos-pagination-actions">
+            <button id="btn-prev-page" class="btn-auth btn-page" disabled>&larr; Anterior</button>
+            <button id="btn-next-page" class="btn-auth btn-page" disabled>Próxima &rarr;</button>
+        </div>
+    </div>
+</div>
+
+{% if pode_cadastrar_cilindro %}{% include "produtos/index/_modal_cadastro_cilindro.html" %}{% endif %}
