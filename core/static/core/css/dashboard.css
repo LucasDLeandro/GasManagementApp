@@ -142,6 +142,34 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.visao-periodo-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.visao-gestao-section.is-loading .visao-gestao-grid {
+    opacity: 0.65;
+    transition: opacity 0.15s ease;
+}
+
+.visao-gestao-erro {
+    background: var(--status-danger-bg, #fef2f2);
+    border: 1px solid var(--status-danger-border, #fecaca);
+    color: var(--status-danger-text, #991b1b);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.visao-metric-help {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #6b7280);
+    margin-bottom: 10px;
+}
+
 .visao-gestao-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
