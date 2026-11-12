@@ -1,0 +1,66 @@
+<!-- Aba: Envios para Requalificadora e Retornos -->
+<div class="ds-card">
+    <div class="ds-card-header">
+        <div>
+            <h2 class="ds-card-title">Lotes de Envio para Requalificação</h2>
+            <p class="ds-card-subtitle">Acompanhe remessas em aberto, registre retornos técnicos por cilindro e emita retificações</p>
+        </div>
+    </div>
+
+    <div id="skeleton-envios" class="ds-loading-state ds-hidden">
+        <div class="ds-spinner"></div>
+        <p>Carregando envios de reteste...</p>
+    </div>
+
+    <div id="vazio-envios" class="ds-hidden">
+        {% include "components/_empty_state.html" with titulo="Nenhum envio para reteste registrado" descricao="Use a aba Vencimentos ou o botão '+ Novo Envio em Lote' para despachar cilindros." %}
+    </div>
+
+    <div id="erro-envios" class="ds-error-state ds-hidden">
+        <p>Não foi possível carregar os envios de reteste.</p>
+        <button type="button" class="btn-outline btn-sm" id="btn-retry-envios">Tentar novamente</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="ds-table" id="tabela-envios">
+            <thead>
+                <tr>
+                    <th>Envio</th>
+                    <th>Requalificadora</th>
+                    <th>Documento</th>
+                    <th>Data Envio</th>
+                    <th class="text-right">Total</th>
+                    <th class="text-right">Pendentes</th>
+                    <th class="text-right">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="corpo-tabela-envios"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Painel de Detalhe do Envio Selecionado (Itens para Retorno / Retificação) -->
+<div class="ds-card mt-4 ds-hidden" id="card-detalhe-envio">
+    <div class="ds-card-header">
+        <div>
+            <h3 class="ds-card-title" id="titulo-detalhe-envio">Itens do Envio</h3>
+            <p class="ds-card-subtitle" id="subtitulo-detalhe-envio"></p>
+        </div>
+        <button type="button" class="btn-outline btn-sm" id="btn-fechar-detalhe-envio">Fechar</button>
+    </div>
+    <div class="table-responsive">
+        <table class="ds-table">
+            <thead>
+                <tr>
+                    <th>Série / QR</th>
+                    <th>Modelo</th>
+                    <th>Tara Atual</th>
+                    <th>Situação do Retorno</th>
+                    <th class="text-right">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="corpo-itens-envio"></tbody>
+        </table>
+    </div>
+</div>
+

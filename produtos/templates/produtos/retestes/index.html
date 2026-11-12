@@ -1,0 +1,74 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block title %}Retestes Hidrostáticos — Baros{% endblock %}
+
+{% block dashboard_content %}
+<div class="ds-page">
+    <header class="ds-page-header">
+        <div>
+            <h1 class="ds-page-title">Retestes Hidrostáticos</h1>
+            <p class="ds-page-subtitle">Calendário de vencimentos, remessas para requalificadora, laudos (ABNT NBR 12274) e retificações</p>
+        </div>
+        <div class="ds-page-actions">
+            <button type="button" class="btn-primary" id="btn-abrir-novo-envio">
+                + Novo Envio em Lote
+            </button>
+        </div>
+    </header>
+
+    <!-- Cartões de Métricas (03.1) -->
+    <section class="ds-metrics-grid" aria-label="Indicadores de vencimento de reteste">
+        <div class="ds-metric-card ds-metric-danger">
+            <span class="ds-metric-label">Vencidos</span>
+            <strong class="ds-metric-value" id="kpi-reteste-vencidos">—</strong>
+        </div>
+        <div class="ds-metric-card ds-metric-warning">
+            <span class="ds-metric-label">Vencendo em 30 dias</span>
+            <strong class="ds-metric-value" id="kpi-reteste-30d">—</strong>
+        </div>
+        <div class="ds-metric-card">
+            <span class="ds-metric-label">31 a 60 dias</span>
+            <strong class="ds-metric-value" id="kpi-reteste-60d">—</strong>
+        </div>
+        <div class="ds-metric-card">
+            <span class="ds-metric-label">61 a 90 dias</span>
+            <strong class="ds-metric-value" id="kpi-reteste-90d">—</strong>
+        </div>
+        <div class="ds-metric-card ds-metric-info">
+            <span class="ds-metric-label">Em Requalificação Agora</span>
+            <strong class="ds-metric-value" id="kpi-reteste-requalificacao">—</strong>
+        </div>
+    </section>
+
+    <!-- Navegação de Abas -->
+    <nav class="tabs-nav" aria-label="Abas de Retestes">
+        <button type="button" class="tab-btn active" data-tab="vencimentos" id="tab-nav-vencimentos">Vencimentos</button>
+        <button type="button" class="tab-btn" data-tab="envios" id="tab-nav-envios">Envios &amp; Retornos</button>
+    </nav>
+
+    <div class="tab-pane active" id="aba-vencimentos" role="tabpanel" aria-labelledby="tab-nav-vencimentos">
+        {% include "produtos/retestes/_aba_vencimentos.html" %}
+    </div>
+
+    <div class="tab-pane ds-hidden" id="aba-envios" role="tabpanel" aria-labelledby="tab-nav-envios">
+        {% include "produtos/retestes/_aba_envios.html" %}
+    </div>
+</div>
+
+<!-- Modais da Central de Retestes -->
+{% include "produtos/retestes/_modal_novo_envio.html" %}
+{% include "produtos/retestes/_modal_retorno_reteste.html" %}
+{% include "produtos/retestes/_modal_retificacao.html" %}
+{% include "produtos/patrimonio/_modal_baixa_patrimonial.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    window.RETESTES_CONFIG = {
+        podeEditarPatrimonio: {{ pode_editar_patrimonio|yesno:"true,false" }}
+    };
+</script>
+<script src="{% static 'produtos/js/retestes.js' %}?v=20261112_01"></script>
+{% endblock %}
+

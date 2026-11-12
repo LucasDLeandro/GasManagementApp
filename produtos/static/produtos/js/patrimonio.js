@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 carregarIndenizacoes();
                 carregarCilindrosSimulador();
                 break;
+            case 'baixas':
+                carregarBaixas();
+                break;
         }
     }
 
@@ -1053,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await Baros.api('/produtos/api/cilindros/?page_size=300');
             const cilindros = extrairLista(res);
             popularSelect(selectSimCilindro, cilindros, c => `${c.numero_serie_ogiva || c.codigo_qr} · ${c.modelo_descricao || ''} (${c.gas_sigla || ''})`);
-        } catch (_) {}
+        } catch (_) { }
     }
 
     if (formSimulador) {
@@ -1157,6 +1160,144 @@ document.addEventListener('DOMContentLoaded', () => {
             select.appendChild(opt);
         });
     }
+
+    // =========================================================================
+    // ABA 6: BAIXAS PATRIMONIAIS E ESTORNO (SPRINT 03)
+    // =========================================================================
+    const corpoTabelaBaixas = document.getElementById('corpo-tabela-baixas');
+    const skeletonBaixas = document.getElementById('skeleton-baixas');
+    const vazioBaixas = document.getElementById('vazio-baixas');
+    const erroBaixas = document.getElementById('erro-baixas');
+    const filtroBaixasTipo = document.getElementById('filtro-baixas-tipo');
+    const filtroBaixasSituacao = document.getElementById('filtro-baixas-situacao');
+
+    async function carregarBaixas() {
+        if (!corpoTabelaBaixas) return;
+        skeletonBaixas.classList.remove('ds-hidden');
+        vazioBaixas.classList.add('ds-hidden');
+        erroBaixas.classList.add('ds-hidden');
+        corpoTabelaBaixas.textContent = '';
+
+        try {
+            const res = await Baros.api('/produtos/api/patrimonio/baixas/?page_size=200');
+            let lista = extrairLista(res);
+            skeletonBaixas.classList.add('ds-hidden');
+
+            const tipoFiltro = filtroBaixasTipo ? filtroBaixasTipo.value : '';
+            const sitFiltro = filtroBaixasSituacao ? filtroBaixasSituacao.value : '';
+
+            if (tipoFiltro) {
+                lista = lista.filter(b => b.tipo === tipoFiltro);
+            }
+            if (sitFiltro === 'ATIVA') {
+                lista = lista.filter(b => !b.estornada);
+            } else if (sitFiltro === 'ESTORNADA') {
+                lista = lista.filter(b => b.estornada);
+            }
+
+            if (!lista.length) {
+                vazioBaixas.classList.remove('ds-hidden');
+                return;
+            }
+
+            lista.forEach(item => {
+                const tr = document.createElement('tr');
+
+                const tdData = document.createElement('td');
+                tdData.textContent = item.data ? Baros.data(item.data) : '—';
+                tr.appendChild(tdData);
+
+                const tdCil = document.createElement('td');
+                const strongSerie = document.createElement('strong');
+                strongSerie.textContent = item.cilindro_serie || '—';
+                tdCil.appendChild(strongSerie);
+                if (item.cilindro_qr) {
+                    const smallQr = document.createElement('div');
+                    smallQr.className = 'text-muted text-sm';
+                    smallQr.textContent = item.cilindro_qr;
+                    tdCil.appendChild(smallQr);
+                }
+                tr.appendChild(tdCil);
+
+                const tdTipo = document.createElement('td');
+                tdTipo.textContent = item.tipo_display || item.tipo;
+                tr.appendChild(tdTipo);
+
+                const tdDoc = document.createElement('td');
+                tdDoc.textContent = item.documento_ref || '—';
+                tr.appendChild(tdDoc);
+
+                const tdVcl = document.createElement('td');
+                tdVcl.className = 'text-right';
+                tdVcl.textContent = Baros.moeda(item.valor_contabil_baixa);
+                tr.appendChild(tdVcl);
+
+                const tdRec = document.createElement('td');
+                tdRec.className = 'text-right';
+                tdRec.textContent = Baros.moeda(item.valor_recebido);
+                tr.appendChild(tdRec);
+
+                const tdRes = document.createElement('td');
+                tdRes.className = 'text-right';
+                tdRes.textContent = Baros.moeda(item.resultado);
+                tr.appendChild(tdRes);
+
+                const tdSit = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = 'badge ' + (item.estornada ? 'badge-status-warning' : 'badge-status-danger');
+                badge.textContent = item.estornada ? 'Estornada' : 'Baixada';
+                tdSit.appendChild(badge);
+                tr.appendChild(tdSit);
+
+                if (config.podeEditar) {
+                    const tdAcoes = document.createElement('td');
+                    tdAcoes.className = 'text-right';
+                    if (!item.estornada) {
+                        const btnEst = document.createElement('button');
+                        btnEst.type = 'button';
+                        btnEst.className = 'btn-outline btn-sm';
+                        btnEst.textContent = 'Estornar';
+                        btnEst.addEventListener('click', () => estornarBaixaPatrimonial(item));
+                        tdAcoes.appendChild(btnEst);
+                    }
+                    tr.appendChild(tdAcoes);
+                }
+
+                corpoTabelaBaixas.appendChild(tr);
+            });
+        } catch (e) {
+            skeletonBaixas.classList.add('ds-hidden');
+            erroBaixas.classList.remove('ds-hidden');
+            Baros.erro(e.mensagem || 'Não foi possível carregar as baixas patrimoniais.');
+        }
+    }
+
+    async function estornarBaixaPatrimonial(item) {
+        const motivo = await Baros.confirmar({
+            titulo: 'Estornar Baixa Patrimonial',
+            texto: `Deseja estornar a baixa do cilindro ${item.cilindro_serie}? O cilindro retornará ao status anterior (${item.status_anterior}).`,
+            botao: 'Confirmar Estorno',
+            perigo: true,
+            motivo: 10,
+        });
+        if (!motivo) return;
+
+        try {
+            await Baros.api(`/produtos/api/patrimonio/baixas/${item.id}/estornar/`, {
+                method: 'POST',
+                body: { motivo },
+            });
+            Baros.sucesso('Baixa patrimonial estornada com sucesso.');
+            carregarBaixas();
+        } catch (e) {
+            Baros.erro(e.mensagem || 'Não foi possível estornar a baixa.');
+        }
+    }
+
+    if (filtroBaixasTipo) filtroBaixasTipo.addEventListener('change', carregarBaixas);
+    if (filtroBaixasSituacao) filtroBaixasSituacao.addEventListener('change', carregarBaixas);
+    const btnRetryBaixas = document.getElementById('btn-retry-baixas');
+    if (btnRetryBaixas) btnRetryBaixas.addEventListener('click', carregarBaixas);
 
     trocarAba(abaInicial);
 });

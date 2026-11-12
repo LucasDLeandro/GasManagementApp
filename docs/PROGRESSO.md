@@ -6,7 +6,8 @@ Arquivo curto e atualizado a cada sprint (pelo agente, no fim da sprint, e pelo 
 - Fases 0 e 1 concluídas; Fase 2 (Produtos) em andamento.
 - Sprint 01 (Lotes, Ativos, Etiquetas) e Sprint 01B (Histórico, Monitor, Home de Gestão) concluídas.
 - **Sprint 02 (Produtos, telas de Patrimônio) concluída** na branch `sprint-02/produtos-patrimonio`.
-- **Próxima entrega:** Sprint 03 (Retestes e Baixa Patrimonial) na branch `sprint-03/retestes-baixa`.
+- **Sprint 03 (Produtos, retestes hidrostáticos e baixa patrimonial) concluída** na branch `sprint-03/produtos-retestes-baixa`.
+- **Próxima entrega:** Sprint 04 (Granel, tanques criogênicos e custos) na branch `sprint-04/produtos-granel`.
 
 ## Ambiente de teste (AWS)
 - EC2 t3.small, Ubuntu 24.04, Python 3.14, gunicorn + nginx + HTTPS (Let's Encrypt), SQLite, `DEBUG=False`.
@@ -24,3 +25,4 @@ Arquivo curto e atualizado a cada sprint (pelo agente, no fim da sprint, e pelo 
 | 01B.01 Monitor de TV | concluída | `sprint-01b.01/monitor` | `docs/sprints/relatorios/SPRINT_01B_01.md` |
 | 01B.02 Home de gestão | concluída | `sprint-01b.02/home-gestao` | `docs/sprints/relatorios/SPRINT_01B_02.md` |
 | 02 Produtos, telas de Patrimônio | concluída | `sprint-02/produtos-patrimonio` | `docs/sprints/relatorios/SPRINT_02.md` |
+| 03 Retestes e baixa patrimonial | concluída | `sprint-03/produtos-retestes-baixa` | `docs/sprints/relatorios/SPRINT_03.md` |

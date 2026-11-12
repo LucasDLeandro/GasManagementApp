@@ -1,0 +1,105 @@
+<!-- Modal: Retorno Técnico Completo de Reteste (03.1 & 03.3) -->
+<div class="modal-overlay" id="modal-retorno-reteste-completo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-retorno-completo">
+    <div class="modal-content ds-modal-lg">
+        <div class="modal-header">
+            <h3 id="titulo-modal-retorno-completo">Registrar Retorno de Reteste Hidrostático</h3>
+            <button type="button" class="close-modal" data-fechar-modal="modal-retorno-reteste-completo" aria-label="Fechar">×</button>
+        </div>
+
+        <form id="form-retorno-reteste-completo" enctype="multipart/form-data" novalidate>
+            <input type="hidden" id="ret-comp-cilindro-id" name="cilindro_id">
+            <input type="hidden" id="ret-comp-envio-id" name="envio_id">
+
+            <div class="modal-body">
+                <div class="modal-section-card">
+                    <h4 class="modal-section-title">Identificação do Cilindro e Certificado</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Cilindro</label>
+                            <input type="text" id="ret-comp-cilindro-label" class="form-control" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="ret-comp-certificado">Número do Certificado *</label>
+                            <input type="text" id="ret-comp-certificado" name="numero_certificado" required maxlength="100" class="form-control font-mono" placeholder="Ex: CERT-2026-001">
+                        </div>
+                        <div class="form-group">
+                            <label for="ret-comp-data">Data do Ensaio *</label>
+                            <input type="date" id="ret-comp-data" name="data_execucao" required class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="ret-comp-inmetro">Registro INMETRO da Oficina *</label>
+                            <input type="text" id="ret-comp-inmetro" name="registro_inmetro" required maxlength="100" class="form-control" placeholder="Ex: INM-00451/RS">
+                        </div>
+                        <div class="form-group">
+                            <label for="ret-comp-oficina-nome">Requalificadora *</label>
+                            <input type="text" id="ret-comp-oficina-nome" name="oficina_nome" required maxlength="150" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="ret-comp-oficina-cnpj">CNPJ da Requalificadora *</label>
+                            <input type="text" id="ret-comp-oficina-cnpj" name="oficina_cnpj" required maxlength="20" class="form-control font-mono">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-section-card mt-3">
+                    <h4 class="modal-section-title">Ensaio Hidrostático (ABNT NBR 12274) &amp; Tara</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="ret-comp-pressao">Pressão de Teste (bar) *</label>
+                            <input type="number" id="ret-comp-pressao" name="pressao_teste_bar" required step="0.01" min="1" class="form-control font-mono" placeholder="Ex: 300.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="ret-comp-exp-total">Expansão Total (cm³) *</label>
+                            <input type="number" id="ret-comp-exp-total" name="expansao_total_cm3" required step="0.001" min="0.001" class="form-control font-mono" placeholder="Ex: 100.000">
+                        </div>
+                        <div class="form-group">
+                            <label for="ret-comp-exp-perm">Expansão Permanente (cm³) *</label>
+                            <input type="number" id="ret-comp-exp-perm" name="expansao_permanente_cm3" required step="0.001" min="0" class="form-control font-mono" placeholder="Ex: 4.500">
+                            <span class="ds-field-help" id="ret-comp-exp-feedback">Informe expansão total e permanente para cálculo ao vivo.</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="ret-comp-tara">Tara Aferida (kg)</label>
+                            <input type="number" id="ret-comp-tara" name="tara_real_kg" step="0.001" min="0.1" class="form-control font-mono" placeholder="Ex: 55.200">
+                            <span class="ds-field-help" id="ret-comp-tara-feedback">Tolerância padrão de 5%.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-section-card mt-3">
+                    <h4 class="modal-section-title">Resultado, Laudo e Custos</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="ret-comp-resultado">Resultado do Ensaio *</label>
+                            <select id="ret-comp-resultado" name="resultado" required class="form-control">
+                                <option value="APROVADO">Aprovado (retorna apto para triagem)</option>
+                                <option value="REPROVADO_CONDENADO">Reprovado / Condenado (Inutilização Técnica)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ret-comp-custo">Custo do Serviço (R$)</label>
+                            <input type="number" id="ret-comp-custo" name="custo_servico_reteste" step="0.01" min="0" value="0.00" class="form-control font-mono">
+                        </div>
+                        <div class="form-group ds-col-span-2">
+                            <label for="ret-comp-laudo-pdf">Laudo Técnico em PDF</label>
+                            <input type="file" id="ret-comp-laudo-pdf" name="laudo_pdf" accept="application/pdf,.pdf" class="form-control">
+                        </div>
+                        <div class="form-group ds-col-span-2 ds-hidden" id="grupo-motivo-reprovacao">
+                            <label for="ret-comp-motivo-reprov">Motivo da Condenação *</label>
+                            <textarea id="ret-comp-motivo-reprov" name="motivo_reprovacao" rows="2" class="form-control" placeholder="Descreva o motivo técnico da condenação..."></textarea>
+                        </div>
+                        <div class="form-group ds-col-span-2">
+                            <label for="ret-comp-observacoes">Observações Técnicas</label>
+                            <textarea id="ret-comp-observacoes" name="observacoes" rows="2" class="form-control"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-outline" data-fechar-modal="modal-retorno-reteste-completo">Cancelar</button>
+                <button type="submit" class="btn-primary" id="btn-salvar-retorno-completo">Registrar Retorno</button>
+            </div>
+        </form>
+    </div>
+</div>
+

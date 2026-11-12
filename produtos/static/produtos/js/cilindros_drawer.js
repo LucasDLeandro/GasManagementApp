@@ -577,8 +577,15 @@ document.addEventListener('DOMContentLoaded', () => {
         setTxt('drawer-patrimonio-nfe', c.chave_nfe_aquisicao ? `${c.chave_nfe_aquisicao.slice(0, 6)}...${c.chave_nfe_aquisicao.slice(-6)}` : '-');
 
         // Atualiza botão de bloqueio sanitário
+        const isBaixado = c.status === 'BAIXADO';
         const btnToggleBloqueio = document.getElementById('drawer-btn-bloqueio');
+        const btnReclass = document.getElementById('drawer-btn-reclassificar');
+        const btnReteste = document.getElementById('drawer-btn-reteste');
+        const btnDarBaixa = document.getElementById('drawer-btn-dar-baixa');
+        const btnEstornarBaixa = document.getElementById('drawer-btn-estornar-baixa');
+
         if (btnToggleBloqueio) {
+            btnToggleBloqueio.hidden = isBaixado;
             if (c.bloqueio_sanitario) {
                 btnToggleBloqueio.textContent = 'Liberar Bloqueio Sanitário';
                 btnToggleBloqueio.classList.remove('action-queue-btn--danger');
@@ -591,6 +598,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnToggleBloqueio.setAttribute('data-action', 'BLOQUEIO');
             }
         }
+        if (btnReclass) btnReclass.hidden = isBaixado;
+        if (btnReteste) btnReteste.hidden = isBaixado;
+        if (btnDarBaixa) btnDarBaixa.hidden = isBaixado;
+        if (btnEstornarBaixa) btnEstornarBaixa.hidden = !(isBaixado && c.baixa_ativa_id);
     }
 
     function renderTimelineLedger(movs) {
@@ -803,6 +814,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (campoTara) campoTara.addEventListener('input', atualizarVariacaoTara);
 
         btnDrawerReteste.addEventListener('click', () => {
+            // 03.3: Se houver EnvioReteste aberto, abre o modal de retorno completo (03.1)
+            const modalRetornoCompleto = document.getElementById('modal-retorno-reteste-completo');
+            if (activeCilindroData && activeCilindroData.envio_reteste_aberto && modalRetornoCompleto) {
+                const envio = activeCilindroData.envio_reteste_aberto;
+                const formComp = document.getElementById('form-retorno-reteste-completo');
+                if (formComp) formComp.reset();
+                document.getElementById('ret-comp-cilindro-id').value = activeCilindroData.id;
+                document.getElementById('ret-comp-envio-id').value = envio.envio_id || '';
+                document.getElementById('ret-comp-cilindro-label').value = `${activeCilindroData.numero_serie_ogiva} (${activeCilindroData.codigo_qr || 'S/QR'})`;
+                document.getElementById('ret-comp-data').value = new Date().toISOString().slice(0, 10);
+                document.getElementById('ret-comp-oficina-nome').value = envio.oficina_nome || '';
+                document.getElementById('ret-comp-oficina-cnpj').value = envio.oficina_cnpj || '';
+                const campoTaraComp = document.getElementById('ret-comp-tara');
+                if (campoTaraComp && activeCilindroData.tara_real_kg) {
+                    campoTaraComp.value = activeCilindroData.tara_real_kg;
+                }
+                modalRetornoCompleto.classList.add('active');
+                modalRetornoCompleto.removeAttribute('hidden');
+                return;
+            }
+
             limparErros(formReteste);
             const dtField = document.getElementById('reteste-data-realizado');
             if (dtField) dtField.valueAsDate = new Date();
@@ -838,6 +870,133 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+    }
+
+    // 5.2b Retorno Completo + Baixa Patrimonial + Estorno no Drawer (Sprint 03)
+    const modalRetornoCompDrawer = document.getElementById('modal-retorno-reteste-completo');
+    const formRetornoCompDrawer = document.getElementById('form-retorno-reteste-completo');
+    if (modalRetornoCompDrawer && formRetornoCompDrawer) {
+        const expT = document.getElementById('ret-comp-exp-total');
+        const expP = document.getElementById('ret-comp-exp-perm');
+        const expFb = document.getElementById('ret-comp-exp-feedback');
+        const resSel = document.getElementById('ret-comp-resultado');
+        const grpMot = document.getElementById('grupo-motivo-reprovacao');
+
+        function calcExpDrawer() {
+            const et = Number(expT ? expT.value : 0);
+            const ep = Number(expP ? expP.value : 0);
+            if (!expFb) return;
+            expFb.classList.remove('ds-alerta-texto');
+            if (!et || et <= 0 || !expP || expP.value === '') return;
+            const pct = (ep / et) * 100;
+            if (pct > 10) {
+                expFb.textContent = `Expansão permanente ${pct.toFixed(2)}% > 10% (ABNT NBR 12274) — Reprovação mandatória.`;
+                expFb.classList.add('ds-alerta-texto');
+                if (resSel) {
+                    resSel.value = 'REPROVADO_CONDENADO';
+                    if (grpMot) grpMot.classList.remove('ds-hidden');
+                }
+            } else {
+                expFb.textContent = `Expansão permanente: ${pct.toFixed(2)}% (dentro do limite de 10%).`;
+            }
+        }
+        if (expT) expT.addEventListener('input', calcExpDrawer);
+        if (expP) expP.addEventListener('input', calcExpDrawer);
+        if (resSel) {
+            resSel.addEventListener('change', () => {
+                if (grpMot) grpMot.classList.toggle('ds-hidden', resSel.value !== 'REPROVADO_CONDENADO');
+            });
+        }
+
+        modalRetornoCompDrawer.querySelectorAll('[data-fechar-modal]').forEach(b => {
+            b.addEventListener('click', () => modalRetornoCompDrawer.classList.remove('active'));
+        });
+
+        formRetornoCompDrawer.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (window.Baros && !Baros.validarCampos(formRetornoCompDrawer)) return;
+            try {
+                const fd = new FormData(formRetornoCompDrawer);
+                await Baros.api('/produtos/api/cilindros/registrar-retorno-reteste/', {
+                    method: 'POST',
+                    body: fd,
+                });
+                modalRetornoCompDrawer.classList.remove('active');
+                aposAcao('Retorno completo de reteste registrado com sucesso.');
+            } catch (err) {
+                if (window.Baros) Baros.mostrarErrosApi(formRetornoCompDrawer, err);
+            }
+        });
+    }
+
+    const btnDrawerDarBaixa = document.getElementById('drawer-btn-dar-baixa');
+    const modalBaixaDrawer = document.getElementById('modal-baixa-patrimonial');
+    const formBaixaDrawer = document.getElementById('form-baixa-patrimonial');
+    if (btnDrawerDarBaixa && modalBaixaDrawer && formBaixaDrawer) {
+        modalBaixaDrawer.querySelectorAll('[data-fechar-modal]').forEach(b => {
+            b.addEventListener('click', () => modalBaixaDrawer.classList.remove('active'));
+        });
+        btnDrawerDarBaixa.addEventListener('click', () => {
+            if (!activeCilindroData) return;
+            formBaixaDrawer.reset();
+            document.getElementById('baixa-cilindro-id').value = activeCilindroData.id;
+            document.getElementById('baixa-cilindro-label').value = `${activeCilindroData.numero_serie_ogiva} (${activeCilindroData.codigo_qr || 'S/QR'})`;
+            document.getElementById('baixa-data').value = new Date().toISOString().slice(0, 10);
+            modalBaixaDrawer.classList.add('active');
+            modalBaixaDrawer.removeAttribute('hidden');
+        });
+        formBaixaDrawer.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (window.Baros && !Baros.validarCampos(formBaixaDrawer)) return;
+            const ok = await Baros.confirmar({
+                titulo: 'Confirmar Baixa Patrimonial?',
+                texto: 'O cilindro entrará no estado terminal BAIXADO. Somente ADMIN/GERENTE poderá estornar.',
+                botao: 'Sim, Baixar Ativo',
+                perigo: true,
+            });
+            if (!ok) return;
+            try {
+                await Baros.api('/produtos/api/patrimonio/baixas/', {
+                    method: 'POST',
+                    body: {
+                        cilindro: document.getElementById('baixa-cilindro-id').value,
+                        tipo: document.getElementById('baixa-tipo').value,
+                        data: document.getElementById('baixa-data').value,
+                        documento_ref: document.getElementById('baixa-documento-ref').value.trim(),
+                        valor_recebido: document.getElementById('baixa-valor-recebido').value || '0.00',
+                        motivo: document.getElementById('baixa-motivo').value.trim(),
+                    },
+                });
+                modalBaixaDrawer.classList.remove('active');
+                aposAcao('Baixa patrimonial registrada com sucesso.');
+            } catch (err) {
+                if (window.Baros) Baros.mostrarErrosApi(formBaixaDrawer, err);
+            }
+        });
+    }
+
+    const btnDrawerEstornarBaixa = document.getElementById('drawer-btn-estornar-baixa');
+    if (btnDrawerEstornarBaixa) {
+        btnDrawerEstornarBaixa.addEventListener('click', async () => {
+            if (!activeCilindroData || !activeCilindroData.baixa_ativa_id) return;
+            const motivo = await Baros.confirmar({
+                titulo: 'Estornar Baixa Patrimonial?',
+                texto: `O cilindro ${activeCilindroData.numero_serie_ogiva} voltará ao status anterior à baixa.`,
+                botao: 'Confirmar Estorno',
+                perigo: true,
+                motivo: 10,
+            });
+            if (!motivo) return;
+            try {
+                await Baros.api(`/produtos/api/patrimonio/baixas/${activeCilindroData.baixa_ativa_id}/estornar/`, {
+                    method: 'POST',
+                    body: { motivo },
+                });
+                aposAcao('Baixa patrimonial estornada com sucesso.');
+            } catch (err) {
+                if (window.Baros) Baros.erro(err.mensagem || 'Não foi possível estornar a baixa.');
+            }
+        });
     }
 
     // 5.3 Reclassificar Gás

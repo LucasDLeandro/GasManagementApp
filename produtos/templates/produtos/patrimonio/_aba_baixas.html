@@ -1,0 +1,58 @@
+<!-- Aba: Baixas Patrimoniais -->
+<div class="ds-card">
+    <div class="ds-card-header">
+        <div>
+            <h2 class="ds-card-title">Baixas Patrimoniais</h2>
+            <p class="ds-card-subtitle">Histórico de inutilizações técnicas, extravios, vendas e sinistros, com estorno restrito à gestão</p>
+        </div>
+        <div class="ds-card-actions">
+            <select id="filtro-baixas-tipo" class="form-control" aria-label="Filtrar por tipo de baixa">
+                <option value="">Todos os tipos</option>
+                {% for cod, label in tipos_baixa %}
+                <option value="{{ cod }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select id="filtro-baixas-situacao" class="form-control" aria-label="Filtrar por situação">
+                <option value="">Todas situações</option>
+                <option value="ATIVA">Ativa</option>
+                <option value="ESTORNADA">Estornada</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="skeleton-baixas" class="ds-loading-state ds-hidden">
+        <div class="ds-spinner"></div>
+        <p>Carregando baixas patrimoniais...</p>
+    </div>
+
+    <div id="vazio-baixas" class="ds-hidden">
+        {% include "components/_empty_state.html" with titulo="Nenhuma baixa patrimonial registrada" descricao="Cilindros condenados no reteste ou baixados por extravio, venda ou sinistro aparecem aqui." %}
+    </div>
+
+    <div id="erro-baixas" class="ds-error-state ds-hidden">
+        <p>Não foi possível carregar as baixas patrimoniais.</p>
+        <button type="button" class="btn-outline btn-sm" id="btn-retry-baixas">Tentar novamente</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="ds-table" id="tabela-baixas">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Cilindro</th>
+                    <th>Tipo</th>
+                    <th>Documento</th>
+                    <th class="text-right">Valor Contábil</th>
+                    <th class="text-right">Valor Recebido</th>
+                    <th class="text-right">Resultado</th>
+                    <th>Situação</th>
+                    {% if pode_editar_patrimonio %}
+                    <th class="text-right">Ações</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="corpo-tabela-baixas"></tbody>
+        </table>
+    </div>
+</div>
+

@@ -1,0 +1,39 @@
+<!-- Modal: Retificação Formal de Reteste -->
+<div class="modal-overlay" id="modal-retificacao-reteste" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-retificacao">
+    <div class="modal-content ds-modal-md">
+        <div class="modal-header">
+            <h3 id="titulo-modal-retificacao">Retificar Laudo de Reteste</h3>
+            <button type="button" class="close-modal" data-fechar-modal="modal-retificacao-reteste" aria-label="Fechar">×</button>
+        </div>
+
+        <form id="form-retificacao-reteste" novalidate>
+            <input type="hidden" id="retif-reteste-id" name="reteste_id">
+            <div class="modal-body">
+                <div class="ds-alert ds-alert-info mb-3">
+                    Registros de reteste são imutáveis. A retificação cria um novo registro formal apontando para o laudo original.
+                </div>
+                <div class="modal-section-card">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="retif-certificado">Número do Certificado</label>
+                            <input type="text" id="retif-certificado" name="numero_certificado" maxlength="100" class="form-control font-mono">
+                        </div>
+                        <div class="form-group">
+                            <label for="retif-inmetro">Registro INMETRO</label>
+                            <input type="text" id="retif-inmetro" name="registro_inmetro" maxlength="100" class="form-control">
+                        </div>
+                        <div class="form-group ds-col-span-2">
+                            <label for="retif-motivo">Motivo da Retificação (mín. 10 caracteres) *</label>
+                            <textarea id="retif-motivo" name="motivo" rows="3" minlength="10" required class="form-control" placeholder="Informe o motivo da retificação..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-outline" data-fechar-modal="modal-retificacao-reteste">Cancelar</button>
+                <button type="submit" class="btn-primary">Emitir Retificação</button>
+            </div>
+        </form>
+    </div>
+</div>
+

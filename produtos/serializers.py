@@ -290,6 +290,8 @@ class CilindroSerializer(serializers.ModelSerializer):
     depreciacao_diaria_rs = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     valor_contabil_liquido_atual = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     lote_atual_codigo = serializers.SerializerMethodField()
+    envio_reteste_aberto = serializers.SerializerMethodField()
+    baixa_ativa_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Cilindro
@@ -307,7 +309,8 @@ class CilindroSerializer(serializers.ModelSerializer):
             'data_ultimo_reteste', 'data_proximo_reteste',
             'status', 'status_display', 'cliente_posse_atual', 'cliente_posse_nome',
             'posse_desde', 'envase_atual', 'recebimento_externo_atual', 'lote_atual_codigo',
-            'bloqueio_sanitario', 'motivo_bloqueio_sanitario', 'reteste_vencido'
+            'bloqueio_sanitario', 'motivo_bloqueio_sanitario', 'reteste_vencido',
+            'envio_reteste_aberto', 'baixa_ativa_id'
         ]
         read_only_fields = ['tenant', 'status', 'cliente_posse_atual', 'posse_desde', 'envase_atual', 'recebimento_externo_atual']
 
@@ -317,6 +320,23 @@ class CilindroSerializer(serializers.ModelSerializer):
         elif obj.recebimento_externo_atual:
             return obj.recebimento_externo_atual.lote_fornecedor
         return None
+
+    def get_envio_reteste_aberto(self, obj):
+        item = obj.itens_envio_reteste.filter(retornado=False).select_related('envio').order_by('-criado_em').first()
+        if not item:
+            return None
+        return {
+            'envio_id': item.envio_id,
+            'oficina_nome': item.envio.oficina_nome,
+            'oficina_cnpj': item.envio.oficina_cnpj,
+            'data_envio': str(item.envio.data_envio),
+        }
+
+    def get_baixa_ativa_id(self, obj):
+        if obj.status != 'BAIXADO':
+            return None
+        baixa = obj.baixas_patrimoniais.filter(estornada=False).order_by('-criado_em').first()
+        return baixa.id if baixa else None
 
 
 class EnvaseCilindroSerializer(serializers.ModelSerializer):
@@ -592,6 +612,7 @@ class HistoricoRetesteHidrostaticoSerializer(serializers.ModelSerializer):
     cilindro_qr = serializers.CharField(source='cilindro.codigo_qr', read_only=True)
     usuario_nome = serializers.CharField(source='usuario.get_full_name', read_only=True, default=None)
     resultado_display = serializers.CharField(source='get_resultado_display', read_only=True)
+    tem_laudo_pdf = serializers.SerializerMethodField()
 
     class Meta:
         model = HistoricoRetesteHidrostatico
@@ -603,20 +624,26 @@ class HistoricoRetesteHidrostaticoSerializer(serializers.ModelSerializer):
             'expansao_permanente_percentual', 'limite_expansao_percentual_aplicado',
             'tara_gravada_kg', 'tara_real_kg', 'variacao_tara_percentual',
             'resultado', 'resultado_display', 'motivo_reprovacao',
-            'data_proximo_reteste', 'custo_servico_reteste', 'observacoes',
-            'usuario', 'usuario_nome', 'criado_em'
+            'data_proximo_reteste', 'custo_servico_reteste', 'tem_laudo_pdf',
+            'observacoes', 'usuario', 'usuario_nome', 'criado_em'
         ]
         read_only_fields = ['tenant', 'expansao_permanente_percentual', 'variacao_tara_percentual', 'criado_em']
+
+    def get_tem_laudo_pdf(self, obj):
+        return bool(obj.laudo_pdf)
 
 
 class ItemEnvioRetesteSerializer(serializers.ModelSerializer):
     cilindro_serie = serializers.CharField(source='cilindro.numero_serie_ogiva', read_only=True)
     cilindro_qr = serializers.CharField(source='cilindro.codigo_qr', read_only=True)
+    cilindro_tara_kg = serializers.DecimalField(source='cilindro.tara_real_kg', max_digits=8, decimal_places=3, read_only=True)
+    cilindro_modelo_descricao = serializers.CharField(source='cilindro.modelo.descricao', read_only=True, default=None)
 
     class Meta:
         model = ItemEnvioReteste
         fields = [
             'id', 'tenant', 'envio', 'cilindro', 'cilindro_serie', 'cilindro_qr',
+            'cilindro_tara_kg', 'cilindro_modelo_descricao',
             'status_anterior', 'retornado', 'reteste_vinculado', 'criado_em'
         ]
         read_only_fields = ['tenant', 'criado_em']
@@ -626,15 +653,19 @@ class EnvioRetesteSerializer(serializers.ModelSerializer):
     itens = ItemEnvioRetesteSerializer(many=True, read_only=True)
     criado_por_nome = serializers.CharField(source='criado_por.get_full_name', read_only=True, default=None)
     total_cilindros = serializers.IntegerField(source='itens.count', read_only=True)
+    pendentes_retorno = serializers.SerializerMethodField()
 
     class Meta:
         model = EnvioReteste
         fields = [
-            'id', 'tenant', 'oficina_nome', 'oficina_cnpj', 'data_envio',
+            'id', 'tenant', 'oficina_nome', 'oficina_cnpj', 'documento_envio', 'data_envio',
             'observacoes', 'criado_por', 'criado_por_nome', 'total_cilindros',
-            'itens', 'criado_em'
+            'pendentes_retorno', 'itens', 'criado_em'
         ]
         read_only_fields = ['tenant', 'criado_em']
+
+    def get_pendentes_retorno(self, obj):
+        return obj.itens.filter(retornado=False).count()
 
 
 class BaixaPatrimonialSerializer(serializers.ModelSerializer):

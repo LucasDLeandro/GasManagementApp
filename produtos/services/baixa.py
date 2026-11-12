@@ -7,7 +7,7 @@ from django.utils import timezone
 from core.guards import assert_modulo, assert_tenant_writable
 from core.money import quantize
 from core.eventos import publicar
-from core.models import LogAuditoriaDados
+from core.models import LogAuditoriaDados, Membership
 from produtos.models import Cilindro, BaixaPatrimonial, MovimentacaoCilindro
 from produtos.services.ciclo_cilindro import validar_transicao_status_cilindro
 from produtos.services.indenizacao import calcular_indenizacao
@@ -112,10 +112,25 @@ def estornar_baixa(*, baixa_id, motivo, usuario):
     assert_tenant_writable(baixa.tenant)
     assert_modulo(baixa.tenant, 'patrimonio')
 
-    if not (usuario and (usuario.has_perm('produtos.estornar_baixa') or getattr(usuario, 'is_superuser', False))):
+    is_gestor_tenant = bool(
+        usuario and usuario.is_authenticated and Membership.objects.filter(
+            user=usuario,
+            tenant=baixa.tenant,
+            papel__in=['ADMIN', 'GERENTE'],
+            ativo=True,
+        ).exists()
+    )
+
+    if not (
+        usuario and (
+            getattr(usuario, 'is_superuser', False)
+            or usuario.has_perm('produtos.estornar_baixa')
+            or is_gestor_tenant
+        )
+    ):
         raise PermissionError(
-            "Permissão negada: o usuário não possui a permissão 'produtos.estornar_baixa' "
-            "exigida para estornar baixas patrimoniais de cilindros."
+            "Permissão negada: apenas ADMIN, GERENTE ou usuário com a permissão 'produtos.estornar_baixa' "
+            "pode estornar baixas patrimoniais de cilindros."
         )
 
     if baixa.estornada:

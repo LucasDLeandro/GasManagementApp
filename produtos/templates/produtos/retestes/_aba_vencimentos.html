@@ -1,0 +1,63 @@
+<!-- Aba: Vencimentos de Reteste -->
+<div class="ds-card">
+    <div class="ds-card-header">
+        <div>
+            <h2 class="ds-card-title">Calendário de Vencimentos</h2>
+            <p class="ds-card-subtitle">Selecione cilindros vazios e sem bloqueio para despachar em lote para a requalificadora</p>
+        </div>
+        <div class="ds-card-actions">
+            <select id="filtro-venc-situacao" class="form-control" aria-label="Filtrar por situação de vencimento">
+                <option value="todos">Todos os ativos</option>
+                <option value="vencidos">Vencidos</option>
+                <option value="30dias">Vencendo em 30 dias</option>
+                <option value="60dias">31 a 60 dias</option>
+                <option value="90dias">61 a 90 dias</option>
+                <option value="em_requalificacao">Em requalificação</option>
+            </select>
+            <select id="filtro-venc-gas" class="form-control" aria-label="Filtrar por gás">
+                <option value="">Todos os gases</option>
+            </select>
+            <select id="filtro-venc-modelo" class="form-control" aria-label="Filtrar por modelo">
+                <option value="">Todos os modelos</option>
+            </select>
+            <button type="button" class="btn-primary ds-hidden" id="btn-enviar-selecionados">
+                Enviar selecionados (<span id="count-selecionados">0</span>)
+            </button>
+        </div>
+    </div>
+
+    <div id="skeleton-vencimentos" class="ds-loading-state ds-hidden">
+        <div class="ds-spinner"></div>
+        <p>Carregando vencimentos de reteste...</p>
+    </div>
+
+    <div id="vazio-vencimentos" class="ds-hidden">
+        {% include "components/_empty_state.html" with titulo="Nenhum cilindro encontrado para o filtro" descricao="Ajuste os filtros de gás, modelo ou horizonte de vencimento." %}
+    </div>
+
+    <div id="erro-vencimentos" class="ds-error-state ds-hidden">
+        <p>Não foi possível carregar o calendário de vencimentos.</p>
+        <button type="button" class="btn-outline btn-sm" id="btn-retry-vencimentos">Tentar novamente</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="ds-table" id="tabela-vencimentos">
+            <thead>
+                <tr>
+                    <th>
+                        <input type="checkbox" id="chk-todos-vencimentos" aria-label="Selecionar todos aptos">
+                    </th>
+                    <th>Série / QR</th>
+                    <th>Modelo / Gás</th>
+                    <th>Status</th>
+                    <th>Último Reteste</th>
+                    <th>Próximo Reteste</th>
+                    <th>Situação</th>
+                    <th class="text-right">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="corpo-tabela-vencimentos"></tbody>
+        </table>
+    </div>
+</div>
+
