@@ -198,6 +198,8 @@ As fases 1, 2 e 7 podem andar em paralelo depois da Fase 0, desde que não mexam
 | 2.3.8 | **Custo por lote de envase** (fechar/estornar, energia da rampa) | `api/custos-lote` | M |
 | 2.3.9 | **Lotes de envase**: lista, CQ/laudo, liberação pela RT, etiquetas | `api/lotes` | M |
 
+> **Status dos itens 2.3.1 e 2.3.4 (Sprint 02 concluída em 12/11/2026):** Central de Patrimônio (`/produtos/patrimonio/`) entregue com 5 abas (Ativos imobilizados com KPIs de aquisição/depreciação/líquido e filtros, Lotes de aquisição com stepper de 3 etapas e validação de NF-e Módulo 11 de 44 dígitos, Classes de ativo com integração contábil ao Plano de Contas analítico, Fabricantes com CRUD e contagem de vínculos, e Tabela de Indenização com simulador em tempo real e imutabilidade de vigências). Proteção RBAC estrita (somente ADMIN e GERENTE alteram; exclusões em uso bloqueadas com 400). Integração do cadastro de cilindros com lote de aquisição e herança de dados.
+
 > **Status do item 2.3.9 (Sprint 01.00 concluída em 10/11/2026):** Central de Lotes & CQ redesenhada com Design System v1, máquina de estados estrita (`TRANSICOES_QUALIDADE_LOTE`), modelo imutável `HistoricoQualidadeLote`, liberação restrita ao RT ativo vinculado com snapshot regulatório, confirmação de aprovação com aviso de laudo, reprovação com justificativa ≥ 10 caracteres e bloqueio sanitário imediato dos cilindros, drawer de histórico e prevenção anti-N+1. As etiquetas regulamentares da tabela seguem para a Sprint 01.02.
 
 ### 2.4 Melhorias

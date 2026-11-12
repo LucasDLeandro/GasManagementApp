@@ -120,6 +120,24 @@
 - **Prazo:** 2026-10-27
 - **Premissa Adotada:** Nomes nulos ou genéricos registrados em `docs/migracao_fabricantes.csv` para saneamento.
 
+### 5. Imutabilidade e Vigência da Tabela de Indenização (Sprint 02)
+- **Status:** **RESOLVIDO / HOMOLOGADO NO GO-LIVE**
+- **Dono:** Controladoria & Comercial
+- **Prazo:** 2026-11-12
+- **Premissa Adotada:** O valor de indenização vigente não é alterado diretamente por PATCH para preservar a integridade histórica dos custos e cobranças passadas. Alterações de valor encerram a vigência anterior na véspera da nova data (`vigencia_fim`) e criam um novo registro através de `POST .../nova-vigencia/`. O backend rejeita sobreposição de vigências para o mesmo modelo e gás com HTTP 400.
+
+### 6. Travamento de Lotes de Aquisição com Cilindros Vinculados (Sprint 02)
+- **Status:** **RESOLVIDO / HOMOLOGADO NO GO-LIVE**
+- **Dono:** Engenharia & Contabilidade
+- **Prazo:** 2026-11-12
+- **Premissa Adotada:** Uma vez que o lote possui cilindros associados no inventário, campos de valor total, quantidade, valor unitário, classe de ativo e data de aquisição tornam-se somente-leitura (retornam 400 em caso de tentativa de alteração). A exclusão de lote com cilindros ou de ativo com depreciação é bloqueada com 400, orientando a utilização da Baixa Patrimonial (Sprint 03).
+
+### 7. Validação de NF-e e Limite Físico de Lote no Cadastro de Cilindros (Sprint 02)
+- **Status:** **RESOLVIDO / HOMOLOGADO NO GO-LIVE**
+- **Dono:** Fiscal & Engenharia
+- **Prazo:** 2026-11-12
+- **Premissa Adotada:** A chave NF-e do lote deve possuir 44 dígitos puramente numéricos válidos pelo algoritmo Módulo 11 da SEFAZ. No cadastro de cilindros, a seleção de lote é isolada estritamente ao tenant autenticado (`unscoped.none()` no serializer) e bloqueia com HTTP 400 qualquer tentativa de cadastrar cilindros acima da quantidade do lote.
+
 ---
 
 ## Sprint 8B: Retestes Hidrostáticos, Reclassificação e Baixa Patrimonial

@@ -108,13 +108,15 @@ class CadastroCilindroSerializer(serializers.Serializer):
     chave_nfe_aquisicao = serializers.CharField(max_length=44, required=False, allow_blank=True)
     fornecedor_aquisicao = serializers.CharField(max_length=150, required=False, allow_blank=True)
     classe_ativo = serializers.PrimaryKeyRelatedField(queryset=ClasseAtivo.unscoped.none(), required=False, allow_null=True)
+    lote_aquisicao = serializers.PrimaryKeyRelatedField(queryset=LoteAquisicaoCilindros.unscoped.none(), required=False, allow_null=True)
     observacao = serializers.CharField(required=False, allow_blank=True)
 
     def __init__(self, *args, tenant=None, **kwargs):
         super().__init__(*args, **kwargs)
         # Relacionados só da empresa da requisição (fail-closed: sem tenant, nada é aceito).
         for campo, modelo in (('modelo', ModeloCilindro), ('fabricante_catalogo', FabricanteCilindro),
-                              ('cliente_proprietario', Cliente), ('classe_ativo', ClasseAtivo)):
+                              ('cliente_proprietario', Cliente), ('classe_ativo', ClasseAtivo),
+                              ('lote_aquisicao', LoteAquisicaoCilindros)):
             self.fields[campo].queryset = modelo.unscoped.filter(tenant=tenant) if tenant else modelo.unscoped.none()
 
     def validate(self, attrs):
@@ -122,6 +124,12 @@ class CadastroCilindroSerializer(serializers.Serializer):
             raise serializers.ValidationError({'cliente_proprietario': 'Informe o cliente dono do cilindro.'})
         if not attrs.get('fabricante_catalogo') and not (attrs.get('fabricante') or '').strip():
             raise serializers.ValidationError({'fabricante': 'Informe o fabricante (do catálogo ou por nome).'})
+        lote = attrs.get('lote_aquisicao')
+        if lote:
+            if lote.quantidade and lote.cilindros.count() >= lote.quantidade:
+                raise serializers.ValidationError({
+                    'lote_aquisicao': f'A quantidade de cilindros deste lote já atingiu o limite de {lote.quantidade} unidades.'
+                })
         return attrs
 
 
@@ -473,6 +481,7 @@ class AtivoImobilizadoSerializer(serializers.ModelSerializer):
     depreciacao_mensal_rs = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     depreciacao_diaria_rs = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     valor_contabil_liquido_atual = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    depreciacao_acumulada_rs = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
 
     class Meta:
         model = AtivoImobilizado
@@ -483,6 +492,7 @@ class AtivoImobilizadoSerializer(serializers.ModelSerializer):
             'fornecedor_nome', 'fornecedor_documento', 'chave_nfe_aquisicao',
             'status', 'status_display',
             'depreciacao_mensal_rs', 'depreciacao_diaria_rs', 'valor_contabil_liquido_atual',
+            'depreciacao_acumulada_rs',
             'criado_em', 'atualizado_em'
         ]
         read_only_fields = ['tenant', 'criado_em', 'atualizado_em']
@@ -491,6 +501,7 @@ class AtivoImobilizadoSerializer(serializers.ModelSerializer):
 class LoteAquisicaoCilindrosSerializer(serializers.ModelSerializer):
     classe_codigo = serializers.CharField(source='classe.codigo', read_only=True)
     classe_nome = serializers.CharField(source='classe.nome', read_only=True)
+    total_cilindros_vinculados = serializers.IntegerField(source='cilindros.count', read_only=True)
 
     class Meta:
         model = LoteAquisicaoCilindros
@@ -498,9 +509,24 @@ class LoteAquisicaoCilindrosSerializer(serializers.ModelSerializer):
             'id', 'tenant', 'classe', 'classe_codigo', 'classe_nome',
             'fornecedor_nome', 'fornecedor_documento', 'chave_nfe',
             'data_aquisicao', 'quantidade', 'valor_total', 'valor_unitario',
+            'total_cilindros_vinculados',
             'criado_em', 'atualizado_em'
         ]
         read_only_fields = ['tenant', 'criado_em', 'atualizado_em']
+
+    def validate_chave_nfe(self, value):
+        if value:
+            import re
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            from core.validators import validar_chave_nfe
+            if not re.match(r'^\d{44}$', str(value)):
+                raise serializers.ValidationError('A chave de NF-e deve conter exatamente 44 dígitos numéricos.')
+            try:
+                validar_chave_nfe(value)
+            except DjangoValidationError as exc:
+                msg = exc.message if hasattr(exc, 'message') else str(exc)
+                raise serializers.ValidationError(msg)
+        return value
 
 
 class TabelaIndenizacaoCilindroSerializer(serializers.ModelSerializer):
@@ -516,6 +542,45 @@ class TabelaIndenizacaoCilindroSerializer(serializers.ModelSerializer):
             'vigencia_inicio', 'vigencia_fim', 'criado_em', 'atualizado_em'
         ]
         read_only_fields = ['tenant', 'criado_em', 'atualizado_em']
+
+    def validate(self, attrs):
+        # 1. Bloquear edição direta de valor na linha existente
+        if self.instance and 'valor' in attrs and attrs['valor'] != self.instance.valor:
+            raise serializers.ValidationError({
+                'valor': 'O valor de indenização vigente não pode ser alterado diretamente por edição. Para alterar o valor, registre uma nova vigência.'
+            })
+
+        # 2. Validação de sobreposição de vigências
+        tenant = self.instance.tenant if self.instance else (
+            self.context.get('request') and getattr(self.context['request'], 'tenant', None)
+        )
+        tipo = attrs.get('tipo_cilindro') or (self.instance and self.instance.tipo_cilindro)
+        gas = attrs.get('gas') if 'gas' in attrs else (self.instance.gas if self.instance else None)
+        inicio = attrs.get('vigencia_inicio') or (self.instance and self.instance.vigencia_inicio)
+        fim = attrs.get('vigencia_fim') if 'vigencia_fim' in attrs else (self.instance.vigencia_fim if self.instance else None)
+
+        if tenant and tipo and inicio:
+            from django.db.models import Q
+            qs = TabelaIndenizacaoCilindro.objects.filter(
+                tenant=tenant,
+                tipo_cilindro=tipo,
+                gas=gas,
+            )
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+
+            # Verifica sobreposição de datas
+            if fim:
+                q_overlap = Q(vigencia_inicio__lte=fim) & (Q(vigencia_fim__isnull=True) | Q(vigencia_fim__gte=inicio))
+            else:
+                q_overlap = Q(vigencia_fim__isnull=True) | Q(vigencia_fim__gte=inicio)
+
+            if qs.filter(q_overlap).exists():
+                raise serializers.ValidationError({
+                    'vigencia_inicio': 'Existe sobreposição de vigência com outro registro para o mesmo modelo e gás.'
+                })
+
+        return super().validate(attrs)
 
 
 # ==============================================================================

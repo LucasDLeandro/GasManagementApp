@@ -1,0 +1,64 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+
+{% block title %}Patrimônio — Baros{% endblock %}
+
+{% block content %}
+<div class="ds-page">
+    <header class="ds-page-header">
+        <div>
+            <h1 class="ds-page-title">Patrimônio</h1>
+            <p class="ds-page-subtitle">Ativos imobilizados, lotes de aquisição, classes de ativo, fabricantes e indenização</p>
+        </div>
+        <div class="ds-page-actions" id="header-actions">
+            <!-- Ações dinâmicas de acordo com a aba ativa -->
+        </div>
+    </header>
+
+    <!-- Navegação de Abas (Design System v1, seção 4.2) -->
+    <nav class="tabs-nav" aria-label="Abas de Patrimônio">
+        <button type="button" class="tab-btn active" data-tab="ativos" id="tab-nav-ativos">Ativos imobilizados</button>
+        <button type="button" class="tab-btn" data-tab="lotes" id="tab-nav-lotes">Lotes de aquisição</button>
+        <button type="button" class="tab-btn" data-tab="classes" id="tab-nav-classes">Classes de ativo</button>
+        <button type="button" class="tab-btn" data-tab="fabricantes" id="tab-nav-fabricantes">Fabricantes</button>
+        <button type="button" class="tab-btn" data-tab="indenizacao" id="tab-nav-indenizacao">Indenização</button>
+    </nav>
+
+    <!-- Painéis das Abas -->
+    <div class="tab-pane active" id="aba-ativos" role="tabpanel" aria-labelledby="tab-nav-ativos">
+        {% include "produtos/patrimonio/_aba_ativos.html" %}
+    </div>
+
+    <div class="tab-pane ds-hidden" id="aba-lotes" role="tabpanel" aria-labelledby="tab-nav-lotes">
+        {% include "produtos/patrimonio/_aba_lotes.html" %}
+    </div>
+
+    <div class="tab-pane ds-hidden" id="aba-classes" role="tabpanel" aria-labelledby="tab-nav-classes">
+        {% include "produtos/patrimonio/_aba_classes.html" %}
+    </div>
+
+    <div class="tab-pane ds-hidden" id="aba-fabricantes" role="tabpanel" aria-labelledby="tab-nav-fabricantes">
+        {% include "produtos/patrimonio/_aba_fabricantes.html" %}
+    </div>
+
+    <div class="tab-pane ds-hidden" id="aba-indenizacao" role="tabpanel" aria-labelledby="tab-nav-indenizacao">
+        {% include "produtos/patrimonio/_aba_indenizacoes.html" %}
+    </div>
+</div>
+
+<!-- Modais do Módulo de Patrimônio -->
+{% include "produtos/patrimonio/_modal_lote.html" %}
+{% include "produtos/patrimonio/_modal_classe.html" %}
+{% include "produtos/patrimonio/_modal_fabricante.html" %}
+{% include "produtos/patrimonio/_modal_indenizacao.html" %}
+{% include "produtos/patrimonio/_modal_ativo.html" %}
+
+<script>
+    window.PATRIMONIO_CONFIG = {
+        podeEditar: {{ pode_editar_patrimonio|yesno:"true,false" }},
+        temFinanceiro: {{ modulos_ativos.financeiro|yesno:"true,false" }}
+    };
+</script>
+<script src="{% static 'produtos/js/patrimonio.js' %}?v=20261112_01"></script>
+{% endblock %}
+

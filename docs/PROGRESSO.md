@@ -3,9 +3,10 @@
 Arquivo curto e atualizado a cada sprint (pelo agente, no fim da sprint, e pelo dono quando fizer merge ou deploy). Para o histórico completo, veja `docs/sprints/relatorios/` e `docs/PLANO_CORRECAO_E_EVOLUCAO.md`.
 
 ## Onde estamos (12/11/2026)
-- Fases 0 e 1 concluídas; Fase 2 (Produtos) em andamento na branch `sprint-01b.01/monitor`.
-- Sprint 01B dividida em 3 entregas (01B.00, 01B.01, 01B.02).
-- Entregas 01B.00 e 01B.01 concluídas; **próxima entrega:** `01B.02 Home: fila por papel, visão de gestão, limpeza e dados de exemplo` na branch `sprint-01b.02/home-gestao`.
+- Fases 0 e 1 concluídas; Fase 2 (Produtos) em andamento.
+- Sprint 01 (Lotes, Ativos, Etiquetas) e Sprint 01B (Histórico, Monitor, Home de Gestão) concluídas.
+- **Sprint 02 (Produtos, telas de Patrimônio) concluída** na branch `sprint-02/produtos-patrimonio`.
+- **Próxima entrega:** Sprint 03 (Retestes e Baixa Patrimonial) na branch `sprint-03/retestes-baixa`.
 
 ## Ambiente de teste (AWS)
 - EC2 t3.small, Ubuntu 24.04, Python 3.14, gunicorn + nginx + HTTPS (Let's Encrypt), SQLite, `DEBUG=False`.
@@ -21,4 +22,5 @@ Arquivo curto e atualizado a cada sprint (pelo agente, no fim da sprint, e pelo 
 | 01.02 Etiquetas | concluída | `sprint-01.02/etiquetas` | `docs/sprints/relatorios/SPRINT_01_02.md` |
 | 01B.00 Histórico de status | concluída | `sprint-01b.00/historico-status` | `docs/sprints/relatorios/SPRINT_01B_00.md` |
 | 01B.01 Monitor de TV | concluída | `sprint-01b.01/monitor` | `docs/sprints/relatorios/SPRINT_01B_01.md` |
-| 01B.02 Home de gestão | a fazer | `sprint-01b.02/home-gestao` | — |
+| 01B.02 Home de gestão | concluída | `sprint-01b.02/home-gestao` | `docs/sprints/relatorios/SPRINT_01B_02.md` |
+| 02 Produtos, telas de Patrimônio | concluída | `sprint-02/produtos-patrimonio` | `docs/sprints/relatorios/SPRINT_02.md` |

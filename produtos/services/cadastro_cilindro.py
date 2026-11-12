@@ -20,6 +20,7 @@ CAMPOS_CILINDRO = [
     'ano_fabricacao', 'norma_fabricacao', 'pressao_servico_bar', 'pressao_teste_bar', 'tipo_valvula_rosca',
     'tara_real_kg', 'data_ultimo_reteste', 'propriedade', 'cliente_proprietario', 'numero_patrimonio',
     'data_aquisicao', 'valor_aquisicao', 'chave_nfe_aquisicao', 'fornecedor_aquisicao', 'classe_ativo',
+    'lote_aquisicao',
 ]
 
 

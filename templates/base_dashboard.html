@@ -2,361 +2,446 @@
 {% load static %}
 
 {% block css %}
-    <!-- Script Anti-Flash de Tema (Executado no Head) -->
-    <script>
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-        } else if (savedTheme === 'high-contrast-sun') {
-            document.documentElement.setAttribute('data-theme', 'high-contrast-sun');
-        } else {
-            document.documentElement.setAttribute('data-theme', 'light');
-        }
-    </script>
-    <!-- Estilo específico do Dashboard/Home compartilhado -->
-    <link rel="stylesheet" href="{% static 'core/css/home.css' %}">
-    <link rel="stylesheet" href="{% static 'core/css/components.css' %}?v=20261028_f2c">
-    <link rel="stylesheet" href="{% static 'core/css/command_bar.css' %}">
-    {% block extra_css %}{% endblock %}
+<!-- Script Anti-Flash de Tema (Executado no Head) -->
+<script>
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    } else if (savedTheme === 'high-contrast-sun') {
+        document.documentElement.setAttribute('data-theme', 'high-contrast-sun');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+    }
+</script>
+<!-- Estilo específico do Dashboard/Home compartilhado -->
+<link rel="stylesheet" href="{% static 'core/css/home.css' %}">
+<link rel="stylesheet" href="{% static 'core/css/components.css' %}?v=20261028_f2c">
+<link rel="stylesheet" href="{% static 'core/css/command_bar.css' %}">
+{% block extra_css %}{% endblock %}
 {% endblock %}
 
 {% block header %}
-    {% if break_glass_ativo %}
-    <div id="break-glass-banner" style="background: #dc3545; color: #ffffff; padding: 10px 16px; font-weight: 600; text-align: center; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 9999;">
-        <span>⚠️ SESSÃO DE SUPORTE TÉCNICO (BREAK-GLASS) EM ANDAMENTO</span>
-        <span>| Tenant: {{ current_tenant.nome_fantasia }}</span>
-        <span>| Expira em: {{ break_glass_obj.expira_em|date:"H:i:s" }}</span>
-        <span>| Motivo: {{ break_glass_obj.motivo }}</span>
-    </div>
-    {% endif %}
-    <!-- Navbar Superior -->
-    <header class="top-navbar">
-        <div class="navbar-left">
-            <!-- Botão de Toggle da Sidebar (Mobile, Tablet e Desktop) -->
-            <button id="toggle-sidebar" class="menu-btn" aria-label="Menu" type="button">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="3" y1="12" x2="21" y2="12"></line>
-                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                    <line x1="3" y1="18" x2="21" y2="18"></line>
-                </svg>
-            </button>
-            <div class="logo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 156 44" width="136" height="38" fill="none" class="baros-logo-svg" aria-label="Baros">
-                  <defs>
+{% if break_glass_ativo %}
+<div id="break-glass-banner"
+    style="background: #dc3545; color: #ffffff; padding: 10px 16px; font-weight: 600; text-align: center; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 9999;">
+    <span>⚠️ SESSÃO DE SUPORTE TÉCNICO (BREAK-GLASS) EM ANDAMENTO</span>
+    <span>| Tenant: {{ current_tenant.nome_fantasia }}</span>
+    <span>| Expira em: {{ break_glass_obj.expira_em|date:"H:i:s" }}</span>
+    <span>| Motivo: {{ break_glass_obj.motivo }}</span>
+</div>
+{% endif %}
+<!-- Navbar Superior -->
+<header class="top-navbar">
+    <div class="navbar-left">
+        <!-- Botão de Toggle da Sidebar (Mobile, Tablet e Desktop) -->
+        <button id="toggle-sidebar" class="menu-btn" aria-label="Menu" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
+        <div class="logo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 156 44" width="136" height="38" fill="none"
+                class="baros-logo-svg" aria-label="Baros">
+                <defs>
                     <linearGradient id="baros-v1-primary" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stop-color="#1D4ED8" />
-                      <stop offset="100%" stop-color="#0EA5E9" />
+                        <stop offset="0%" stop-color="#1D4ED8" />
+                        <stop offset="100%" stop-color="#0EA5E9" />
                     </linearGradient>
                     <linearGradient id="baros-v1-emerald" x1="0%" y1="100%" x2="100%" y2="0%">
-                      <stop offset="0%" stop-color="#059669" />
-                      <stop offset="100%" stop-color="#34D399" />
+                        <stop offset="0%" stop-color="#059669" />
+                        <stop offset="100%" stop-color="#34D399" />
                     </linearGradient>
-                  </defs>
-                  <g transform="translate(2, 2)">
+                </defs>
+                <g transform="translate(2, 2)">
                     <rect width="40" height="40" rx="11" fill="#0F172A" />
-                    <rect x="0.75" y="0.75" width="38.5" height="38.5" rx="10.25" stroke="rgba(255,255,255,0.14)" stroke-width="1.5" />
+                    <rect x="0.75" y="0.75" width="38.5" height="38.5" rx="10.25" stroke="rgba(255,255,255,0.14)"
+                        stroke-width="1.5" />
                     <rect x="10" y="8" width="6" height="24" rx="3" fill="url(#baros-v1-primary)" />
-                    <path d="M 16 11 H 23 C 26.5 11 29 13.2 29 16 C 29 18.8 26.5 21 23 21 H 16" stroke="#38BDF8" stroke-width="5" stroke-linecap="round" />
-                    <path d="M 16 21 H 24.5 C 28.5 21 31 23.3 31 26.5 C 31 29.7 28.5 32 24.5 32 H 16" stroke="url(#baros-v1-primary)" stroke-width="5" stroke-linecap="round" />
+                    <path d="M 16 11 H 23 C 26.5 11 29 13.2 29 16 C 29 18.8 26.5 21 23 21 H 16" stroke="#38BDF8"
+                        stroke-width="5" stroke-linecap="round" />
+                    <path d="M 16 21 H 24.5 C 28.5 21 31 23.3 31 26.5 C 31 29.7 28.5 32 24.5 32 H 16"
+                        stroke="url(#baros-v1-primary)" stroke-width="5" stroke-linecap="round" />
                     <circle cx="13" cy="21" r="2.5" fill="#FFFFFF" />
-                    <path d="M 13 21 L 27.5 9.5" stroke="url(#baros-v1-emerald)" stroke-width="2.6" stroke-linecap="round" />
+                    <path d="M 13 21 L 27.5 9.5" stroke="url(#baros-v1-emerald)" stroke-width="2.6"
+                        stroke-linecap="round" />
                     <circle cx="27.5" cy="9.5" r="2" fill="#34D399" />
-                  </g>
-                  <g transform="translate(52, 0)">
-                    <text x="0" y="31" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="28" font-weight="800" letter-spacing="-1.2" fill="currentColor">baros</text>
+                </g>
+                <g transform="translate(52, 0)">
+                    <text x="0" y="31" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+                        font-size="28" font-weight="800" letter-spacing="-1.2" fill="currentColor">baros</text>
                     <circle cx="83" cy="26" r="3.8" fill="#10B981" />
-                  </g>
-                </svg>
-            </div>
-
-            <!-- Botão de Busca Rápida (Barra de Comando Ctrl+K) -->
-            <button id="btn-open-command-bar" class="topbar-command-trigger" type="button" title="Busca Rápida de Cilindros, Lotes, Clientes e Veículos (Ctrl+K)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-                <span>Buscar tudo...</span>
-                <span class="topbar-command-shortcut"><kbd>Ctrl</kbd> <kbd>K</kbd></span>
-            </button>
+                </g>
+            </svg>
         </div>
-        
-        <div class="navbar-right">
-            <!-- Indicador Dinâmico de Conectividade / Sync -->
-            <div class="sync-status-indicator" id="topbar-sync-status" title="Status de Conectividade e Fila de Sincronização">
-                <span class="sync-status-dot" id="topbar-sync-dot"></span>
-                <span id="topbar-sync-text">Online</span>
-            </div>
 
-            <!-- Tenant Switcher (Dropdown exclusivo para Superusuários ou Badge fixo para usuários locais) -->
-            {% if can_switch_tenant %}
-            <form id="tenant-switch-form" method="POST" action="{% url 'core:trocar_tenant' %}" style="margin: 0; display: inline-flex; align-items: center;">
-                {% csrf_token %}
-                <select name="tenant_id" class="tenant-switcher-select" onchange="this.form.submit()" title="Alternar Empresa Ativa (Admin)">
-                    {% for t in user_tenants %}
-                        <option value="{{ t.id }}" {% if current_tenant.id == t.id %}selected{% endif %}>
-                            🏢 {{ t.nome_fantasia|default:t.razao_social }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </form>
-            {% elif current_tenant %}
-            <div class="tenant-badge-single" title="Empresa Ativa: {{ current_tenant.razao_social }}">
-                🏢 {{ current_tenant.nome_fantasia|default:current_tenant.razao_social }}
-            </div>
-            {% endif %}
+        <!-- Botão de Busca Rápida (Barra de Comando Ctrl+K) -->
+        <button id="btn-open-command-bar" class="topbar-command-trigger" type="button"
+            title="Busca Rápida de Cilindros, Lotes, Clientes e Veículos (Ctrl+K)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <span>Buscar tudo...</span>
+            <span class="topbar-command-shortcut"><kbd>Ctrl</kbd> <kbd>K</kbd></span>
+        </button>
+    </div>
 
-            <!-- Papel Ativo do Usuário -->
-            <span class="role-badge-pill role-badge-{{ current_membership.papel|lower|default:'admin' }}" title="Papel Operacional Ativo">
-                {{ current_membership.get_papel_display|default:"Superusuário" }}
-            </span>
+    <div class="navbar-right">
+        <!-- Indicador Dinâmico de Conectividade / Sync -->
+        <div class="sync-status-indicator" id="topbar-sync-status"
+            title="Status de Conectividade e Fila de Sincronização">
+            <span class="sync-status-dot" id="topbar-sync-dot"></span>
+            <span id="topbar-sync-text">Online</span>
+        </div>
 
-            <!-- Botão de Tema (Claro / Escuro / Solar Alto Contraste) -->
-            <button id="theme-toggle" class="menu-btn" aria-label="Alternar Tema" title="Alternar Tema (Claro / Escuro / Solar)">
-                <svg id="theme-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                </svg>
-            </button>
-            
-            <!-- Informação do Usuário -->
-            <div class="user-profile dropdown" style="position: relative; border-right: none;">
-                <div class="user-info-trigger" id="user-menu-btn" style="cursor: pointer; display: flex; align-items: center; gap: 12px;">
-                    <span class="user-greeting">
-                        {% if user.is_authenticated %}
-                            {{ user.get_short_name|default:user.username }}
-                        {% else %}
-                            Visitante
-                        {% endif %}
-                    </span>
-                    <div class="user-avatar" style="cursor: pointer; transition: transform 0.2s;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                    </div>
-                </div>
-                
-                <!-- Dropdown Menu -->
-                <div class="dropdown-menu" id="user-dropdown-menu" style="display: none; position: absolute; top: 50px; right: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 180px; z-index: 100; overflow: hidden;">
-                    <a href="{% url 'accounts:meu_perfil' %}" style="display: block; padding: 12px 16px; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); font-weight: 500;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px; vertical-align: text-bottom;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> Perfil
-                    </a>
-                    {% if request.user.is_superuser %}
-                    <a href="{% url 'baros_admin_dashboard' %}" class="user-menu-link user-menu-link--backoffice">Backoffice Baros</a>
+        <!-- Tenant Switcher (Dropdown exclusivo para Superusuários ou Badge fixo para usuários locais) -->
+        {% if can_switch_tenant %}
+        <form id="tenant-switch-form" method="POST" action="{% url 'core:trocar_tenant' %}"
+            style="margin: 0; display: inline-flex; align-items: center;">
+            {% csrf_token %}
+            <select name="tenant_id" class="tenant-switcher-select" onchange="this.form.submit()"
+                title="Alternar Empresa Ativa (Admin)">
+                {% for t in user_tenants %}
+                <option value="{{ t.id }}" {% if current_tenant.id == t.id %}selected{% endif %}>
+                    🏢 {{ t.nome_fantasia|default:t.razao_social }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+        {% elif current_tenant %}
+        <div class="tenant-badge-single" title="Empresa Ativa: {{ current_tenant.razao_social }}">
+            🏢 {{ current_tenant.nome_fantasia|default:current_tenant.razao_social }}
+        </div>
+        {% endif %}
+
+        <!-- Papel Ativo do Usuário -->
+        <span class="role-badge-pill role-badge-{{ current_membership.papel|lower|default:'admin' }}"
+            title="Papel Operacional Ativo">
+            {{ current_membership.get_papel_display|default:"Superusuário" }}
+        </span>
+
+        <!-- Botão de Tema (Claro / Escuro / Solar Alto Contraste) -->
+        <button id="theme-toggle" class="menu-btn" aria-label="Alternar Tema"
+            title="Alternar Tema (Claro / Escuro / Solar)">
+            <svg id="theme-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+        </button>
+
+        <!-- Informação do Usuário -->
+        <div class="user-profile dropdown" style="position: relative; border-right: none;">
+            <div class="user-info-trigger" id="user-menu-btn"
+                style="cursor: pointer; display: flex; align-items: center; gap: 12px;">
+                <span class="user-greeting">
+                    {% if user.is_authenticated %}
+                    {{ user.get_short_name|default:user.username }}
+                    {% else %}
+                    Visitante
                     {% endif %}
-                    <button id="btn-logout" style="width: 100%; text-align: left; background: none; border: none; padding: 12px 16px; color: #dc3545; cursor: pointer; font-size: 15px; font-weight: 500;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px; vertical-align: text-bottom;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Sair
-                    </button>
+                </span>
+                <div class="user-avatar" style="cursor: pointer; transition: transform 0.2s;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
                 </div>
             </div>
+
+            <!-- Dropdown Menu -->
+            <div class="dropdown-menu" id="user-dropdown-menu"
+                style="display: none; position: absolute; top: 50px; right: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 180px; z-index: 100; overflow: hidden;">
+                <a href="{% url 'accounts:meu_perfil' %}"
+                    style="display: block; padding: 12px 16px; color: var(--color-text); text-decoration: none; border-bottom: 1px solid var(--color-border); font-weight: 500;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        style="margin-right: 8px; vertical-align: text-bottom;">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg> Perfil
+                </a>
+                {% if request.user.is_superuser %}
+                <a href="{% url 'baros_admin_dashboard' %}" class="user-menu-link user-menu-link--backoffice">Backoffice
+                    Baros</a>
+                {% endif %}
+                <button id="btn-logout"
+                    style="width: 100%; text-align: left; background: none; border: none; padding: 12px 16px; color: #dc3545; cursor: pointer; font-size: 15px; font-weight: 500;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        style="margin-right: 8px; vertical-align: text-bottom;">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg> Sair
+                </button>
+            </div>
         </div>
-    </header>
+    </div>
+</header>
 {% endblock %}
 
 {% block content %}
-    <div class="dashboard-layout">
-        
-        <!-- Sidebar Esquerda -->
-        <aside class="sidebar" id="app-sidebar">
-            <nav class="sidebar-menu">
-                <div class="menu-section">
-                    <p class="menu-title">Menu Principal</p>
-                    <ul class="nav-list">
-                        <li class="nav-item">
-                            <a href="{% url 'core:inicio' %}" class="nav-link">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                                </svg>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        {% if tem_modulo_distribuicao %}
-                        <li class="nav-item">
-                            <a href="{% url 'clientes:index' %}" class="nav-link">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="9" cy="7" r="4"></circle>
-                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                                </svg>
-                                <span>Comercial & Estadia</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{% url 'vendas:index' %}" class="nav-link">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="9" cy="21" r="1"></circle>
-                                    <circle cx="20" cy="21" r="1"></circle>
-                                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                                </svg>
-                                <span>Vendas</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{% url 'logistica:index' %}" class="nav-link">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="1" y="3" width="15" height="13"></rect>
-                                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
-                                </svg>
-                                <span>Logística</span>
-                            </a>
-                        </li>
-                        {% if is_motorista or is_gerente %}
-                        <li class="nav-item">
-                            <a href="{% url 'logistica:app_campo' %}" class="nav-link {% if request.resolver_match.url_name == 'app_campo' %}active{% endif %}" title="Aplicativo de Campo PWA para Motoristas">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                                </svg>
-                                <span>App de Campo (PWA)</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% endif %}
-                        {% if tem_modulo_envase %}
-                        <li class="nav-item">
-                            <a href="{% url 'produtos:index' %}?aba=rampa" class="nav-link" title="Estação de Rampa de Envase em Batelada (IN 129/2022)">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                </svg>
-                                <span>Rampa de Envase (IN 129/2022)</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        <li class="nav-item">
-                            <a href="{% url 'produtos:index' %}" class="nav-link">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                                </svg>
-                                <span>Ativos 360° & Gases</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{% url 'produtos:recall_anvisa' %}" class="nav-link">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                                    <path d="M9 12l2 2 4-4"></path>
-                                </svg>
-                                <span>Recall ANVISA</span>
-                            </a>
-                        </li>
-                        {% if is_gerente %}
-                        <li class="nav-item">
-                            <a href="{% url 'core:integracoes' %}" class="nav-link {% if request.resolver_match.url_name == 'integracoes' %}active{% endif %}">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="16 18 22 12 16 6"></polyline>
-                                    <polyline points="8 6 2 12 8 18"></polyline>
-                                </svg>
-                                <span>Integrações & ERP</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{% url 'core:perfil_regulatorio' %}" class="nav-link {% if request.resolver_match.url_name == 'perfil_regulatorio' %}active{% endif %}">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                    <polyline points="14 2 14 8 20 8"></polyline>
-                                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                                    <polyline points="10 9 9 9 8 9"></polyline>
-                                </svg>
-                                <span>Perfil Regulatório ANVISA</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if is_admin %}
-                        <li class="nav-item">
-                            <a href="{% url 'accounts:pessoal_index' %}" class="nav-link">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="9" cy="7" r="4"></circle>
-                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                                </svg>
-                                <span>Pessoal</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if modulos_ativos.financeiro or is_admin %}
-                        <li class="nav-item">
-                            <a href="{% url 'financeiro:index' %}" class="nav-link {% if request.resolver_match.app_name == 'financeiro' %}active{% endif %}" title="Plano de Contas, Razão, Balancete e Gestão de Contas">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="12" y1="1" x2="12" y2="23"></line>
-                                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                                </svg>
-                                <span>Financeiro Base</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if modulos_ativos.fiscal or is_admin %}
-                        <li class="nav-item">
-                            <a href="{% url 'fiscal:index' %}" class="nav-link {% if request.resolver_match.app_name == 'fiscal' %}active{% endif %}" title="Emissão de NF-e e Gestão Fiscal">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                    <polyline points="14 2 14 8 20 8"></polyline>
-                                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                                    <polyline points="10 9 9 9 8 9"></polyline>
-                                </svg>
-                                <span>Fiscal & NF-e</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </div>
-            </nav>
-        </aside>
-        <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+<div class="dashboard-layout">
 
-        <!-- Área de Conteúdo Central -->
-        <div class="content-area">
-            {% block dashboard_content %}
-            {% endblock %}
-        </div>
-        
+    <!-- Sidebar Esquerda -->
+    <aside class="sidebar" id="app-sidebar">
+        <nav class="sidebar-menu">
+            <div class="menu-section">
+                <p class="menu-title">Menu Principal</p>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="{% url 'core:inicio' %}" class="nav-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                            </svg>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    {% if tem_modulo_distribuicao %}
+                    <li class="nav-item">
+                        <a href="{% url 'clientes:index' %}" class="nav-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            <span>Comercial & Estadia</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'vendas:index' %}" class="nav-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="9" cy="21" r="1"></circle>
+                                <circle cx="20" cy="21" r="1"></circle>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                            </svg>
+                            <span>Vendas</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'logistica:index' %}" class="nav-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="1" y="3" width="15" height="13"></rect>
+                                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                            </svg>
+                            <span>Logística</span>
+                        </a>
+                    </li>
+                    {% if is_motorista or is_gerente %}
+                    <li class="nav-item">
+                        <a href="{% url 'logistica:app_campo' %}"
+                            class="nav-link {% if request.resolver_match.url_name == 'app_campo' %}active{% endif %}"
+                            title="Aplicativo de Campo PWA para Motoristas">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                            </svg>
+                            <span>App de Campo (PWA)</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                    {% if tem_modulo_envase %}
+                    <li class="nav-item">
+                        <a href="{% url 'produtos:index' %}?aba=rampa" class="nav-link"
+                            title="Estação de Rampa de Envase em Batelada (IN 129/2022)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            <span>Rampa de Envase (IN 129/2022)</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a href="{% url 'produtos:index' %}" class="nav-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path
+                                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                                </path>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                            </svg>
+                            <span>Ativos 360° & Gases</span>
+                        </a>
+                    </li>
+                    {% if modulos_ativos.patrimonio %}
+                    <li class="nav-item">
+                        <a href="{% url 'produtos:patrimonio' %}"
+                            class="nav-link {% if request.resolver_match.url_name == 'patrimonio' %}active{% endif %}">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                            </svg>
+                            <span>Patrimônio</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a href="{% url 'produtos:recall_anvisa' %}" class="nav-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                <path d="M9 12l2 2 4-4"></path>
+                            </svg>
+                            <span>Recall ANVISA</span>
+                        </a>
+                    </li>
+                    {% if is_gerente %}
+                    <li class="nav-item">
+                        <a href="{% url 'core:integracoes' %}"
+                            class="nav-link {% if request.resolver_match.url_name == 'integracoes' %}active{% endif %}">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="16 18 22 12 16 6"></polyline>
+                                <polyline points="8 6 2 12 8 18"></polyline>
+                            </svg>
+                            <span>Integrações & ERP</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'core:perfil_regulatorio' %}"
+                            class="nav-link {% if request.resolver_match.url_name == 'perfil_regulatorio' %}active{% endif %}">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                            <span>Perfil Regulatório ANVISA</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if is_admin %}
+                    <li class="nav-item">
+                        <a href="{% url 'accounts:pessoal_index' %}" class="nav-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            <span>Pessoal</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if modulos_ativos.financeiro or is_admin %}
+                    <li class="nav-item">
+                        <a href="{% url 'financeiro:index' %}"
+                            class="nav-link {% if request.resolver_match.app_name == 'financeiro' %}active{% endif %}"
+                            title="Plano de Contas, Razão, Balancete e Gestão de Contas">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="1" x2="12" y2="23"></line>
+                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                            </svg>
+                            <span>Financeiro Base</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if modulos_ativos.fiscal or is_admin %}
+                    <li class="nav-item">
+                        <a href="{% url 'fiscal:index' %}"
+                            class="nav-link {% if request.resolver_match.app_name == 'fiscal' %}active{% endif %}"
+                            title="Emissão de NF-e e Gestão Fiscal">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                            <span>Fiscal & NF-e</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </nav>
+    </aside>
+    <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+
+    <!-- Área de Conteúdo Central -->
+    <div class="content-area">
+        {% block dashboard_content %}
+        {% endblock %}
     </div>
 
-    <!-- Modal Nativo da Barra de Comando Global (Ctrl+K / Cmd+K) -->
-    <dialog id="command-bar-dialog" class="command-bar-dialog">
-        <div class="command-bar-header">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="command-bar-input" class="command-bar-input" placeholder="Buscar por série, QR, lote químico, cliente ou placa de veículo..." autocomplete="off">
-            <span class="command-bar-close-badge" onclick="document.getElementById('command-bar-dialog').close()">Esc</span>
-        </div>
-        <div id="command-bar-results-container" class="command-bar-body">
-            <div class="command-bar-placeholder">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-                <p>Digite para pesquisar em toda a base da distribuidora.</p>
-                <div class="quick-tags">
-                    <span class="quick-tag" onclick="document.getElementById('command-bar-input').value='OG-'; document.getElementById('command-bar-input').dispatchEvent(new Event('input'))">Série: OG-</span>
-                    <span class="quick-tag" onclick="document.getElementById('command-bar-input').value='LT-'; document.getElementById('command-bar-input').dispatchEvent(new Event('input'))">Lote: LT-</span>
-                    <span class="quick-tag" onclick="document.getElementById('command-bar-input').value='BRA'; document.getElementById('command-bar-input').dispatchEvent(new Event('input'))">Placa: BRA</span>
-                </div>
-            </div>
-        </div>
-        <div class="command-bar-footer">
-            <div class="command-bar-hints">
-                <span class="command-bar-hint"><kbd>↑</kbd> <kbd>↓</kbd> Navegar</span>
-                <span class="command-bar-hint"><kbd>↵</kbd> Abrir</span>
-                <span class="command-bar-hint"><kbd>Esc</kbd> Fechar</span>
-            </div>
-            <span style="font-size: 11px; color: var(--color-text-muted);">Baros Command</span>
-        </div>
-    </dialog>
+</div>
 
-    {% block core_js %}
-        <!-- Biblioteca PDF (Self-Hosted) -->
-        <script src="{% static 'vendor/html2pdf/html2pdf.bundle.min.js' %}"></script>
-        <script src="{% static 'core/js/core.js' %}?v=20261031_ds2"></script>
-        <script src="{% static 'core/js/command_bar.js' %}"></script>
-        {% block extra_js %}{% endblock %}
-    {% endblock %}
+<!-- Modal Nativo da Barra de Comando Global (Ctrl+K / Cmd+K) -->
+<dialog id="command-bar-dialog" class="command-bar-dialog">
+    <div class="command-bar-header">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="command-bar-input" class="command-bar-input"
+            placeholder="Buscar por série, QR, lote químico, cliente ou placa de veículo..." autocomplete="off">
+        <span class="command-bar-close-badge" onclick="document.getElementById('command-bar-dialog').close()">Esc</span>
+    </div>
+    <div id="command-bar-results-container" class="command-bar-body">
+        <div class="command-bar-placeholder">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <p>Digite para pesquisar em toda a base da distribuidora.</p>
+            <div class="quick-tags">
+                <span class="quick-tag"
+                    onclick="document.getElementById('command-bar-input').value='OG-'; document.getElementById('command-bar-input').dispatchEvent(new Event('input'))">Série:
+                    OG-</span>
+                <span class="quick-tag"
+                    onclick="document.getElementById('command-bar-input').value='LT-'; document.getElementById('command-bar-input').dispatchEvent(new Event('input'))">Lote:
+                    LT-</span>
+                <span class="quick-tag"
+                    onclick="document.getElementById('command-bar-input').value='BRA'; document.getElementById('command-bar-input').dispatchEvent(new Event('input'))">Placa:
+                    BRA</span>
+            </div>
+        </div>
+    </div>
+    <div class="command-bar-footer">
+        <div class="command-bar-hints">
+            <span class="command-bar-hint"><kbd>↑</kbd> <kbd>↓</kbd> Navegar</span>
+            <span class="command-bar-hint"><kbd>↵</kbd> Abrir</span>
+            <span class="command-bar-hint"><kbd>Esc</kbd> Fechar</span>
+        </div>
+        <span style="font-size: 11px; color: var(--color-text-muted);">Baros Command</span>
+    </div>
+</dialog>
+
+{% block core_js %}
+<!-- Biblioteca PDF (Self-Hosted) -->
+<script src="{% static 'vendor/html2pdf/html2pdf.bundle.min.js' %}"></script>
+<script src="{% static 'core/js/core.js' %}?v=20261031_ds2"></script>
+<script src="{% static 'core/js/command_bar.js' %}"></script>
+{% block extra_js %}{% endblock %}
+{% endblock %}
 {% endblock %}

@@ -1,0 +1,92 @@
+<!-- Modal: Ativo Imobilizado -->
+<div class="modal-overlay" id="modal-ativo-imobilizado" role="dialog" aria-modal="true" aria-labelledby="modal-ativo-titulo">
+    <div class="modal-content ds-modal-lg">
+        <div class="modal-header">
+            <h3 id="modal-ativo-titulo">Novo ativo imobilizado</h3>
+            <button type="button" class="close-modal" data-fechar-modal aria-label="Fechar">×</button>
+        </div>
+
+        <form id="form-ativo-imobilizado" novalidate>
+            <input type="hidden" name="id" id="ativo-id">
+
+            <div class="modal-section-card">
+                <h4 class="modal-section-title">Identificação do Ativo</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="ativo-numero-patrimonio">Nº de Patrimônio / Plaqueta *</label>
+                        <input type="text" id="ativo-numero-patrimonio" name="numero_patrimonio" required maxlength="50" class="font-mono form-control" placeholder="Ex: PAT-00123">
+                    </div>
+                    <div class="form-group">
+                        <label for="ativo-classe">Classe de Ativo *</label>
+                        <select id="ativo-classe" name="classe" required class="form-control">
+                            <option value="">Selecione a classe...</option>
+                        </select>
+                    </div>
+                    <div class="form-group ds-col-span-2">
+                        <label for="ativo-descricao">Descrição do Ativo *</label>
+                        <input type="text" id="ativo-descricao" name="descricao" required maxlength="255" class="form-control" placeholder="Ex: Tanque Criogênico 15.000L / Empilhadeira a Gás">
+                    </div>
+                    <div class="form-group">
+                        <label for="ativo-status">Status Operacional *</label>
+                        <select id="ativo-status" name="status" required class="form-control">
+                            {% for cod, rotulo in status_ativos %}
+                            <option value="{{ cod }}">{{ rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-section-card ds-mt">
+                <h4 class="modal-section-title">Valores e Depreciação</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="ativo-data-aquisicao">Data de Aquisição *</label>
+                        <input type="date" id="ativo-data-aquisicao" name="data_aquisicao" required class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="ativo-data-inicio-deprec">Início da Depreciação</label>
+                        <input type="date" id="ativo-data-inicio-deprec" name="data_inicio_depreciacao" class="form-control">
+                        <span class="ds-field-help">Vazio = mesmo mês da aquisição.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="ativo-valor-aquisicao">Valor de Aquisição (R$) *</label>
+                        <input type="number" id="ativo-valor-aquisicao" name="valor_aquisicao" required min="0" step="0.01" class="font-mono form-control" placeholder="0,00">
+                    </div>
+                    <div class="form-group">
+                        <label for="ativo-valor-residual">Valor Residual (R$)</label>
+                        <input type="number" id="ativo-valor-residual" name="valor_residual" min="0" step="0.01" class="font-mono form-control" placeholder="0,00" value="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="ativo-vida-util">Vida Útil (Meses) *</label>
+                        <input type="number" id="ativo-vida-util" name="vida_util_meses" required min="1" class="form-control" placeholder="Ex: 120">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-section-card ds-mt">
+                <h4 class="modal-section-title">Documentação de Compra (Opcional)</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="ativo-fornecedor-nome">Fornecedor</label>
+                        <input type="text" id="ativo-fornecedor-nome" name="fornecedor_nome" maxlength="150" class="form-control" placeholder="Razão social">
+                    </div>
+                    <div class="form-group">
+                        <label for="ativo-fornecedor-doc">CNPJ / CPF do Fornecedor</label>
+                        <input type="text" id="ativo-fornecedor-doc" name="fornecedor_documento" maxlength="20" class="form-control" placeholder="00.000.000/0000-00">
+                    </div>
+                    <div class="form-group ds-col-span-2">
+                        <label for="ativo-chave-nfe">Chave NF-e de Compra</label>
+                        <input type="text" id="ativo-chave-nfe" name="chave_nfe_aquisicao" maxlength="44" pattern="\d{44}" inputmode="numeric" class="font-mono form-control" placeholder="44 dígitos numéricos">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer ds-mt">
+                <button type="button" class="btn-outline" data-fechar-modal>Cancelar</button>
+                <button type="submit" class="btn-primary" id="btn-salvar-ativo">Salvar ativo</button>
+            </div>
+        </form>
+    </div>
+</div>
+

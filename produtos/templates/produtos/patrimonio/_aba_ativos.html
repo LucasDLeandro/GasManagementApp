@@ -1,0 +1,82 @@
+<!-- Aba: Ativos Imobilizados -->
+<section class="ds-section">
+    <!-- Cartões de Métrica (Design System v1, seção 4.1) -->
+    <div class="metrics-grid">
+        {% include "components/_metric_card.html" with rotulo="Valor total de aquisição" valor="—" tom="approved" id="metrica-total-aquisicao" ajuda="Soma do valor de compra dos ativos" %}
+        {% include "components/_metric_card.html" with rotulo="Depreciação acumulada" valor="—" tom="warning" id="metrica-total-depreciacao" ajuda="Depreciação decorrida até a data atual" %}
+        {% include "components/_metric_card.html" with rotulo="Valor contábil líquido" valor="—" tom="transit" id="metrica-total-liquido" ajuda="Valor residual + saldo depreciável restante" %}
+    </div>
+
+    <!-- Barra de Filtros e Ações -->
+    <div class="ds-filter-bar ds-mt">
+        <div class="ds-filter-group">
+            <div class="form-group">
+                <label for="filtro-ativo-classe" class="sr-only">Filtrar por classe</label>
+                <select id="filtro-ativo-classe" class="form-control">
+                    <option value="">Todas as classes de ativo</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="filtro-ativo-status" class="sr-only">Filtrar por status</label>
+                <select id="filtro-ativo-status" class="form-control">
+                    <option value="">Todos os status</option>
+                    <option value="EM_USO">Em Uso Operacional</option>
+                    <option value="BAIXADO">Baixado / Alienado</option>
+                    <option value="VENDIDO">Vendido</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="busca-ativo" class="sr-only">Buscar por patrimônio ou descrição</label>
+                <input type="text" id="busca-ativo" class="form-control" placeholder="Buscar por número ou descrição...">
+            </div>
+        </div>
+        {% if pode_editar_patrimonio %}
+        <div class="ds-filter-actions">
+            <button type="button" class="btn-primary" id="btn-novo-ativo">
+                Novo ativo imobilizado
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Tabela de Ativos Imobilizados -->
+    <div class="table-container ds-mt">
+        <table class="ds-table" id="tabela-ativos">
+            <thead>
+                <tr>
+                    <th scope="col">Nº Patrimônio</th>
+                    <th scope="col">Descrição</th>
+                    <th scope="col">Classe</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="text-right">Valor Aquisição</th>
+                    <th scope="col" class="text-right">Deprec. Acumulada</th>
+                    <th scope="col" class="text-right">Valor Líquido</th>
+                    {% if pode_editar_patrimonio %}
+                    <th scope="col" class="text-right">Ações</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="corpo-tabela-ativos">
+                <!-- Preenchido via JS com skeleton / dados -->
+            </tbody>
+        </table>
+
+        <!-- Estado de Carregamento (Skeleton) -->
+        <div class="ds-skeleton-container" id="skeleton-ativos">
+            <div class="ds-skeleton ds-skeleton-row"></div>
+            <div class="ds-skeleton ds-skeleton-row"></div>
+            <div class="ds-skeleton ds-skeleton-row"></div>
+        </div>
+
+        <!-- Estado Vazio -->
+        <div class="ds-hidden" id="vazio-ativos">
+            {% include "components/_empty_state.html" with titulo="Nenhum ativo imobilizado encontrado" texto="Ajuste os filtros de classe e status ou cadastre um novo ativo." %}
+        </div>
+
+        <!-- Estado de Erro -->
+        <div class="ds-hidden" id="erro-ativos">
+            {% include "components/_empty_state.html" with titulo="Não foi possível carregar os ativos" texto="Ocorreu um erro ao consultar o servidor." tom="danger" %}
+        </div>
+    </div>
+</section>
+

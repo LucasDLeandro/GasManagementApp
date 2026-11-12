@@ -1,0 +1,59 @@
+<!-- Aba: Lotes de Aquisição -->
+<section class="ds-section">
+    <div class="ds-filter-bar">
+        <div class="ds-filter-group">
+            <div class="form-group">
+                <label for="busca-lote" class="sr-only">Buscar por fornecedor ou NF-e</label>
+                <input type="text" id="busca-lote" class="form-control" placeholder="Buscar por fornecedor ou chave NF-e...">
+            </div>
+        </div>
+        {% if pode_editar_patrimonio %}
+        <div class="ds-filter-actions">
+            <button type="button" class="btn-primary" id="btn-novo-lote">
+                Novo lote de aquisição
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="table-container ds-mt">
+        <table class="ds-table" id="tabela-lotes">
+            <thead>
+                <tr>
+                    <th scope="col">Data</th>
+                    <th scope="col">Fornecedor</th>
+                    <th scope="col">Chave NF-e</th>
+                    <th scope="col">Classe</th>
+                    <th scope="col" class="text-right">Quantidade</th>
+                    <th scope="col" class="text-right">Vinculados</th>
+                    <th scope="col" class="text-right">Valor Unitário</th>
+                    <th scope="col" class="text-right">Valor Total</th>
+                    {% if pode_editar_patrimonio %}
+                    <th scope="col" class="text-right">Ações</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="corpo-tabela-lotes">
+                <!-- Preenchido via JS -->
+            </tbody>
+        </table>
+
+        <!-- Estado de Carregamento -->
+        <div class="ds-skeleton-container" id="skeleton-lotes">
+            <div class="ds-skeleton ds-skeleton-row"></div>
+            <div class="ds-skeleton ds-skeleton-row"></div>
+            <div class="ds-skeleton ds-skeleton-row"></div>
+        </div>
+
+        <!-- Estado Vazio -->
+        <div class="ds-hidden" id="vazio-lotes">
+            {% include "components/_empty_state.html" with titulo="Nenhum lote de aquisição cadastrado" texto="Cadastre a compra de lotes de cilindros com chave NF-e e rateio de custo." %}
+        </div>
+
+        <!-- Estado de Erro -->
+        <div class="ds-hidden" id="erro-lotes">
+            {% include "components/_empty_state.html" with titulo="Não foi possível carregar os lotes" texto="Ocorreu um erro ao consultar o servidor." tom="danger" %}
+        </div>
+    </div>
+</section>
+

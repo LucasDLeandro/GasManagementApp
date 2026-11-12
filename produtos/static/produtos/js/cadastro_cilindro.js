@@ -10,12 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnProximo = raizStepper.querySelector('[data-stepper-proximo]');
     const btnConfirmar = raizStepper.querySelector('[data-stepper-confirmar]');
     const grupoCliente = document.getElementById('grupo-cliente-proprietario');
-    const dados = { modelos: [], gases: [], fabricantes: [], classes: [], clientes: [] };
+    const dados = { modelos: [], gases: [], fabricantes: [], classes: [], clientes: [], lotes: [] };
     let carregado = false;
 
     const lista = (r) => (Array.isArray(r) ? r : (r && r.results) || []);
 
     function opcoes(select, itens, rotulo, vazio) {
+        if (!select) return;
         select.innerHTML = '';
         select.appendChild(new Option(vazio, ''));
         itens.forEach(i => select.appendChild(new Option(rotulo(i), i.id)));
@@ -23,23 +24,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function carregarListas() {
         if (carregado) return;
-        const [modelos, gases, fabricantes, classes, clientes] = await Promise.all([
+        const [modelos, gases, fabricantes, classes, clientes, lotes] = await Promise.all([
             Baros.api('/produtos/api/catalogo/modelos/?page_size=500'),
             Baros.api('/produtos/api/catalogo/gases/'),
             Baros.api('/produtos/api/patrimonio/fabricantes/?page_size=500').catch(() => []),
             Baros.api('/produtos/api/patrimonio/classes/?page_size=500').catch(() => []),
             Baros.api('/clientes/api/?page_size=500').catch(() => []),
+            Baros.api('/produtos/api/patrimonio/lotes/?page_size=500').catch(() => []),
         ]);
         dados.modelos = lista(modelos);
         dados.gases = lista(gases);
         dados.fabricantes = lista(fabricantes);
         dados.classes = lista(classes);
         dados.clientes = lista(clientes);
+        dados.lotes = lista(lotes);
         opcoes(form.modelo, dados.modelos, m => m.descricao, 'Selecione o modelo');
         opcoes(form.gas_dedicado, dados.gases, g => g.nome + ' (' + g.sigla + ')', 'Selecione o gás');
         opcoes(form.fabricante_catalogo, dados.fabricantes, f => f.nome, 'Outro / informar nome');
         opcoes(form.classe_ativo, dados.classes, c => c.nome || c.codigo, 'Padrão');
         opcoes(form.cliente_proprietario, dados.clientes, c => c.nome_fantasia || c.nome, 'Selecione o cliente');
+        if (form.lote_aquisicao) {
+            opcoes(form.lote_aquisicao, dados.lotes, l => `${Baros.data(l.data_aquisicao)} · ${l.fornecedor_nome} (${l.quantidade} un)`, 'Nenhum / Aquisição avulsa');
+        }
         carregado = true;
     }
 
@@ -51,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function montarRevisao() {
         const fabricante = form.fabricante_catalogo.value ? campoTexto('fabricante_catalogo') : form.fabricante.value;
+        const loteTexto = form.lote_aquisicao && form.lote_aquisicao.value ? `${campoTexto('lote_aquisicao')} (herança ativa)` : 'Avulso';
         const linhas = [
             ['QR code', form.codigo_qr.value.toUpperCase()],
             ['Série', form.numero_serie_ogiva.value.toUpperCase()],
@@ -60,7 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ['Pressões', 'serviço ' + (form.pressao_servico_bar.value || 'do modelo') + ' bar · teste ' + (form.pressao_teste_bar.value || '—') + ' bar'],
             ['Último reteste', Baros.data(form.data_ultimo_reteste.value)],
             ['Propriedade', campoTexto('propriedade') + (form.propriedade.value === 'CLIENTE' ? ' · ' + campoTexto('cliente_proprietario') : '')],
-            ['Patrimônio', [form.numero_patrimonio.value, form.valor_aquisicao.value ? Baros.moeda(form.valor_aquisicao.value) : ''].filter(Boolean).join(' · ') || '—'],
+            ['Lote de aquisição', loteTexto],
+            ['Patrimônio', [form.numero_patrimonio.value, form.valor_aquisicao.value ? Baros.moeda(form.valor_aquisicao.value) : '', form.classe_ativo && form.classe_ativo.value ? campoTexto('classe_ativo') : ''].filter(Boolean).join(' · ') || '—'],
         ];
         const dl = document.getElementById('cilindro-revisao');
         dl.innerHTML = '';
@@ -114,6 +122,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const m = dados.modelos.find(x => String(x.id) === form.modelo.value);
         form.pressao_servico_bar.placeholder = m ? String(m.pressao_servico_bar) : '';
     });
+
+    if (form.lote_aquisicao) {
+        form.lote_aquisicao.addEventListener('change', () => {
+            const loteId = form.lote_aquisicao.value;
+            const lote = dados.lotes.find(l => String(l.id) === String(loteId));
+            if (lote) {
+                if (lote.valor_unitario && form.valor_aquisicao) form.valor_aquisicao.value = lote.valor_unitario;
+                if (lote.data_aquisicao && form.data_aquisicao) form.data_aquisicao.value = lote.data_aquisicao;
+                if (lote.classe && form.classe_ativo) form.classe_ativo.value = lote.classe;
+                if (lote.fornecedor_nome && form.fornecedor_aquisicao) form.fornecedor_aquisicao.value = lote.fornecedor_nome;
+                if (lote.chave_nfe && form.chave_nfe_aquisicao) form.chave_nfe_aquisicao.value = lote.chave_nfe;
+            }
+        });
+    }
 
     function abrir() {
         form.reset();

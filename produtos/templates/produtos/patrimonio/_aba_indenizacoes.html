@@ -1,0 +1,104 @@
+<!-- Aba: Tabela de Indenização e Simulador -->
+<section class="ds-section">
+    <!-- Card do Simulador no Topo -->
+    <div class="modal-section-card">
+        <h4 class="modal-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            Simulador de Cálculo de Indenização (Extravio ou Sinistro)
+        </h4>
+        <p class="ds-page-subtitle">Consulte o valor a cobrar do cliente e o impacto contábil (ganho ou perda patrimonial) para qualquer cilindro.</p>
+        
+        <form id="form-simulador-indenizacao" class="ds-mt">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="simulador-cilindro">Cilindro (Série / QR code) *</label>
+                    <select id="simulador-cilindro" class="form-control" required>
+                        <option value="">Selecione o cilindro...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="simulador-data">Data de Referência (opcional)</label>
+                    <input type="date" id="simulador-data" class="form-control">
+                    <span class="ds-field-help">Vazio = data de hoje. Permite simular cobranças retroativas.</span>
+                </div>
+            </div>
+            <div class="ds-actions-right ds-mt">
+                <button type="submit" class="btn-primary" id="btn-executar-simulacao">
+                    Simular cálculo
+                </button>
+            </div>
+        </form>
+
+        <!-- Painel de Resultados do Simulador -->
+        <div id="simulador-resultado-painel" class="ds-hidden ds-mt">
+            <div class="metrics-grid">
+                {% include "components/_metric_card.html" with rotulo="Valor Contratual" valor="—" tom="approved" id="metrica-sim-contratual" ajuda="Valor a cobrar conforme vigência" %}
+                {% include "components/_metric_card.html" with rotulo="Valor Contábil Líquido" valor="—" tom="transit" id="metrica-sim-vcl" ajuda="Valor residual + saldo depreciável" %}
+                {% include "components/_metric_card.html" with rotulo="Ganho / Perda Patrimonial" valor="—" tom="warning" id="metrica-sim-ganho-perda" ajuda="Diferença entre cobrança e valor contábil" %}
+            </div>
+            <div class="ds-alert ds-mt" id="alerta-sim-origem">
+                <span id="texto-sim-origem"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela Modelo x Gás -->
+    <div class="ds-filter-bar ds-mt">
+        <div class="ds-filter-group">
+            <div class="form-group">
+                <label for="busca-indenizacao" class="sr-only">Buscar modelo ou gás</label>
+                <input type="text" id="busca-indenizacao" class="form-control" placeholder="Buscar por modelo ou gás químico...">
+            </div>
+        </div>
+        {% if pode_editar_patrimonio %}
+        <div class="ds-filter-actions">
+            <button type="button" class="btn-primary" id="btn-nova-indenizacao">
+                Novo parâmetro de indenização
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="table-container ds-mt">
+        <table class="ds-table" id="tabela-indenizacoes">
+            <thead>
+                <tr>
+                    <th scope="col">Modelo de Cilindro</th>
+                    <th scope="col">Gás Dedicado</th>
+                    <th scope="col" class="text-right">Valor Contratual</th>
+                    <th scope="col">Início Vigência</th>
+                    <th scope="col">Fim Vigência</th>
+                    <th scope="col">Situação</th>
+                    {% if pode_editar_patrimonio %}
+                    <th scope="col" class="text-right">Ações</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="corpo-tabela-indenizacoes">
+                <!-- Preenchido via JS -->
+            </tbody>
+        </table>
+
+        <!-- Estado de Carregamento -->
+        <div class="ds-skeleton-container" id="skeleton-indenizacoes">
+            <div class="ds-skeleton ds-skeleton-row"></div>
+            <div class="ds-skeleton ds-skeleton-row"></div>
+            <div class="ds-skeleton ds-skeleton-row"></div>
+        </div>
+
+        <!-- Estado Vazio -->
+        <div class="ds-hidden" id="vazio-indenizacoes">
+            {% include "components/_empty_state.html" with titulo="Nenhum parâmetro de indenização cadastrado" texto="Cadastre valores contratuais por modelo e gás para cobrança em caso de perda ou dano." %}
+        </div>
+
+        <!-- Estado de Erro -->
+        <div class="ds-hidden" id="erro-indenizacoes">
+            {% include "components/_empty_state.html" with titulo="Não foi possível carregar os parâmetros" texto="Ocorreu um erro ao consultar o servidor." tom="danger" %}
+        </div>
+    </div>
+</section>
+

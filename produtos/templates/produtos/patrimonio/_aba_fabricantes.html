@@ -1,0 +1,55 @@
+<!-- Aba: Fabricantes de Cilindro -->
+<section class="ds-section">
+    <div class="ds-filter-bar">
+        <div class="ds-filter-group">
+            <div class="form-group">
+                <label for="busca-fabricante" class="sr-only">Buscar fabricante</label>
+                <input type="text" id="busca-fabricante" class="form-control" placeholder="Buscar fabricante por nome ou país...">
+            </div>
+        </div>
+        {% if pode_editar_patrimonio %}
+        <div class="ds-filter-actions">
+            <button type="button" class="btn-primary" id="btn-novo-fabricante">
+                Novo fabricante
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="table-container ds-mt">
+        <table class="ds-table" id="tabela-fabricantes">
+            <thead>
+                <tr>
+                    <th scope="col">Nome</th>
+                    <th scope="col">País de Origem</th>
+                    <th scope="col">Norma Padrão</th>
+                    <th scope="col">Status</th>
+                    {% if pode_editar_patrimonio %}
+                    <th scope="col" class="text-right">Ações</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="corpo-tabela-fabricantes">
+                <!-- Preenchido via JS -->
+            </tbody>
+        </table>
+
+        <!-- Estado de Carregamento -->
+        <div class="ds-skeleton-container" id="skeleton-fabricantes">
+            <div class="ds-skeleton ds-skeleton-row"></div>
+            <div class="ds-skeleton ds-skeleton-row"></div>
+            <div class="ds-skeleton ds-skeleton-row"></div>
+        </div>
+
+        <!-- Estado Vazio -->
+        <div class="ds-hidden" id="vazio-fabricantes">
+            {% include "components/_empty_state.html" with titulo="Nenhum fabricante cadastrado" texto="Cadastre fabricantes de cilindros para controle no cadastro de cascos." %}
+        </div>
+
+        <!-- Estado de Erro -->
+        <div class="ds-hidden" id="erro-fabricantes">
+            {% include "components/_empty_state.html" with titulo="Não foi possível carregar os fabricantes" texto="Ocorreu um erro ao consultar o servidor." tom="danger" %}
+        </div>
+    </div>
+</section>
+

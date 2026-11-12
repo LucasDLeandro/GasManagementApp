@@ -579,6 +579,10 @@ class AtivoImobilizado(TenantAwareModel):
         data_inicio = self.data_inicio_depreciacao or self.data_aquisicao
         return valor_contabil_liquido(self.valor_aquisicao, self.valor_residual, self.vida_util_meses, data_inicio)
 
+    @property
+    def depreciacao_acumulada_rs(self) -> Decimal:
+        return quantize(self.valor_aquisicao - self.valor_contabil_liquido_atual, 2)
+
 
 class TabelaIndenizacaoCilindro(TenantAwareModel):
     """

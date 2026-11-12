@@ -1,0 +1,86 @@
+<!-- Modal: Lote de Aquisição (Stepper) -->
+<div class="modal-overlay" id="modal-lote-aquisicao" role="dialog" aria-modal="true" aria-labelledby="modal-lote-titulo">
+    <div class="modal-content ds-modal-lg">
+        <div class="modal-header">
+            <h3 id="modal-lote-titulo">Novo lote de aquisição</h3>
+            <button type="button" class="close-modal" data-fechar-modal aria-label="Fechar">×</button>
+        </div>
+
+        <div id="container-stepper-lote">
+            {% include "components/_stepper.html" with id="stepper-lote" etapas="Nota fiscal|Valores|Revisão" %}
+
+            <form id="form-lote-aquisicao" novalidate>
+                <input type="hidden" name="id" id="lote-id">
+
+                <!-- Etapa 1: Nota Fiscal -->
+                <div class="ds-step-pane" data-step="1">
+                    <div class="form-grid">
+                        <div class="form-group ds-col-span-2">
+                            <label for="lote-chave-nfe">Chave de acesso da NF-e (44 dígitos)</label>
+                            <input type="text" id="lote-chave-nfe" name="chave_nfe" maxlength="44" pattern="\d{44}" inputmode="numeric" class="font-mono form-control" placeholder="Digite os 44 dígitos da NF-e de aquisição">
+                            <span class="ds-field-help">Válida pela SEFAZ (Módulo 11). Pode ficar em branco se não aplicável.</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="lote-fornecedor-nome">Fornecedor *</label>
+                            <input type="text" id="lote-fornecedor-nome" name="fornecedor_nome" required maxlength="150" class="form-control" placeholder="Razão social ou nome do fornecedor">
+                        </div>
+                        <div class="form-group">
+                            <label for="lote-fornecedor-documento">CNPJ / CPF do Fornecedor</label>
+                            <input type="text" id="lote-fornecedor-documento" name="fornecedor_documento" maxlength="20" class="form-control" placeholder="00.000.000/0000-00">
+                        </div>
+                        <div class="form-group">
+                            <label for="lote-data-aquisicao">Data de Aquisição *</label>
+                            <input type="date" id="lote-data-aquisicao" name="data_aquisicao" required class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Etapa 2: Valores e Classe -->
+                <div class="ds-step-pane ds-hidden" data-step="2">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="lote-quantidade">Quantidade de Cilindros *</label>
+                            <input type="number" id="lote-quantidade" name="quantidade" required min="1" class="form-control" placeholder="Ex: 50">
+                        </div>
+                        <div class="form-group">
+                            <label for="lote-valor-total">Valor Total do Lote (R$) *</label>
+                            <input type="number" id="lote-valor-total" name="valor_total" required min="0" step="0.01" class="font-mono form-control" placeholder="0,00">
+                        </div>
+                        <div class="form-group">
+                            <label for="lote-valor-unitario">Valor Unitário por Cilindro (R$)</label>
+                            <input type="number" id="lote-valor-unitario" name="valor_unitario" min="0" step="0.01" class="font-mono form-control" placeholder="Calculado automaticamente" readonly>
+                            <span class="ds-field-help">Rateio uniforme (Total ÷ Quantidade).</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="lote-classe">Classe de Ativo *</label>
+                            <select id="lote-classe" name="classe" required class="form-control">
+                                <option value="">Selecione a classe...</option>
+                            </select>
+                            <span class="ds-field-help">Define os parâmetros de depreciação e contas contábeis.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Etapa 3: Revisão -->
+                <div class="ds-step-pane ds-hidden" data-step="3">
+                    <div class="modal-section-card">
+                        <h4 class="modal-section-title">Resumo do Lote de Aquisição</h4>
+                        <dl class="ds-review" id="lote-revisao-dl"></dl>
+                    </div>
+                    <p class="ds-page-subtitle ds-mt">Ao confirmar, o lote estará disponível para vinculação imediata no cadastro manual ou recebimento de cilindros.</p>
+                </div>
+
+                <!-- Rodapé do Stepper -->
+                <div class="ds-stepper-footer ds-mt">
+                    <button type="button" class="btn-outline" data-fechar-modal>Cancelar</button>
+                    <div class="ds-stepper-nav">
+                        <button type="button" class="btn-secondary" data-stepper-voltar hidden>Voltar</button>
+                        <button type="button" class="btn-primary" data-stepper-proximo>Próximo</button>
+                        <button type="submit" class="btn-primary" data-stepper-confirmar hidden>Salvar lote</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+

@@ -1,0 +1,100 @@
+<!-- Modal: Classe de Ativo (Seções) -->
+<div class="modal-overlay" id="modal-classe-ativo" role="dialog" aria-modal="true" aria-labelledby="modal-classe-titulo">
+    <div class="modal-content ds-modal-lg">
+        <div class="modal-header">
+            <h3 id="modal-classe-titulo">Nova classe de ativo</h3>
+            <button type="button" class="close-modal" data-fechar-modal aria-label="Fechar">×</button>
+        </div>
+
+        <form id="form-classe-ativo" novalidate>
+            <input type="hidden" name="id" id="classe-id">
+
+            <!-- Seção 1: Dados Gerais -->
+            <div class="modal-section-card">
+                <h4 class="modal-section-title">Dados Gerais</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="classe-codigo">Código da Classe *</label>
+                        <input type="text" id="classe-codigo" name="codigo" required maxlength="30" class="font-mono form-control" placeholder="Ex: CIL-ACETILENO">
+                    </div>
+                    <div class="form-group">
+                        <label for="classe-nome">Nome da Classe *</label>
+                        <input type="text" id="classe-nome" name="nome" required maxlength="100" class="form-control" placeholder="Ex: Cilindros de Acetileno">
+                    </div>
+                    <div class="form-group">
+                        <label for="classe-tipo">Tipo de Ativo *</label>
+                        <select id="classe-tipo" name="tipo" required class="form-control">
+                            {% for cod, rotulo in tipos_classe %}
+                            <option value="{{ cod }}">{{ rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção 2: Vida Útil e Depreciação -->
+            <div class="modal-section-card ds-mt">
+                <h4 class="modal-section-title">Vida Útil e Parâmetros de Depreciação</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="classe-vida-util">Vida Útil Padrão (Meses) *</label>
+                        <input type="number" id="classe-vida-util" name="vida_util_meses_padrao" required min="1" class="form-control" value="120">
+                        <span class="ds-field-help">Ex: 120 meses = 10 anos (padrão cilindros de aço).</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="classe-percentual-residual">Percentual Residual Padrão *</label>
+                        <input type="number" id="classe-percentual-residual" name="percentual_residual_padrao" required min="0" max="1" step="0.0001" class="font-mono form-control" value="0.1000">
+                        <span class="ds-field-help">Fração do valor (0.1000 = 10% de valor residual de sucata).</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="classe-metodo">Método de Depreciação *</label>
+                        <select id="classe-metodo" name="metodo_depreciacao" required class="form-control">
+                            {% for cod, rotulo in metodos_depreciacao %}
+                            <option value="{{ cod }}">{{ rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção 3: Contas Contábeis (Plano de Contas Analítico) -->
+            <div class="modal-section-card ds-mt">
+                <h4 class="modal-section-title">Integração Contábil (Plano de Contas)</h4>
+                
+                <div id="aviso-financeiro-desligado" class="ds-alert ds-alert--warning ds-hidden">
+                    <strong>Módulo Financeiro inativo:</strong> As contas contábeis são opcionais nesta empresa. Para ativar a contabilização automática de depreciação e razão analítico, habilite o módulo Financeiro.
+                </div>
+
+                <div class="form-grid ds-mt">
+                    <div class="form-group">
+                        <label for="classe-conta-imobilizado">Conta de Imobilizado (Ativo Não Circulante)</label>
+                        <select id="classe-conta-imobilizado" name="codigo_conta_imobilizado" class="form-control">
+                            <option value="">Selecione ou informe...</option>
+                        </select>
+                        <span class="ds-field-help">Ex: 1.2.3.01 - Cilindros e Vasos de Pressão</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="classe-conta-deprec-acumulada">Conta de Depreciação Acumulada (Redutora do Ativo)</label>
+                        <select id="classe-conta-deprec-acumulada" name="codigo_conta_depreciacao_acumulada" class="form-control">
+                            <option value="">Selecione ou informe...</option>
+                        </select>
+                        <span class="ds-field-help">Ex: 1.2.4.01 - (-) Deprec. Acumulada Cilindros</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="classe-conta-despesa-deprec">Conta de Despesa com Depreciação (Resultado/DRE)</label>
+                        <select id="classe-conta-despesa-deprec" name="codigo_conta_despesa_depreciacao" class="form-control">
+                            <option value="">Selecione ou informe...</option>
+                        </select>
+                        <span class="ds-field-help">Ex: 5.5.1.01 - Despesa de Depreciação de Cilindros</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer ds-mt">
+                <button type="button" class="btn-outline" data-fechar-modal>Cancelar</button>
+                <button type="submit" class="btn-primary" id="btn-salvar-classe">Salvar classe</button>
+            </div>
+        </form>
+    </div>
+</div>
+
