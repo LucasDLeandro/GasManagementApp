@@ -375,7 +375,7 @@ def user_has_ver_dre(request) -> bool:
     if user.groups.filter(name__in=['FIN_APROVADOR', 'FIN_AUDITOR', 'FIN_ADMIN']).exists():
         return True
     membership = resolve_request_membership(request)
-    if membership and membership.ativo and membership.papel == 'ADMIN':
+    if membership and membership.ativo and membership.papel in ('ADMIN', 'GERENTE'):
         return True
     return False
 

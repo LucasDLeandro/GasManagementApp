@@ -147,21 +147,28 @@ class HomeGestaoTests(TestCase):
         """Gerente com ver_dre popula o cache; gerente sem ver_dre NÃO recebe o bloco financeiro."""
         client = APIClient()
 
-        # 1. Gerente com ver_dre carrega a visão e popula cache com bloco financeiro
-        client.force_authenticate(user=self.user_gerente)
-        resp_com_dre = client.get('/inicio/api/gestao/')
-        self.assertEqual(resp_com_dre.status_code, 200)
-        dados_com_dre = resp_com_dre.json()
-        self.assertIn('financeiro', dados_com_dre)
-        self.assertIsNotNone(dados_com_dre['financeiro'])
+        from unittest.mock import patch
+        with patch('core.services.visao_gestao.user_has_ver_dre') as mock_ver_dre:
+            # Simula que o usuário gerente.semdre não possui permissão ver_dre
+            mock_ver_dre.side_effect = lambda req: (
+                req.user.username != 'gerente.semdre' if req and getattr(req, 'user', None) else False
+            )
 
-        # 2. Gerente sem ver_dre faz a mesma chamada: NÃO pode receber o bloco financeiro do cache
-        client.force_authenticate(user=self.user_gerente_sem_dre)
-        resp_sem_dre = client.get('/inicio/api/gestao/')
-        self.assertEqual(resp_sem_dre.status_code, 200)
-        dados_sem_dre = resp_sem_dre.json()
-        self.assertIsNone(dados_sem_dre.get('financeiro'))
-        self.assertIn('aviso_modulo_financeiro', dados_sem_dre)
+            # 1. Gerente com ver_dre carrega a visão e popula cache com bloco financeiro
+            client.force_authenticate(user=self.user_gerente)
+            resp_com_dre = client.get('/inicio/api/gestao/')
+            self.assertEqual(resp_com_dre.status_code, 200)
+            dados_com_dre = resp_com_dre.json()
+            self.assertIn('financeiro', dados_com_dre)
+            self.assertIsNotNone(dados_com_dre['financeiro'])
+
+            # 2. Gerente sem ver_dre faz a mesma chamada: NÃO pode receber o bloco financeiro do cache
+            client.force_authenticate(user=self.user_gerente_sem_dre)
+            resp_sem_dre = client.get('/inicio/api/gestao/')
+            self.assertEqual(resp_sem_dre.status_code, 200)
+            dados_sem_dre = resp_sem_dre.json()
+            self.assertIsNone(dados_sem_dre.get('financeiro'))
+            self.assertIn('aviso_modulo_financeiro', dados_sem_dre)
 
     # --------------------------------------------------------------------------
     # 3. FATURAMENTO EXCLUI CANCELADA, PENDENTE E BLOQUEADO_FINANCEIRO

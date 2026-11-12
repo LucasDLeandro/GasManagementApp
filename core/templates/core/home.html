@@ -4,7 +4,7 @@
 {% block title %}Radar de Comodato & Gestão - Baros{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'core/css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'core/css/dashboard.css' %}?v=20261112_01b02">
 {% endblock %}
 
 {% block dashboard_content %}
@@ -23,8 +23,10 @@
     </div>
     {% if tem_painel_monitor and is_gestao %}
     <div class="dashboard-header-actions">
-        <a href="{{ url_painel_monitor }}" target="_blank" rel="noopener noreferrer" class="btn-monitor-tv" title="Abrir monitor de TV em tempo real para pátio ou expedição">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <a href="{{ url_painel_monitor }}" target="_blank" rel="noopener noreferrer" class="btn-monitor-tv"
+            title="Abrir monitor de TV em tempo real para pátio ou expedição">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
                 <polyline points="17 2 12 7 7 2"></polyline>
             </svg>
@@ -42,7 +44,8 @@
     <div class="visao-gestao-header">
         <div class="visao-gestao-title-area">
             <h3>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="20" x2="18" y2="10"></line>
                     <line x1="12" y1="20" x2="12" y2="4"></line>
                     <line x1="6" y1="20" x2="6" y2="14"></line>
@@ -65,7 +68,8 @@
         <div class="visao-card">
             <div class="visao-card-header">
                 <span class="visao-card-title">Vendas & Faturamento</span>
-                <span class="visao-card-tooltip-icon" title="Fórmula: Soma do valor_total das vendas no período, excluindo pedidos Cancelados, Pendentes e Bloqueados por Crédito. Variação calculada sobre o período homólogo anterior.">?</span>
+                <span class="visao-card-tooltip-icon"
+                    title="Fórmula: Soma do valor_total das vendas no período, excluindo pedidos Cancelados, Pendentes e Bloqueados por Crédito. Variação calculada sobre o período homólogo anterior.">?</span>
             </div>
             <div class="visao-metric-row">
                 <span class="visao-metric-large" id="gestao-faturamento">R$ 0,00</span>
@@ -84,8 +88,9 @@
                     <span>À vista × A prazo:</span>
                     <strong id="gestao-vista-prazo">- / -</strong>
                 </div>
-                <div id="gestao-box-bloqueados" class="visao-alerta-bloqueados" style="display: none;">
-                    ⚠️ <strong id="gestao-bloqueados-qtd">0</strong> pedidos bloqueados (<span id="gestao-bloqueados-val">R$ 0,00</span>)
+                <div id="gestao-box-bloqueados" class="visao-alerta-bloqueados" hidden>
+                    ⚠️ <strong id="gestao-bloqueados-qtd">0</strong> pedidos bloqueados (<span
+                        id="gestao-bloqueados-val">R$ 0,00</span>)
                 </div>
             </div>
         </div>
@@ -94,7 +99,8 @@
         <div class="visao-card">
             <div class="visao-card-header">
                 <span class="visao-card-title">Patrimônio de Cascos</span>
-                <span class="visao-card-tooltip-icon" title="Fórmula: Valoração prioritária pela Tabela de Indenização de Cilindros vigente (por modelo e gás) e fallback para valor de aquisição. Cascos sem cadastro não somam zero silenciosamente.">?</span>
+                <span class="visao-card-tooltip-icon"
+                    title="Fórmula: Valoração prioritária pela Tabela de Indenização de Cilindros vigente (por modelo e gás) e fallback para valor de aquisição. Cascos sem cadastro não somam zero silenciosamente.">?</span>
             </div>
             <div class="visao-metric-row">
                 <span class="visao-metric-large" id="gestao-valor-parque">R$ 0,00</span>
@@ -123,7 +129,8 @@
         <div class="visao-card">
             <div class="visao-card-header">
                 <span class="visao-card-title">Giro & Nível de Serviço</span>
-                <span class="visao-card-tooltip-icon" title="Fórmula Giro: Média em dias de ciclos fechados nos últimos 90 dias (entrega e recolha), desconsiderando estornos. Nível de Serviço: % de entregas concluídas dentro do prazo_entrega prometido.">?</span>
+                <span class="visao-card-tooltip-icon"
+                    title="Fórmula Giro: Média em dias de ciclos fechados nos últimos 90 dias (entrega e recolha), desconsiderando estornos. Nível de Serviço: % de entregas concluídas dentro do prazo_entrega prometido.">?</span>
             </div>
             <div class="visao-metric-row">
                 <span class="visao-metric-large" id="gestao-giro-medio">0,0 dias</span>
@@ -137,8 +144,8 @@
                     <span>Entregas Avaliadas:</span>
                     <strong id="gestao-otif-base">0 entregas</strong>
                 </div>
-                <div class="visao-card-subitem" style="flex-direction: column; align-items: flex-start; margin-top: 4px;">
-                    <span style="margin-bottom: 2px;">Giro médio por Gás:</span>
+                <div class="visao-card-subitem visao-card-subitem-col">
+                    <span class="subitem-col-label">Giro médio por Gás:</span>
                     <div class="visao-gas-pills" id="gestao-giro-gases">
                         <span class="visao-gas-pill">Sem dados</span>
                     </div>
@@ -150,7 +157,8 @@
         <div class="visao-card">
             <div class="visao-card-header">
                 <span class="visao-card-title">Conformidade Normativa</span>
-                <span class="visao-card-tooltip-icon" title="Fórmula: Cilindros ativos com data_proximo_reteste vencida ou a vencer nos próximos 90 dias calendário.">?</span>
+                <span class="visao-card-tooltip-icon"
+                    title="Fórmula: Cilindros ativos com data_proximo_reteste vencida ou a vencer nos próximos 90 dias calendário.">?</span>
             </div>
             <div class="visao-metric-row">
                 <span class="visao-metric-large" id="gestao-retestes-vencidos">0</span>
@@ -161,8 +169,8 @@
                     <span>Retestes Vencidos (Pátio/Campo):</span>
                     <strong id="gestao-retestes-vencidos-txt">0</strong>
                 </div>
-                <div class="visao-card-subitem" style="flex-direction: column; align-items: flex-start; margin-top: 4px;">
-                    <span style="margin-bottom: 2px;">Vencimentos nos próximos 3 meses:</span>
+                <div class="visao-card-subitem visao-card-subitem-col">
+                    <span class="subitem-col-label">Vencimentos nos próximos 3 meses:</span>
                     <div class="visao-gas-pills" id="gestao-retestes-meses">
                         <span class="visao-gas-pill">Nenhum</span>
                     </div>
@@ -174,9 +182,10 @@
         <div class="visao-card" id="card-bloco-financeiro">
             <div class="visao-card-header">
                 <span class="visao-card-title">Fluxo Financeiro</span>
-                <span class="visao-card-tooltip-icon" title="Fórmula: Títulos financeiros em aberto a receber, vencidos (inadimplência), saldo das contas bancárias/caixa e contas a pagar nos próximos 7 dias.">?</span>
+                <span class="visao-card-tooltip-icon"
+                    title="Fórmula: Títulos financeiros em aberto a receber, vencidos (inadimplência), saldo das contas bancárias/caixa e contas a pagar nos próximos 7 dias.">?</span>
             </div>
-            
+
             <div id="gestao-financeiro-ativo-area">
                 <div class="visao-metric-row">
                     <span class="visao-metric-large" id="gestao-fin-receber">R$ 0,00</span>
@@ -184,7 +193,7 @@
                 <div class="visao-card-subdetails">
                     <div class="visao-card-subitem">
                         <span>Vencido (Inadimplência):</span>
-                        <strong id="gestao-fin-inadimplencia" style="color: var(--status-danger-text);">R$ 0,00</strong>
+                        <strong id="gestao-fin-inadimplencia" class="text-danger-status">R$ 0,00</strong>
                     </div>
                     <div class="visao-card-subitem">
                         <span>Saldo Caixa / Bancos:</span>
@@ -194,22 +203,23 @@
                         <span>A Pagar (7 dias):</span>
                         <strong id="gestao-fin-pagar">R$ 0,00</strong>
                     </div>
-                    <div style="margin-top: 8px;">
-                        <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Maiores Devedores:</span>
+                    <div class="gestao-devedores-box">
+                        <span class="gestao-devedores-header">Maiores Devedores:</span>
                         <div id="gestao-top-devedores-list">
-                            <span style="font-size: 0.75rem; color: var(--color-text-muted);">Nenhum débito em aberto</span>
+                            <span class="gestao-devedores-empty">Nenhum débito em aberto</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div id="gestao-financeiro-inativo-area" class="visao-card-modulo-off" style="display: none;">
+            <div id="gestao-financeiro-inativo-area" class="visao-card-modulo-off" hidden>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <rect x="2" y="4" width="20" height="16" rx="2"></rect>
                     <line x1="2" y1="10" x2="22" y2="10"></line>
                 </svg>
                 <h4>Módulo Financeiro</h4>
-                <p id="gestao-aviso-financeiro-txt">Contas a receber, fluxo de caixa e inadimplência ficam disponíveis com a contratação do módulo financeiro.</p>
+                <p id="gestao-aviso-financeiro-txt">Contas a receber, fluxo de caixa e inadimplência ficam disponíveis
+                    com a contratação do módulo financeiro.</p>
             </div>
         </div>
     </div>
@@ -223,13 +233,14 @@
 <div class="action-queue-section">
     <div class="action-queue-header">
         <h3>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
             Fila de Ação Imediata — {{ current_membership.get_papel_display|default:"Administração" }}
         </h3>
-        <span style="font-size: 13px; color: var(--color-text-muted);">{{ fila_acao_imediata|length }} item(ns) aguardando intervenção</span>
+        <span class="action-queue-meta">{{ fila_acao_imediata|length }} item(ns) aguardando intervenção</span>
     </div>
     <div class="action-queue-grid">
         {% for item in fila_acao_imediata %}
@@ -242,7 +253,9 @@
             <p class="action-queue-desc">{{ item.descricao }}</p>
             <a href="{{ item.link }}" class="action-queue-btn">
                 {{ item.botao_texto }}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
             </a>
         </div>
         {% endfor %}
@@ -255,7 +268,7 @@
 <!-- ======================================================================= -->
 {% if tem_modulo_envase %}
 {% if tem_modulo_distribuicao %}
-<h3 style="font-size: 16px; font-weight: 600; margin: 0 0 14px 0; color: var(--color-text); display: flex; align-items: center; gap: 8px;">
+<h3 class="section-subtitle-bar">
     <span>🏭</span> Operação da Rampa de Envase (IN 129/2022)
 </h3>
 {% endif %}
@@ -308,7 +321,8 @@
     <div class="kpi-radar-card">
         <div class="kpi-radar-icon bg-rose">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                </path>
                 <line x1="12" y1="9" x2="12" y2="13"></line>
                 <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
@@ -327,7 +341,7 @@
 <!-- ======================================================================= -->
 {% if tem_modulo_distribuicao %}
 {% if tem_modulo_envase %}
-<h3 style="font-size: 16px; font-weight: 600; margin: 25px 0 14px 0; color: var(--color-text); display: flex; align-items: center; gap: 8px;">
+<h3 class="section-subtitle-bar-spacing">
     <span>🚚</span> Gestão de Comodato, Estadia & Distribuição
 </h3>
 {% endif %}
@@ -377,7 +391,8 @@
     <div class="kpi-radar-card">
         <div class="kpi-radar-icon bg-rose">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                </path>
                 <line x1="12" y1="9" x2="12" y2="13"></line>
                 <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
@@ -399,9 +414,9 @@
     <div class="radar-card-box">
         <h3>
             <span>Distribuição da Frota por Status</span>
-            <small style="font-size: 12px; color: var(--color-text-muted);">Tempo Real</small>
+            <small class="text-sub-meta">Tempo Real</small>
         </h3>
-        <div id="frotaStatusDonutChart" style="min-height: 290px;"></div>
+        <div id="frotaStatusDonutChart" class="donut-chart-container"></div>
     </div>
 
     <div class="radar-card-box">
@@ -411,14 +426,14 @@
                 Risco Cascos: R$ 0
             </span>
         </h3>
-        <div style="padding-top: 10px;">
+        <div class="faixas-retencao-box">
             <div class="faixa-bar-item">
                 <div class="faixa-bar-header">
                     <span>Até 29 dias (Dentro da Carência)</span>
                     <strong id="faixa-0-29-count">0 cilindros</strong>
                 </div>
                 <div class="faixa-progress-bg">
-                    <div id="faixa-0-29-bar" class="faixa-progress-fill fill-green" style="width: 0%;"></div>
+                    <div id="faixa-0-29-bar" class="faixa-progress-fill fill-green"></div>
                 </div>
             </div>
 
@@ -428,7 +443,7 @@
                     <strong id="faixa-30-59-count">0 cilindros</strong>
                 </div>
                 <div class="faixa-progress-bg">
-                    <div id="faixa-30-59-bar" class="faixa-progress-fill fill-amber" style="width: 0%;"></div>
+                    <div id="faixa-30-59-bar" class="faixa-progress-fill fill-amber"></div>
                 </div>
             </div>
 
@@ -438,7 +453,7 @@
                     <strong id="faixa-60-89-count">0 cilindros</strong>
                 </div>
                 <div class="faixa-progress-bg">
-                    <div id="faixa-60-89-bar" class="faixa-progress-fill fill-orange" style="width: 0%;"></div>
+                    <div id="faixa-60-89-bar" class="faixa-progress-fill fill-orange"></div>
                 </div>
             </div>
 
@@ -448,7 +463,7 @@
                     <strong id="faixa-90-count">0 cilindros</strong>
                 </div>
                 <div class="faixa-progress-bg">
-                    <div id="faixa-90-bar" class="faixa-progress-fill fill-red" style="width: 0%;"></div>
+                    <div id="faixa-90-bar" class="faixa-progress-fill fill-red"></div>
                 </div>
             </div>
         </div>
@@ -456,13 +471,12 @@
 </div>
 
 <!-- DATATABLE RADAR DE CILINDROS RETIDOS -->
-<div class="radar-card-box" style="margin-bottom: 30px;">
+<div class="radar-card-box radar-card-spaced">
     <h3>
         <span>Radar de Cilindros Retidos em Clientes</span>
-        <input type="text" id="filtro-radar" placeholder="Buscar por Cliente, QR ou Gás..." 
-               style="padding: 6px 12px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px; font-weight: normal; width: 260px;">
+        <input type="text" id="filtro-radar" placeholder="Buscar por Cliente, QR ou Gás..." class="radar-filtro-input">
     </h3>
-    
+
     <div class="radar-table-container">
         <table class="radar-table" id="tabela-radar">
             <thead>
@@ -478,7 +492,7 @@
             </thead>
             <tbody id="radar-tbody">
                 <tr>
-                    <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 30px;">Carregando dados do radar...</td>
+                    <td colspan="7" class="radar-table-placeholder">Carregando dados do radar...</td>
                 </tr>
             </tbody>
         </table>
@@ -490,9 +504,9 @@
     <div class="radar-card-box">
         <h3>
             <span>Distribuição dos Ativos no Pátio</span>
-            <small style="font-size: 12px; color: var(--color-text-muted);">Tempo Real</small>
+            <small class="text-sub-meta">Tempo Real</small>
         </h3>
-        <div id="frotaStatusDonutChart" style="min-height: 290px;"></div>
+        <div id="frotaStatusDonutChart" class="donut-chart-container"></div>
     </div>
 
     <div class="radar-card-box">
@@ -500,11 +514,12 @@
             <span>Acesso Rápido à Estação de Envase</span>
             <span class="badge-status badge-normal">IN 129/2022</span>
         </h3>
-        <div style="padding-top: 10px; display: flex; flex-direction: column; gap: 14px;">
-            <p style="margin: 0; font-size: 13px; color: var(--color-text-muted);">
-                Acesse diretamente a rampa para acoplamento contínuo com leitor óptico, validação de segurança e checklist pré-envase.
+        <div class="rampa-acesso-box">
+            <p class="rampa-acesso-desc">
+                Acesse diretamente a rampa para acoplamento contínuo com leitor óptico, validação de segurança e
+                checklist pré-envase.
             </p>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <div class="rampa-acesso-actions">
                 <a href="{% url 'produtos:index' %}?aba=rampa" class="action-queue-btn">
                     Abrir Rampa em Batelada &rarr;
                 </a>
@@ -512,19 +527,20 @@
                     Central de Lotes & Qualidade CQ
                 </a>
             </div>
-            <div style="margin-top: 10px; padding: 14px; background: var(--color-bg); border-radius: 8px; border: 1px solid var(--color-border);">
-                <span style="font-size: 12px; font-weight: 600; color: var(--color-text); display: block; margin-bottom: 4px;">Rastreabilidade Sanitária Rigorosa</span>
-                <span style="font-size: 12px; color: var(--color-text-muted);">Todos os cilindros envasados recebem selo imutável com número de lote, data de validade, pureza aferida e snapshot do RT.</span>
+            <div class="rampa-selo-box">
+                <span class="rampa-selo-title">Rastreabilidade Sanitária Rigorosa</span>
+                <span class="rampa-selo-desc">Todos os cilindros envasados recebem selo imutável com número de lote,
+                    data de validade, pureza aferida e snapshot do RT.</span>
             </div>
         </div>
     </div>
 </div>
 
 <!-- TABELA DE LOTES QUÍMICOS RECENTES -->
-<div class="radar-card-box" style="margin-bottom: 30px;">
+<div class="radar-card-box radar-card-spaced">
     <h3>
         <span>Lotes de Envase Recentes & Quarentena CQ</span>
-        <a href="{% url 'produtos:index' %}?aba=lotes" style="font-size: 13px; color: var(--color-primary); text-decoration: none; font-weight: 500;">
+        <a href="{% url 'produtos:index' %}?aba=lotes" class="card-link-more">
             Ver todos os lotes &rarr;
         </a>
     </h3>
@@ -543,7 +559,7 @@
             </thead>
             <tbody id="lotes-envase-tbody">
                 <tr>
-                    <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Carregando lotes químicos...</td>
+                    <td colspan="7" class="lotes-table-placeholder">Carregando lotes químicos...</td>
                 </tr>
             </tbody>
         </table>
@@ -557,168 +573,150 @@
 <script src="{% static 'vendor/apexcharts/apexcharts.min.js' %}"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    function getAuthHeaders() {
-        const token = localStorage.getItem('access_token');
-        const headers = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = 'Bearer ' + token;
-        return headers;
+documee    ntListener('DOMContentLoaded', () => {
+    function ge        hHeaders() {
+        const t            ocalStorage.getItem('access_token');
+        const h             { 'Content-Type': 'application/json' };
+        if (tok            ers['Authorization'] = 'Bearer ' + token;
+        return             
     }
 
-    function formatCurrency(val) {
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+    func         fo        Currency(val) {
+        return             .NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
     }
 
-    let donutChart = null;
-    let todosItensRadar = [];
+    let         tCh        = null;
+    let todosIt        adar = [];
 
-    // =========================================================================
-    // VISÃO DE GESTÃO (ADMIN & GERENTE)
-    // =========================================================================
-    let periodoGestaoAtivo = 'mes_atual';
+    // ========        =============================================================
+    // VISÃO DE        TÃO (ADMIN & GERENTE)
+    // ========        =============================================================
+    let periodo        aoAtivo = 'mes_atual';
 
-    async function carregarVisaoGestao(periodo) {
-        const container = document.getElementById('secao-visao-gestao');
-        if (!container) return;
+    async funct        carregarVisaoGestao(periodo) {
+        const c             = document.getElementById('secao-visao-gestao');
+        if (!co             return;
 
         try {
-            const res = await fetch(`/inicio/api/gestao/?periodo=${encodeURIComponent(periodo)}`, {
-                headers: getAuthHeaders()
-            });
-            if (!res.ok) {
-                console.warn("Visão de gestão indisponível ou permissão negada.");
-                return;
+                con                it fetch(`/inicio/api/gestao/?periodo=${encodeURIComponent(periodo)}`, {
+                                   hHeaders()
+            });                 if                                                    isão de gestão indisponível ou permissão negada.");
+                                        }
+                 on                ait res.json();
+
+            //                 Faturamento
+            con                vendas || {};
+            con                ocument.getElementById('gestao-faturamento');
+            if                 t.textContent = formatCurrency(v.faturamento_periodo);
+
+            con                 document.getElementById('gestao-variacao-fat');
+            if                                                    faturamento_pct !== null && v.variacao_faturamento_pct !== undefined) {
+                                       .variacao_faturamento_pct > 0 ? '+' : '';
+                                       tent = `${sinal}${v.variacao_faturamento_pct}%`;
+                                       me = 'visao-metric-delta ' + (v.variacao_faturamento_pct >= 0 ? 'delta-up' : 'delta-down');
+                                                                    tent = 'Sem base ant.';
+                                       me = 'visao-metric-delta delta-neutral';
+                                   
+
+                con                ocument.getElementById('gestao-pedidos-count');
+            if                 d.textContent = v.total_pedidos_faturados || 0;
+
+            con                = document.getElementById('gestao-ticket-medio');
+            if                 lTicket.textContent = formatCurrency(v.ticket_medio);
+
+            con                azo = document.getElementById('gestao-vista-prazo');
+            if                 o) {
+                                   xtContent = `${formatCurrency(v.vendas_a_vista)} / ${formatCurrency(v.vendas_a_prazo)}`;
             }
-            const data = await res.json();
 
-            // 1. Vendas & Faturamento
-            const v = data.vendas || {};
-            const elFat = document.getElementById('gestao-faturamento');
-            if (elFat) elFat.textContent = formatCurrency(v.faturamento_periodo);
+                con                 document.getElementById('gestao-box-bloqueados');
+            con                pedidos_bloqueados_credito || {};
+            if                                                    dade > 0) {
+                                       ttribute('hidden');
+                                     lementById('gestao-bloqueados-qtd').textContent = bloq.quantidade;
+                                     lementById('gestao-bloqueados-val').textContent = formatCurrency(bloq.valor_total);
+                                                                  tribute('hidden', '');
+                                                                  rimônio
+                          data.patrimonio || {};
+                         alParque = document.getElementById('gestao-valor-parque');
+                         Parque) elValParque.textContent = formatCurrency(p.valor_parque_total);
 
-            const elDelta = document.getElementById('gestao-variacao-fat');
-            if (elDelta) {
-                if (v.variacao_faturamento_pct !== null && v.variacao_faturamento_pct !== undefined) {
-                    const sinal = v.variacao_faturamento_pct > 0 ? '+' : '';
-                    elDelta.textContent = `${sinal}${v.variacao_faturamento_pct}%`;
-                    elDelta.className = 'visao-metric-delta ' + (v.variacao_faturamento_pct >= 0 ? 'delta-up' : 'delta-down');
+                         ob = document.getElementById('gestao-cascos-cobertura');
+                         ) {
+                             xt = `${p.cascos_avaliados || 0} de ${p.total_cascos || 0} cascos`;
+                             cos_sem_valor > 0) {
+                                 = ` (${p.cascos_sem_valor} sem valor)`;
+                                                   tContent = cobText;
+                                            li = document.getElementById('gestao-cascos-clientes');
+                         ) elCli.textContent = p.cascos_em_clientes || 0;
+
+                         isco = document.getElementById('gestao-risco-reais');
+                         co) {
+                             extContent = `${formatCurrency(p.risco_reais_90d)} / ${formatCurrency(p.risco_reais_180d)}`;
+                                            stadia = document.getElementById('gestao-estadia-faturar');
+                         adia) elEstadia.textContent = formatCurrency(p.estadia_a_faturar);
+
+                         o do Casco & Nível de Serviço
+                          data.giro_casco || {};
+                         iro = document.getElementById('gestao-giro-medio');
+                         o) elGiro.textContent = `${(g.giro_medio_dias || 0).toFixed(1)} dias`;
+
+                         = data.nivel_servico || {};
+                         tif = document.getElementById('gestao-otif-pct');
+                         f) elOtif.textContent = `${(ns.percentual_no_prazo || 100).toFixed(1)}%`;
+
+                         tifBase = document.getElementById('gestao-otif-base');
+                         fBase) {
+                             e.textContent = `${ns.entregas_no_prazo || 0} de ${ns.total_entregas_avaliadas || 0} entregas`;
+                                            tainerGases = document.getElementById('gestao-giro-gases');
+                         inerGases) {
+                             Gases.replaceChildren();
+                                 = g.giro_por_gas || {};
+                             s = Object.keys(porGas)                         (keys.length > 0) {
+                    keys.forEach(k => {
+                        const pill = document.createElement('span');
+                        pill.className = 'v                                                      strong = document.createElement('strong');
+                        strong.textContent                                                         endChild(strong);
+                            pill.appendChild(document.createTextN                s[k]}d`));
+                        containerGases.appendChild(pill);
+                        });
                 } else {
-                    elDelta.textContent = 'Sem base ant.';
-                    elDelta.className = 'visao-metric-delta delta-neutral';
-                }
-            }
-
-            const elPed = document.getElementById('gestao-pedidos-count');
-            if (elPed) elPed.textContent = v.total_pedidos_faturados || 0;
-
-            const elTicket = document.getElementById('gestao-ticket-medio');
-            if (elTicket) elTicket.textContent = formatCurrency(v.ticket_medio);
-
-            const elVistaPrazo = document.getElementById('gestao-vista-prazo');
-            if (elVistaPrazo) {
-                elVistaPrazo.textContent = `${formatCurrency(v.vendas_a_vista)} / ${formatCurrency(v.vendas_a_prazo)}`;
-            }
-
-            const boxBloq = document.getElementById('gestao-box-bloqueados');
-            const bloq = v.pedidos_bloqueados_credito || {};
-            if (boxBloq) {
-                if (bloq.quantidade > 0) {
-                    boxBloq.style.display = 'block';
-                    document.getElementById('gestao-bloqueados-qtd').textContent = bloq.quantidade;
-                    document.getElementById('gestao-bloqueados-val').textContent = formatCurrency(bloq.valor_total);
-                } else {
-                    boxBloq.style.display = 'none';
-                }
-            }
-
-            // 2. Patrimônio
-            const p = data.patrimonio || {};
-            const elValParque = document.getElementById('gestao-valor-parque');
-            if (elValParque) elValParque.textContent = formatCurrency(p.valor_parque_total);
-
-            const elCob = document.getElementById('gestao-cascos-cobertura');
-            if (elCob) {
-                let cobText = `${p.cascos_avaliados || 0} de ${p.total_cascos || 0} cascos`;
-                if (p.cascos_sem_valor > 0) {
-                    cobText += ` (${p.cascos_sem_valor} sem valor)`;
-                }
-                elCob.textContent = cobText;
-            }
-
-            const elCli = document.getElementById('gestao-cascos-clientes');
-            if (elCli) elCli.textContent = p.cascos_em_clientes || 0;
-
-            const elRisco = document.getElementById('gestao-risco-reais');
-            if (elRisco) {
-                elRisco.textContent = `${formatCurrency(p.risco_reais_90d)} / ${formatCurrency(p.risco_reais_180d)}`;
-            }
-
-            const elEstadia = document.getElementById('gestao-estadia-faturar');
-            if (elEstadia) elEstadia.textContent = formatCurrency(p.estadia_a_faturar);
-
-            // 3. Giro do Casco & Nível de Serviço
-            const g = data.giro_casco || {};
-            const elGiro = document.getElementById('gestao-giro-medio');
-            if (elGiro) elGiro.textContent = `${(g.giro_medio_dias || 0).toFixed(1)} dias`;
-
-            const ns = data.nivel_servico || {};
-            const elOtif = document.getElementById('gestao-otif-pct');
-            if (elOtif) elOtif.textContent = `${(ns.percentual_no_prazo || 100).toFixed(1)}%`;
-
-            const elOtifBase = document.getElementById('gestao-otif-base');
-            if (elOtifBase) {
-                elOtifBase.textContent = `${ns.entregas_no_prazo || 0} de ${ns.total_entregas_avaliadas || 0} entregas`;
-            }
-
-            const containerGases = document.getElementById('gestao-giro-gases');
-            if (containerGases) {
-                const porGas = g.giro_por_gas || {};
-                const keys = Object.keys(porGas);
-                if (keys.length > 0) {
-                    containerGases.innerHTML = keys.map(k => `
-                        <span class="visao-gas-pill"><strong>${k}:</strong> ${porGas[k]}d</span>
-                    `).join('');
-                } else {
-                    containerGases.innerHTML = '<span class="visao-gas-pill">Sem ciclos recentes</span>';
-                }
-            }
+                    const emptyPil                .createElement('span');
+                    emptyPill.className = 'visao-gas                                empty                     = 'Sem ciclos recentes';
+                    containerGases.appendChild(empt                                              }
 
             // 4. Conformidade Normativa
-            const conf = data.conformidade || {};
-            const elRetVenc = document.getElementById('gestao-retestes-vencidos');
-            if (elRetVenc) elRetVenc.textContent = conf.retestes_vencidos || 0;
+            const conf                 rmidade || {};
+            const elRetVenc = document.getElementById('gesta                encidos');
+            if (elRetVenc) elRetVenc.textContent = conf.retest                || 0;
 
-            const elRet90dBadge = document.getElementById('gestao-retestes-90d-badge');
-            if (elRet90dBadge) {
-                elRet90dBadge.textContent = `${conf.retestes_90_dias || 0} a vencer em 90d`;
+            con                     = document.getElementById('gestao-retestes                              if (elRet90dBa                           elRet90dBadge.textContent = `${conf.retestes_90_dias || 0} a vencer em 90d`;
             }
 
-            const elRetVencTxt = document.getElementById('gestao-retestes-vencidos-txt');
-            if (elRetVencTxt) elRetVencTxt.textContent = conf.retestes_vencidos || 0;
+            const elRetVencTxt = document.getElementById('gestao-retestes-vencidos-tx                     if (elRe                        xt.textContent = conf.retestes_vencidos || 0;
 
-            const containerMeses = document.getElementById('gestao-retestes-meses');
-            if (containerMeses) {
-                const meses = conf.retestes_por_mes || [];
+            const containerMeses = document                    'g                es-                         if (containerM                            containerMeses.replaceChildren();
+                const meses = co                por_mes || [];
                 if (meses.length > 0) {
-                    containerMeses.innerHTML = meses.map(m => `
-                        <span class="visao-gas-pill"><strong>${m.mes}:</strong> ${m.quantidade}</span>
-                    `).join('');
-                } else {
-                    containerMeses.innerHTML = '<span class="visao-gas-pill">Nenhum reteste a vencer</span>';
+                    meses.f                {
+                        cons                ument.creat                    ;
+                        pill.className = 'visao-gas-pi                                 const strong = document.createElement('strong')                              strong.textContent = `${m.me                                   pill.appendChild(strong);
+                                        hild(document.createTextNode(String(m.quantidade)));
+                                         s.appendChild(pill);
+                    });
+                } else                           const emptyPill = document.createElement('span');
+                    emptyP                    'visao-gas-pill';
+                                 .textContent = 'Nenhum reteste a vencer';
+                                       appendChild(emptyPill);
                 }
             }
 
-            // 5. Bloco Financeiro
-            const finAreaAtiva = document.getElementById('gestao-financeiro-ativo-area');
-            const finAreaInativa = document.getElementById('gestao-financeiro-inativo-area');
-            const fin = data.financeiro;
-
+            // 5. Bloco F                          const finAreaAtiva = documen                    ('gestao-financeiro-ativo-area');
+            const finAreaIn                    .getElementById('gestao-financeiro-inativo-area');
+            const fin = d                    
             if (fin) {
-                if (finAreaAtiva) finAreaAtiva.style.display = 'block';
-                if (finAreaInativa) finAreaInativa.style.display = 'none';
-
-                const aReceber = fin.a_receber || {};
-                const elRec = document.getElementById('gestao-fin-receber');
+                if (finAreaAtiva) finAreaAtiva.r                    hidden');
+                               Inativa) finAreaInativa.setAttribute('hidde                              const aReceber = fin.a                                    const elRec = document.getElementById('gestao-fin-receber');
                 if (elRec) elRec.textContent = formatCurrency(aReceber.total_em_aberto);
 
                 const elInad = document.getElementById('gestao-fin-inadimplencia');
@@ -728,143 +726,121 @@ document.addEventListener('DOMContentLoaded', () => {
                 const elCaixa = document.getElementById('gestao-fin-caixa');
                 if (elCaixa) elCaixa.textContent = formatCurrency(caixa.saldo_total_disponivel);
 
-                const aPagar = fin.a_pagar || {};
-                const elPagar = document.getElementById('gestao-fin-pagar');
-                if (elPagar) elPagar.textContent = formatCurrency(aPagar.proximos_7_dias);
-
-                const elDevList = document.getElementById('gestao-top-devedores-list');
-                if (elDevList) {
-                    const devedores = fin.top_devedores || [];
-                    if (devedores.length > 0) {
-                        elDevList.innerHTML = devedores.map(d => `
-                            <div class="visao-devedor-item">
-                                <span>
-                                    ${d.cliente_nome}
-                                    ${d.tem_casco_retido_90d ? '<span class="tag-retencao-90d" title="Cliente com cascos retidos há mais de 90 dias">Casco >90d</span>' : ''}
-                                </span>
-                                <strong>${formatCurrency(d.total_devido)}</strong>
-                            </div>
-                        `).join('');
+                           Pagar = f                                      const elPagar = document.getElementById('gestao-fin-pagar');
+                if (elPagar) elPagar.textContent =                         r.                    ;
+                     cons                    cument.getElementById('gestao-top-devedores-list');
+                       (elDevList) {
+                                t.replaceChildren();
+                                          fin.top_devedores || [];
+                                       ength > 0) {
+                        devedores.forEach(d => {
+                                      itemDiv = document.createElement('div');
+                                                e                     -i                                          const                document.createElement('span');
+                                     pa        xtC        nt = d.cliente_nome + ' ';
+                                if (d.tem_casco_retido_90d) {
+                                       st tag = document.createElement            ;
+                                tag.                'tag-retencao-90d';
+                                tag.ti                te com cascos retidos há mais                ;
+                                tag.text                asco >90d';
+                                         pan.        ndChi        ag);
+                            }
+                                const valStrong = document.createElemen        tro        ;
+                            valStrong.textContent = formatCurrency(d.total_        do);
+                            itemDiv.appe        ild(nameSpan);
+                            itemDiv.appendChild(valStrong);
+                                elDevList.appendChild(item                                      });
                     } else {
-                        elDevList.innerHTML = '<span style="font-size: 0.75rem; color: var(--color-text-muted);">Nenhum débito em aberto</span>';
-                    }
+                        const emptySpan =                eateElement('span');
+                        emptySpan.className = 'gest                -empty';
+                                       extContent = 'Nenhum débito em                                      elDevList.appendChild(emptySpan);
+                        }
                 }
             } else {
-                if (finAreaAtiva) finAreaAtiva.style.display = 'none';
-                if (finAreaInativa) {
-                    finAreaInativa.style.display = 'flex';
-                    if (data.aviso_modulo_financeiro) {
-                        const elAviso = document.getElementById('gestao-aviso-financeiro-txt');
-                        if (elAviso) elAviso.textContent = data.aviso_modulo_financeiro;
+                               Ativa) finAreaAtiva.setAttribute('hidden', '');
+                if                tiva) {
+                    finAreaInativa.removeAttribute('hidden');
+                        if (data.aviso_modulo_financeiro) {
+                        const elAviso                getElementById('gestao-aviso-financeiro-txt');
+                        if (elAvis                extContent = data.aviso_modulo                
                     }
-                }
-            }
+                                  }
 
         } catch (err) {
-            console.error("Erro ao carregar visão de gestão:", err);
+            console.error("                     visão de gestão:", err);
         }
     }
 
-    // Seletor de Período da Visão de Gestão
-    const botoesPeriodo = document.querySelectorAll('.visao-periodo-btn');
+    // Seletor de                    o de Gestão
+    const botoesPeriodo = document.querySelectorAl                    o-btn');
     botoesPeriodo.forEach(btn => {
-        btn.addEventListener('click', () => {
-            botoesPeriodo.forEach(b => b.classList.remove('active'));
+        btn.addEven                    ', () => {
+            botoesPeriodo.forEach(b => b.classList.                    );
             btn.classList.add('active');
-            periodoGestaoAtivo = btn.dataset.periodo;
-            carregarVisaoGestao(periodoGestaoAtivo);
-        });
-    });
+            periodoGestaoAtivo                    eriodo;
+            carregarVisaoGestao(periodoGestaoA                                   
+    if (document.getElementById('secao-visa                {
+        carregarVisaoGestao(period                       }
 
-    if (document.getElementById('secao-visao-gestao')) {
-        carregarVisaoGestao(periodoGestaoAtivo);
-    }
-
-    // =========================================================================
+    // ==============================================                    ===========
     // DASHBOARD OPERACIONAL & RADAR METAMÓRFICO
-    // =========================================================================
-    async function carregarDashboardMetamorfico() {
+    // ==========                    ===============================================
+    async function                    rdMetamorfico() {
         try {
-            const res = await fetch('/inicio/api/stats/', { headers: getAuthHeaders() });
-            if (!res.ok) throw new Error("Erro ao carregar métricas operacionais");
+            const res = await fetch('/inicio/api/stats/'                    AuthHeaders() });
+            if (!res.ok) throw new Error("Erro ao                    as operacionais");
             const data = await res.json();
 
             // 1. Atualiza KPIs Universais
-            const elFrota = document.getElementById('kpi-frota-total');
-            if (elFrota) elFrota.textContent = data.frota_total || 0;
+                         rota = document.getElementById('                    );
+            if (elFrota) elFrota.text                    rota_total || 0;
 
             const elReteste = document.getElementById('kpi-alertas-reteste');
-            if (elReteste) elReteste.textContent = data.alertas_reteste_inmetro || 0;
-
-            const elRetesteEnv = document.getElementById('kpi-alertas-reteste-envase');
-            if (elRetesteEnv) elRetesteEnv.textContent = data.alertas_reteste_inmetro || 0;
-
-            // 2. Atualiza KPIs de Envase
+            if (elReteste) elReteste.tex                    alertas_reteste_inmetro |                        nst elRetesteEnv = document.getElementById('kpi-alertas-reteste-envase                    if                     lRetesteEnv.textContent = data.alertas_reteste_inme                           // 2. Atualiza KPIs de Envase
             if (data.tem_modulo_envase) {
-                const elLotes = document.getElementById('kpi-lotes-ativos');
+                const elLotes = document.getElem                        tivos');
                 if (elLotes) elLotes.textContent = data.lotes_ativos || 0;
 
-                const elVol = document.getElementById('kpi-volume-envasado');
-                if (elVol) elVol.textContent = data.volume_envasado_mes || 0;
-
-                const elVazios = document.getElementById('kpi-vazios-rampa');
-                if (elVazios) elVazios.textContent = data.cilindros_vazios_triagem || 0;
+                                = document.getElementById('kpi-volume-envasado');
+                if (elVol) elVol.textContent = data.volume_envasado_mes || 0                        onst elVazios = document.getElementById('kpi-vazios-rampa');
+                if (elVazios) elVa                        ata.cilindros_vazios_triagem || 0;
 
                 renderTabelaLotesRecentes(data.lotes_recentes || []);
             }
 
-            // 3. Atualiza KPIs e Radar de Distribuição
+                             a KPIs e Radar de Distribuição
             if (data.tem_modulo_distribuicao) {
-                const elSemGiro = document.getElementById('kpi-sem-giro');
-                if (elSemGiro) elSemGiro.textContent = data.cilindros_sem_giro_30_mais || 0;
+                                        cument.getElementById('kpi-sem-giro');
+                if (elSemGiro) elSemGiro.textContent = data.cilindros_sem_giro_30_ma                              const elReceita = document.getElementById('kpi-receita-locacao');
+                if                     cei                     formatCurrency(data.receita_locacao_acumu                            const elBadgeRisco = documen                ByI                co-total');
+                i                sco) elBadgeRisco.textContent = "Risco Cascos: " + formatCurrency(data.ri                ial_total);
 
-                const elReceita = document.getElementById('kpi-receita-locacao');
-                if (elReceita) elReceita.textContent = formatCurrency(data.receita_locacao_acumulada);
-
-                const elBadgeRisco = document.getElementById('badge-risco-total');
-                if (elBadgeRisco) elBadgeRisco.textContent = "Risco Cascos: " + formatCurrency(data.risco_patrimonial_total);
-
-                // Barras de Faixas de Retenção
-                const faixas = data.radar_faixas || {};
-                const totalEmPosse = (faixas.dias_0_a_29 || 0) + (faixas.dias_30_a_59 || 0) + (faixas.dias_60_a_89 || 0) + (faixas.dias_90_mais || 0);
-
-                function calcPerc(val) {
-                    return totalEmPosse > 0 ? Math.round((val / totalEmPosse) * 100) : 0;
+                              de Faixas de Retenção
+                const faixas = da                xas                                            mPosse = (faixas.dias_0_a_29 || 0) + (faixas.dias_30_a_59             (f        s.d        60_a_89 || 0) + (faixas.dias_90_mais || 0);
+                     function                 ) {
+                    return totalEmPosse > 0                 ((val / totalEmPosse) * 100) : 0;
                 }
 
-                if (document.getElementById('faixa-0-29-count')) {
-                    document.getElementById('faixa-0-29-count').textContent = `${faixas.dias_0_a_29 || 0} (${calcPerc(faixas.dias_0_a_29)}%)`;
-                    document.getElementById('faixa-0-29-bar').style.width = calcPerc(faixas.dias_0_a_29) + '%';
+                     f (docume                    d('faixa-0-29-c                                                etE                faixa-0-29-count').textContent = `${faixas.dias_0_a_29 || 0} (${c                as.dias_0_a_29)}%)`;
+                           ument.getElemen                    9-bar')                        erc(faixa                                                                     tById('fai                                 = `${faixas                                erc(faixa                                             doc                                    9-bar').style.wid                                    9) + '%';
 
-                    document.getElementById('faixa-30-59-count').textContent = `${faixas.dias_30_a_59 || 0} (${calcPerc(faixas.dias_30_a_59)}%)`;
-                    document.getElementById('faixa-30-59-bar').style.width = calcPerc(faixas.dias_30_a_59) + '%';
-
-                    document.getElementById('faixa-60-89-count').textContent = `${faixas.dias_60_a_89 || 0} (${calcPerc(faixas.dias_60_a_89)}%)`;
-                    document.getElementById('faixa-60-89-bar').style.width = calcPerc(faixas.dias_60_a_89) + '%';
-
-                    document.getElementById('faixa-90-count').textContent = `${faixas.dias_90_mais || 0} (${calcPerc(faixas.dias_90_mais)}%)`;
-                    document.getElementById('faixa-90-bar').style.width = calcPerc(faixas.dias_90_mais) + '%';
+                                                       -60-89-count').textContent = `${faixas.dias_60_a_89 || 0}                                     }%                                me                            -6                        th                    as                9)                                 document.getEle            ('fa            ount').textContent                .dias_90_mais || 0} ($            c(            ias_90_mais)}%)`;
+                    document.getElementById('faixa-90-bar').style.widt            Perc(faixas.dias_90_m         +         
                 }
 
-                todosItensRadar = data.radar_itens || [];
-                renderTabelaRadar(todosItensRadar);
-            }
+                            nsRadar = data.radar_itens || [];
+                rend            Radar(todosItensRada                    }
 
-            // 4. Donut Chart ApexCharts
+            // 4. Donut C                rts
             const donutContainer = document.querySelector("#frotaStatusDonutChart");
             if (donutContainer) {
-                renderDonutChart(data.donut_labels, data.donut_series);
-            }
-
-        } catch (err) {
-            console.error("Erro no carregamento do dashboard:", err);
-        }
+                renderDonutChart(data.donut_label                t_series                                  } catch (err) {
+            con                Erro no carregamento do dashboard                      }
     }
 
     function renderDonutChart(labels, series) {
-        const options = {
+                    tions = {
             series: series && series.length ? series : [1],
-            labels: labels && labels.length ? labels : ['Sem dados'],
+                 abels: labels && labels.length ? labels : ['Sem dados'],
             chart: {
                 type: 'donut',
                 height: 290
@@ -899,68 +875,164 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderTabelaRadar(itens) {
-        const tbody = document.getElementById('radar-tbody');
-        if (!tbody) return;
-        if (!itens || itens.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Nenhum cilindro retido em cliente no momento.</td></tr>';
+        const             document.get        ent        ('radar-tbody');
+        if (!tbody) return;             tbody.replaceChildren();
+
+        if (!itens || itens.length            {
+            const             ument.createElement('tr');
+                         = document.createElement('td');
+            td.colSpan = 7;
+            td.className = 'radar-table-placeholder';
+            td.textContent = 'Nenhum cilindro retido em c                mento.';                           endChild(td);
+            tbody.app                ;
             return;
         }
 
-        tbody.innerHTML = itens.map(item => {
+                s.forEach(item => {
+            const tr = document.createElement('tr'                    // 1. Nº Série / QR
+            const tdSerie = document.createElement('                      const strongSerie = document.createElement('strong');
+            strongSerie.textContent = item.numero_serie || '';
+            const br1 = document.createElement('br');
+            const smallQr = document.createElement('small');
+            smallQr.className = 'text-muted';
+            smallQr.textContent = item.codigo_qr || '';
+            tdSerie.appendChild(strongSerie);
+            tdSerie.appendChild(br1);
+            tdSerie.appendChild(smallQr);
+            tr.appendChild(tdSerie);
+
+            // 2. Gás
+            const tdGas = document.createElement('td');
+            const spanGas = document.createElement('span');
+            spanGas.textContent = item.gas || '';
+            const textSi            cument.create        Nod        (${item.gas_sigla || ''})`);
+                tdGas.appendChild(spanGas);
+            tdGas.appendC        (textSigla);
+                  .appendChild(tdGas);
+
+            // 3. Cliente                 const tdCli = document.createElement('td');                 const strongCli = document.createElement('sto                      strongCli.textContent = item.cliente_nome || '                    onst br2 = document.createElement('br');
+                        allCnpj = document.createElement('small');
+                         .className = 'text-muted';
+                         .te                item.cliente_cnpj || '';
+                 dCli        end        d(strongCli);
+            tdCli.    appen           tdCli.appendChild(smallCnpj);
+            tr.appendChild(tdCli);
+
+            // 4. Data Entrega
+            const tdData = document.createElement('td');
+            tdData.textContent = item.data_entrega || '-';
+            tr.appendChild(tdData);
+
+            // 5. Dias Parado
+            const tdDias = document.createElement('td');
+            const strongDias = document.createElement('strong');
+            strongDias.textContent = `${item.dias_parado || 0} dias`;
+            tdDias.appendChild(strongDias);
+            if (item.dias_excedentes > 0) {
+                const br3 = document.createElement('br');
+                const smallExc = document.createElement('small');
+                smallExc.className = 'text-warning-status';
+                smallExc.textContent = `+${item.dias_excedentes}d excedentes`;
+                tdDias.appendChild(br3);
+                tdDias.appendChild(smallExc);
+            }
+            tr.appendChild(tdDias);
+
+            // 6. Valor Acumulado
+            const tdVal = document.createElement('td');
+            const strongVal = document.createElement('strong');
+            strongVal.className = 'text-success-status';
+            strongVal.textContent = formatCurrency(item.valor_acumulado);
+            tdVal.appendChild(strongVal);
+            tr.appendChild(tdVal);
+
+            // 7. Status Risco
+            const tdStatus = document.createElement('td');
+            const spanBadge = document.createElement('span');
             let badgeClass = 'badge-normal';
             if (item.status_risco === 'Crítico') badgeClass = 'badge-critico';
             else if (item.status_risco === 'Alerta') badgeClass = 'badge-alerta';
+            spanBadge.className = `badge-status ${badgeClass}`;
+            spanBadge.textContent = item.status_risco || 'Normal';
+            tdStatus.appendChild(spanBadge);
+            tr.appendChild(tdStatus);
 
-            return `
-                <tr>
-                    <td>
-                        <strong>${item.numero_serie}</strong><br>
-                        <small style="color: var(--color-text-muted);">${item.codigo_qr}</small>
-                    </td>
-                    <td><span style="font-weight: 500;">${item.gas}</span> (${item.gas_sigla})</td>
-                    <td>
-                        <strong>${item.cliente_nome}</strong><br>
-                        <small style="color: var(--color-text-muted);">${item.cliente_cnpj}</small>
-                    </td>
-                    <td>${item.data_entrega}</td>
-                    <td>
-                        <strong>${item.dias_parado} dias</strong>
-                        ${item.dias_excedentes > 0 ? `<br><small style="color: var(--status-warning-text);">+${item.dias_excedentes}d excedentes</small>` : ''}
-                    </td>
-                    <td>
-                        <strong style="color: var(--status-approved-text);">${formatCurrency(item.valor_acumulado)}</strong>
-                    </td>
-                    <td><span class="badge-status ${badgeClass}">${item.status_risco}</span></td>
-                </tr>
-            `;
-        }).join('');
+            tbody.appendChild(tr);
+        });
     }
 
     function renderTabelaLotesRecentes(lotes) {
         const tbody = document.getElementById('lotes-envase-tbody');
         if (!tbody) return;
+        tbody.replaceChildren();
+
         if (!lotes || lotes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Nenhum lote químico registrado recentemente.</td></tr>';
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 7;
+            td.className = 'lotes-table-placeholder';
+            td.textContent = 'Nenhum lote químico registrado recentemente.';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
             return;
         }
 
-        tbody.innerHTML = lotes.map(l => {
+        lotes.forEach(l => {
+            const tr = document.createElement('tr');
+
+            // 1. Código do Lote
+            const tdLote = document.createElement('td');
+            const strongLote = document.createElement('strong');
+            strongLote.textContent = l.codigo_lote || '';
+            tdLote.appendChild(strongLote);
+            tr.appendChild(tdLote);
+
+            // 2. Gás
+            const tdGas = document.createElement('td');
+            tdGas.textContent = `${l.gas_nome || '-'} (${l.gas_sigla || '-'})`;
+            tr.appendChild(tdGas);
+
+            // 3. Data Envase
+            const tdData = document.createElement('td');
+            tdData.textContent = l.data_envase || '-';
+            tr.appendChild(tdData);
+
+            // 4. Pureza
+            const tdPureza = document.createElement('td');
+            const strongPureza = document.createElement('strong');
+            strongPureza.textContent = `${(l.pureza || 0).toFixed(1)}%`;
+            tdPureza.appendChild(strongPureza);
+            tr.appendChild(tdPureza);
+
+            // 5. Cilindros
+            const tdCil = document.createElement('td');
+            const spanCil = document.createElement('span');
+            spanCil.className = 'badge-info-pill';
+            spanCil.textContent = `${l.cilindros_count || 0} cilindros`;
+            tdCil.appendChild(spanCil);
+            tr.appendChild(tdCil);
+
+            // 6. RT
+            const tdRt = document.createElement('td');
+            const smallRt = document.createElement('small');
+            smallRt.className = 'text-muted';
+            smallRt.textContent = l.rt_nome || 'N/A';
+            tdRt.appendChild(smallRt);
+            tr.appendChild(tdRt);
+
+            // 7. Status CQ
+            const tdStatus = document.createElement('td');
+            const spanStatus = document.createElement('span');
             let badgeClass = 'badge-normal';
             if (l.status_qualidade === 'QUARENTENA') badgeClass = 'badge-alerta';
             else if (l.status_qualidade === 'REPROVADO') badgeClass = 'badge-critico';
+            spanStatus.className = `badge-status ${badgeClass}`;
+            spanStatus.textContent = l.status_qualidade || '-';
+            tdStatus.appendChild(spanStatus);
+            tr.appendChild(tdStatus);
 
-            return `
-                <tr>
-                    <td><strong>${l.codigo_lote}</strong></td>
-                    <td>${l.gas_nome} (${l.gas_sigla})</td>
-                    <td>${l.data_envase}</td>
-                    <td><strong>${l.pureza.toFixed(1)}%</strong></td>
-                    <td><span class="badge" style="background: rgba(14, 165, 233, 0.12); color: #0284c7; padding: 2px 8px; border-radius: 6px; font-weight: 600;">${l.cilindros_count} cilindros</span></td>
-                    <td><small style="color: var(--color-text-muted);">${l.rt_nome || 'N/A'}</small></td>
-                    <td><span class="badge-status ${badgeClass}">${l.status_qualidade}</span></td>
-                </tr>
-            `;
-        }).join('');
+            tbody.appendChild(tr);
+        });
     }
 
     // Filtro da tabela de radar
@@ -969,10 +1041,10 @@ document.addEventListener('DOMContentLoaded', () => {
         filtroInput.addEventListener('input', (e) => {
             const termo = e.target.value.toLowerCase();
             const filtrados = todosItensRadar.filter(i => 
-                i.numero_serie.toLowerCase().includes(termo) ||
-                i.codigo_qr.toLowerCase().includes(termo) ||
-                i.cliente_nome.toLowerCase().includes(termo) ||
-                i.gas.toLowerCase().includes(termo)
+                (i.numero_serie || '').toLowerCase().includes(termo) ||
+                (i.codigo_qr || '').toLowerCase().includes(termo) ||
+                (i.cliente_nome || '').toLowerCase().includes(termo) ||
+                (i.gas || '').toLowerCase().includes(termo)
             );
             renderTabelaRadar(filtrados);
         });

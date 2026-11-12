@@ -260,6 +260,17 @@
     color: var(--color-text, #111827);
 }
 
+.visao-card-subitem-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 4px;
+}
+
+.subitem-col-label {
+    margin-bottom: 2px;
+}
+
 .visao-gas-pills {
     display: flex;
     flex-wrap: wrap;
@@ -286,6 +297,23 @@
     font-size: 0.8125rem;
     margin-top: 8px;
     font-weight: 500;
+}
+
+.gestao-devedores-box {
+    margin-top: 8px;
+}
+
+.gestao-devedores-header {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #6b7280);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.gestao-devedores-empty {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #6b7280);
 }
 
 .visao-devedor-item {
@@ -340,6 +368,144 @@
     font-size: 0.8125rem;
     margin: 0;
     max-width: 320px;
+}
+
+/* ==============================================================================
+   ESTILOS OPERACIONAIS & FILAS
+   ============================================================================== */
+.action-queue-meta {
+    font-size: 13px;
+    color: var(--color-text-muted, #6b7280);
+}
+
+.section-subtitle-bar {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 14px 0;
+    color: var(--color-text, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-subtitle-bar-spacing {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 25px 0 14px 0;
+    color: var(--color-text, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.text-sub-meta {
+    font-size: 12px;
+    color: var(--color-text-muted, #64748b);
+}
+
+.text-danger-status {
+    color: var(--status-danger-text, #991b1b);
+}
+
+.text-warning-status {
+    color: var(--status-warning-text, #92400e);
+}
+
+.text-success-status {
+    color: var(--status-approved-text, #059669);
+}
+
+.text-muted {
+    color: var(--color-text-muted, #64748b);
+}
+
+.donut-chart-container {
+    min-height: 290px;
+}
+
+.faixas-retencao-box {
+    padding-top: 10px;
+}
+
+.radar-card-spaced {
+    margin-bottom: 30px;
+}
+
+.radar-filtro-input {
+    padding: 6px 12px;
+    border: 1px solid var(--color-border, #cbd5e1);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: normal;
+    width: 260px;
+}
+
+.radar-table-placeholder {
+    text-align: center;
+    color: var(--color-text-muted, #94a3b8);
+    padding: 30px;
+}
+
+.lotes-table-placeholder {
+    text-align: center;
+    color: var(--color-text-muted, #94a3b8);
+    padding: 25px;
+}
+
+.rampa-acesso-box {
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.rampa-acesso-desc {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-muted, #64748b);
+}
+
+.rampa-acesso-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.rampa-selo-box {
+    margin-top: 10px;
+    padding: 14px;
+    background: var(--color-bg, #f8fafc);
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #e2e8f0);
+}
+
+.rampa-selo-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text, #0f172a);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.rampa-selo-desc {
+    font-size: 12px;
+    color: var(--color-text-muted, #64748b);
+}
+
+.card-link-more {
+    font-size: 13px;
+    color: var(--color-primary, #2563eb);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.badge-info-pill {
+    background: rgba(14, 165, 233, 0.12);
+    color: #0284c7;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 12px;
 }
 
 /* ==============================================================================
@@ -508,6 +674,7 @@
     height: 100%;
     border-radius: 5px;
     transition: width 0.4s ease;
+    width: 0;
 }
 
 .fill-green { background: var(--status-approved, #10b981); }
