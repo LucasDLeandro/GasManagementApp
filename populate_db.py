@@ -22,7 +22,8 @@ from produtos.models import (
     Cilindro,
     MovimentacaoCilindro,
     LoteEnvase,
-    EnvaseCilindro
+    EnvaseCilindro,
+    TabelaIndenizacaoCilindro
 )
 from produtos.services import (
     registrar_envase_cilindro,
@@ -33,8 +34,8 @@ from produtos.services import (
     alocar_cilindro_rota,
     baixar_cilindro
 )
-from logistica.models import Veiculo, Rota, Entrega
-from vendas.models import Venda, ItemVenda
+from logistica.models import Veiculo, Rota, Entrega, HistoricoStatusEntrega
+from vendas.models import Venda, ItemVenda, HistoricoStatusVenda
 
 
 def get_deterministic_uuid(tenant_id, key: str) -> uuid.UUID:
@@ -630,6 +631,277 @@ def popular_tenant(tenant, user_vendedor, sufixo_cidade, gases):
         print(f"  * Peso Total Real Carregado na Entrega #{entrega.id}: {entrega.peso_total_carregado} kg ({entrega.percentual_lotacao}% ocupação)")
 
 
+def popular_tenant_padrao(tenant, user_op, gases):
+    """
+    Popula cilindros, lotes, tabela de indenização e histórico de status
+    para a empresa 'Distribuidora Padrão de Gases' (tenant 0...01) (Sprint 01B.02 - Tarefa 01B.6).
+    Garante que vendas e entregas tenham cascos físicos coerentes e a Home/Monitor tenham dados ricos.
+    Totalmente idempotente.
+    """
+    print(f"\n--- Populando Ativos Patrimoniais e Cilindros: {tenant.nome_fantasia} (Padrão) ---")
+    with tenant_context(tenant):
+        hoje = timezone.now().date()
+        agora = timezone.now()
+
+        if not user_op:
+            user_op = User.objects.filter(memberships__tenant=tenant).first() or User.objects.filter(is_superuser=True).first()
+
+        # 1. Modelos de Cilindro
+        mod_50l, _ = ModeloCilindro.objects.get_or_create(
+            tenant=tenant,
+            descricao="Cilindro Aço 50L / 10m³",
+            defaults={
+                "material": "ACO",
+                "volume_hidraulico_litros": Decimal("50.00"),
+                "pressao_servico_bar": 200,
+                "tara_nominal_kg": Decimal("60.00"),
+                "padrao_valvula_abnt": "ABNT 218-1",
+                "periodicidade_reteste_anos": 5
+            }
+        )
+
+        mod_10l, _ = ModeloCilindro.objects.get_or_create(
+            tenant=tenant,
+            descricao="Cilindro Alumínio 10L / 2m³",
+            defaults={
+                "material": "ALUMINIO",
+                "volume_hidraulico_litros": Decimal("10.00"),
+                "pressao_servico_bar": 150,
+                "tara_nominal_kg": Decimal("12.50"),
+                "padrao_valvula_abnt": "ABNT 218-1",
+                "periodicidade_reteste_anos": 5
+            }
+        )
+
+        # 2. Tabela de Indenização (para valoração do parque na Home de Gestão)
+        tabelas_valores = [
+            (mod_50l, gases['O2-MED'], Decimal("1800.00")),
+            (mod_50l, gases['N2-IND'], Decimal("1600.00")),
+            (mod_10l, gases['AR-IND'], Decimal("1400.00")),
+        ]
+        for modelo_obj, gas_obj, valor_ind in tabelas_valores:
+            TabelaIndenizacaoCilindro.objects.get_or_create(
+                tenant=tenant,
+                tipo_cilindro=modelo_obj,
+                gas=gas_obj,
+                vigencia_inicio=hoje - timedelta(days=365),
+                defaults={
+                    "valor": valor_ind,
+                    "vigencia_fim": None,
+                }
+            )
+
+        # 3. Lotes de Envase
+        lote_o2, _ = LoteEnvase.objects.get_or_create(
+            codigo_lote="LOTE-O2-PAD-2026-01",
+            defaults={
+                "gas": gases['O2-MED'],
+                "data_envase": hoje - timedelta(days=10),
+                "data_validade": hoje + timedelta(days=365),
+                "pureza_percentual": Decimal("99.70"),
+                "status_qualidade": "APROVADO",
+                "responsavel_tecnico": "Dra. Camila Rocha CRF-DF 4589"
+            }
+        )
+
+        lote_n2, _ = LoteEnvase.objects.get_or_create(
+            codigo_lote="LOTE-N2-PAD-2026-01",
+            defaults={
+                "gas": gases['N2-IND'],
+                "data_envase": hoje - timedelta(days=25),
+                "data_validade": hoje + timedelta(days=730),
+                "pureza_percentual": Decimal("99.90"),
+                "status_qualidade": "APROVADO",
+                "responsavel_tecnico": "Eng. Roberto Dias CREA-DF 1098"
+            }
+        )
+
+        # 4. Clientes existentes no tenant
+        clientes = list(Cliente.objects.filter(tenant=tenant))
+        if not clientes:
+            print("  * Nenhum cliente encontrado no tenant padrão.")
+            return
+
+        # 5. Geração Idempotente de Cilindros com diferentes estados
+        # 5.1 Cheios Disponíveis no Pátio (lote aprovado, sem bloqueio)
+        for i in range(1, 9):
+            qr = f"QR-PAD-CH-{i:03d}"
+            cil, created = Cilindro.objects.get_or_create(
+                codigo_qr=qr,
+                defaults={
+                    "numero_serie_ogiva": f"SN-PAD-CH-{i:03d}",
+                    "fabricante": "Cilbras",
+                    "ano_fabricacao": 2021,
+                    "modelo": mod_50l,
+                    "gas_dedicado": gases['O2-MED'],
+                    "tara_real_kg": Decimal("59.50"),
+                    "propriedade": "PROPRIO",
+                    "valor_aquisicao": Decimal("1500.00"),
+                    "data_ultimo_reteste": hoje - timedelta(days=365),
+                    "data_proximo_reteste": hoje + timedelta(days=365 * 4),
+                    "status": "VAZIO_TRIAGEM"
+                }
+            )
+            if cil.status == 'VAZIO_TRIAGEM':
+                registrar_envase_cilindro(
+                    cilindro_id=cil.id,
+                    lote_id=lote_o2.id,
+                    pressao_bar=200,
+                    usuario=user_op,
+                    ocorrido_em=agora - timedelta(days=8),
+                    client_uuid=get_deterministic_uuid(tenant.id, f"cil-pad-ch-{i}-envase"),
+                    observacoes="Envase padrão aprovado"
+                )
+
+        # 5.2 Cilindro com Bloqueio Sanitário no Pátio
+        Cilindro.objects.get_or_create(
+            codigo_qr="QR-PAD-BLOQ-001",
+            defaults={
+                "numero_serie_ogiva": "SN-PAD-BLOQ-001",
+                "fabricante": "Matheson",
+                "ano_fabricacao": 2020,
+                "modelo": mod_50l,
+                "gas_dedicado": gases['O2-MED'],
+                "tara_real_kg": Decimal("60.00"),
+                "propriedade": "PROPRIO",
+                "valor_aquisicao": Decimal("1500.00"),
+                "data_ultimo_reteste": hoje - timedelta(days=365),
+                "data_proximo_reteste": hoje + timedelta(days=365 * 4),
+                "status": "CHEIO_DISPONIVEL",
+                "bloqueio_sanitario": True,
+                "motivo_bloqueio_sanitario": "Suspeita de contaminação cruzada pós-auditoria"
+            }
+        )
+
+        # 5.3 Cilindros Vazios em Triagem
+        for i in range(1, 6):
+            qr = f"QR-PAD-VZ-{i:03d}"
+            Cilindro.objects.get_or_create(
+                codigo_qr=qr,
+                defaults={
+                    "numero_serie_ogiva": f"SN-PAD-VZ-{i:03d}",
+                    "fabricante": "Mannesmann",
+                    "ano_fabricacao": 2019,
+                    "modelo": mod_50l,
+                    "gas_dedicado": gases['N2-IND'],
+                    "tara_real_kg": Decimal("60.20"),
+                    "propriedade": "PROPRIO",
+                    "valor_aquisicao": Decimal("1400.00"),
+                    "data_ultimo_reteste": hoje - timedelta(days=365 * 2),
+                    "data_proximo_reteste": hoje + timedelta(days=365 * 3),
+                    "status": "VAZIO_TRIAGEM"
+                }
+            )
+
+        # 5.4 Cilindros com Reteste Vencido / Vencendo
+        Cilindro.objects.get_or_create(
+            codigo_qr="QR-PAD-RET-VENCIDO",
+            defaults={
+                "numero_serie_ogiva": "SN-PAD-RET-VENC",
+                "fabricante": "Cilbras",
+                "ano_fabricacao": 2015,
+                "modelo": mod_50l,
+                "gas_dedicado": gases['O2-MED'],
+                "tara_real_kg": Decimal("59.80"),
+                "propriedade": "PROPRIO",
+                "valor_aquisicao": Decimal("1200.00"),
+                "data_ultimo_reteste": hoje - timedelta(days=365 * 5 + 30),
+                "data_proximo_reteste": hoje - timedelta(days=30),
+                "status": "VAZIO_TRIAGEM"
+            }
+        )
+
+        Cilindro.objects.get_or_create(
+            codigo_qr="QR-PAD-RET-PROXIMO",
+            defaults={
+                "numero_serie_ogiva": "SN-PAD-RET-PROX",
+                "fabricante": "Cilbras",
+                "ano_fabricacao": 2019,
+                "modelo": mod_50l,
+                "gas_dedicado": gases['O2-MED'],
+                "tara_real_kg": Decimal("60.10"),
+                "propriedade": "PROPRIO",
+                "valor_aquisicao": Decimal("1450.00"),
+                "data_ultimo_reteste": hoje - timedelta(days=365 * 4 + 320),
+                "data_proximo_reteste": hoje + timedelta(days=45),
+                "status": "CHEIO_DISPONIVEL"
+            }
+        )
+
+        # 5.5 Cilindros em Posse de Clientes em Faixas de Permanência Variadas
+        faixas_config = [
+            (clientes[0], 15, "01", gases['O2-MED'], lote_o2),
+            (clientes[1 % len(clientes)], 45, "02", gases['N2-IND'], lote_n2),
+            (clientes[2 % len(clientes)], 75, "03", gases['O2-MED'], lote_o2),
+            (clientes[3 % len(clientes)], 110, "04", gases['O2-MED'], lote_o2),
+        ]
+
+        for cli_target, dias_posse, sufixo_cli, gas_cil, lote_cil in faixas_config:
+            qr = f"QR-PAD-CLI-{sufixo_cli}"
+            cil_cli, created = Cilindro.objects.get_or_create(
+                codigo_qr=qr,
+                defaults={
+                    "numero_serie_ogiva": f"SN-PAD-CLI-{sufixo_cli}",
+                    "fabricante": "Cilbras",
+                    "ano_fabricacao": 2020,
+                    "modelo": mod_50l,
+                    "gas_dedicado": gas_cil,
+                    "tara_real_kg": Decimal("60.00"),
+                    "propriedade": "PROPRIO",
+                    "valor_aquisicao": Decimal("1600.00"),
+                    "data_ultimo_reteste": hoje - timedelta(days=365),
+                    "data_proximo_reteste": hoje + timedelta(days=365 * 4),
+                    "status": "VAZIO_TRIAGEM"
+                }
+            )
+            if cil_cli.status == 'VAZIO_TRIAGEM':
+                registrar_envase_cilindro(
+                    cilindro_id=cil_cli.id,
+                    lote_id=lote_cil.id,
+                    pressao_bar=200,
+                    usuario=user_op,
+                    ocorrido_em=agora - timedelta(days=dias_posse + 2),
+                    client_uuid=get_deterministic_uuid(tenant.id, f"cil-pad-cli-{sufixo_cli}-envase"),
+                    observacoes="Envase pré-entrega"
+                )
+            if cil_cli.status == 'CHEIO_DISPONIVEL':
+                registrar_entrega_cilindro(
+                    cilindro_id=cil_cli.id,
+                    cliente=cli_target,
+                    documento_fiscal_ref=f"NFE-PAD-{sufixo_cli}",
+                    usuario=user_op,
+                    ocorrido_em=agora - timedelta(days=dias_posse),
+                    client_uuid=get_deterministic_uuid(tenant.id, f"cil-pad-cli-{sufixo_cli}-entrega")
+                )
+
+        # 5.6 Históricos de Status para Vendas e Entregas (cobertura do monitor de TV)
+        vendas_sem_historico = Venda.objects.filter(tenant=tenant, historico_status__isnull=True)[:15]
+        for idx, v in enumerate(vendas_sem_historico):
+            HistoricoStatusVenda.unscoped.create(
+                tenant=tenant,
+                venda=v,
+                status_anterior='Pendente' if v.status != 'Pendente' else None,
+                status_novo=v.status,
+                alterado_por=user_op,
+                origem='SISTEMA',
+                observacoes='Povoamento inicial de histórico'
+            )
+
+        entregas_sem_historico = Entrega.objects.filter(tenant=tenant, historico_status__isnull=True)[:8]
+        for idx, e in enumerate(entregas_sem_historico):
+            HistoricoStatusEntrega.unscoped.create(
+                tenant=tenant,
+                entrega=e,
+                status_anterior='Agendada' if e.status != 'Agendada' else None,
+                status_novo=e.status,
+                alterado_por=user_op,
+                origem='SISTEMA',
+                observacoes='Povoamento inicial de histórico'
+            )
+
+        print(f"  * Cilindros cadastrados no tenant padrão: {Cilindro.objects.filter(tenant=tenant).count()}")
+
+
 def run():
     print("Iniciando povoamento Multi-Tenant com FSM, Ledger e Imutabilidade (Sprint 5A.2)...")
 
@@ -768,7 +1040,14 @@ def run():
     popular_tenant(tenant_a, user_bsb, "Brasília", gases)
     popular_tenant(tenant_b, user_go, "Goiânia", gases)
 
-    print("\nPovoamento da Sprint 5A.2 concluído com 100% de sucesso e rastreabilidade íntegra!")
+    # Sprint 01B.02 - Tarefa 01B.6: Popula cilindros e históricos para a Distribuidora Padrão (tenant 0...01)
+    tenant_padrao = Tenant.objects.filter(id="00000000-0000-0000-0000-000000000001").first()
+    if not tenant_padrao:
+        tenant_padrao = Tenant.objects.filter(nome_fantasia__icontains="Padrão").first()
+    if tenant_padrao:
+        popular_tenant_padrao(tenant_padrao, admin_user if 'admin_user' in locals() else None, gases)
+
+    print("\nPovoamento da Sprint 5A.2 e Sprint 01B concluído com 100% de sucesso e rastreabilidade íntegra!")
 
 
 if __name__ == '__main__':

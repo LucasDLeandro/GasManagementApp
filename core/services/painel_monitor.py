@@ -185,9 +185,18 @@ def montar_dados_painel(painel) -> dict:
     # Nota arquitetural: Cilindro não possui filial_id. O pátio consolida a frota do tenant.
     cil_qs = Cilindro.unscoped.filter(tenant=tenant)
 
+    # Cheios aptos para expedição: status CHEIO_DISPONIVEL, sem bloqueio sanitário
+    # e, se houver envase_atual apontando para lote de produção, o lote deve estar APROVADO
+    filtro_cheios_aptos = Q(
+        status='CHEIO_DISPONIVEL',
+        bloqueio_sanitario=False
+    ) & (
+        Q(envase_atual__isnull=True) | Q(envase_atual__lote__status_qualidade='APROVADO')
+    )
+
     # Agregação única consolidada de contadores de pátio, reteste e bloqueios sanitários
     aggr_patio = cil_qs.aggregate(
-        cheios=Count('id', filter=Q(status='CHEIO_DISPONIVEL')),
+        cheios=Count('id', filter=filtro_cheios_aptos),
         vazios=Count('id', filter=Q(status='VAZIO_TRIAGEM')),
         reteste_vencido=Count('id', filter=Q(
             status__in=['CHEIO_DISPONIVEL', 'VAZIO_TRIAGEM'],
@@ -232,9 +241,8 @@ def montar_dados_painel(painel) -> dict:
         cheios_por_gas = {}
         if aggr_patio['cheios'] > 0:
             cil_cheios_qs = Cilindro.unscoped.filter(
-                tenant=tenant,
-                status='CHEIO_DISPONIVEL'
-            ).values('gas_dedicado__sigla', 'gas_dedicado__nome').annotate(total=Count('id'))
+                tenant=tenant
+            ).filter(filtro_cheios_aptos).values('gas_dedicado__sigla', 'gas_dedicado__nome').annotate(total=Count('id'))
 
             for c in cil_cheios_qs:
                 raw_gas = c['gas_dedicado__sigla'] or c['gas_dedicado__nome'] or 'Outros'
