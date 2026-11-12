@@ -1,0 +1,35 @@
+<!-- Modal: Fabricante de Cilindro (Modal Curto) -->
+<div class="modal-overlay" id="modal-fabricante-cilindro" role="dialog" aria-modal="true" aria-labelledby="modal-fabricante-titulo">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-fabricante-titulo">Novo fabricante</h3>
+            <button type="button" class="close-modal" data-fechar-modal aria-label="Fechar">×</button>
+        </div>
+
+        <form id="form-fabricante-cilindro" novalidate>
+            <input type="hidden" name="id" id="fabricante-id">
+
+            <div class="form-group">
+                <label for="fabricante-nome">Nome do Fabricante *</label>
+                <input type="text" id="fabricante-nome" name="nome" required maxlength="150" class="form-control" placeholder="Ex: MAT, CILBRAS, WORTHINGTON">
+            </div>
+
+            <div class="form-grid ds-mt">
+                <div class="form-group">
+                    <label for="fabricante-pais">País de Origem *</label>
+                    <input type="text" id="fabricante-pais" name="pais_origem" required maxlength="50" class="form-control" value="BR">
+                </div>
+                <div class="form-group">
+                    <label for="fabricante-norma">Norma Padrão de Fabricação</label>
+                    <input type="text" id="fabricante-norma" name="norma_fabricacao_padrao" maxlength="50" class="form-control" placeholder="Ex: ISO 9809-1, DOT-3AA">
+                </div>
+            </div>
+
+            <div class="modal-footer ds-mt">
+                <button type="button" class="btn-outline" data-fechar-modal>Cancelar</button>
+                <button type="submit" class="btn-primary" id="btn-salvar-fabricante">Salvar fabricante</button>
+            </div>
+        </form>
+    </div>
+</div>
+

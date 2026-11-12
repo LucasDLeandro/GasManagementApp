@@ -1,0 +1,52 @@
+<!-- Modal: Tabela de Indenização / Nova Vigência -->
+<div class="modal-overlay" id="modal-indenizacao" role="dialog" aria-modal="true" aria-labelledby="modal-indenizacao-titulo">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-indenizacao-titulo">Parâmetro de indenização</h3>
+            <button type="button" class="close-modal" data-fechar-modal aria-label="Fechar">×</button>
+        </div>
+
+        <form id="form-indenizacao" novalidate>
+            <input type="hidden" name="id" id="indenizacao-id">
+            <input type="hidden" name="modo_nova_vigencia" id="indenizacao-modo-nova-vigencia" value="0">
+
+            <div id="grupo-campos-base-indenizacao">
+                <div class="form-group">
+                    <label for="ind-tipo-cilindro">Modelo de Cilindro *</label>
+                    <select id="ind-tipo-cilindro" name="tipo_cilindro" required class="form-control">
+                        <option value="">Selecione o modelo...</option>
+                    </select>
+                </div>
+
+                <div class="form-group ds-mt">
+                    <label for="ind-gas">Gás Químico Dedicado (Opcional)</label>
+                    <select id="ind-gas" name="gas" class="form-control">
+                        <option value="">Todos os gases (regra geral para o modelo)</option>
+                    </select>
+                    <span class="ds-field-help">Se vazio, o valor aplica a qualquer gás envasado neste modelo.</span>
+                </div>
+            </div>
+
+            <div class="form-grid ds-mt">
+                <div class="form-group">
+                    <label for="ind-valor">Valor Contratual de Indenização (R$) *</label>
+                    <input type="number" id="ind-valor" name="valor" required min="0" step="0.01" class="font-mono form-control" placeholder="0,00">
+                </div>
+                <div class="form-group">
+                    <label for="ind-vigencia-inicio">Início da Vigência *</label>
+                    <input type="date" id="ind-vigencia-inicio" name="vigencia_inicio" required class="form-control">
+                </div>
+            </div>
+
+            <div id="aviso-nova-vigencia" class="ds-alert ds-alert--info ds-hidden ds-mt">
+                Ao registrar nova vigência, a vigência anterior será encerrada automaticamente na véspera da nova data, preservando o histórico contábil.
+            </div>
+
+            <div class="modal-footer ds-mt">
+                <button type="button" class="btn-outline" data-fechar-modal>Cancelar</button>
+                <button type="submit" class="btn-primary" id="btn-salvar-indenizacao">Salvar parâmetro</button>
+            </div>
+        </form>
+    </div>
+</div>
+
