@@ -159,6 +159,15 @@
         </button>
         {% endif %}
 
+        {% if pode_editar_patrimonio and modulos_ativos.patrimonio %}
+        <button id="drawer-btn-dar-baixa" class="action-queue-btn action-queue-btn--danger">
+            Dar Baixa
+        </button>
+        <button id="drawer-btn-estornar-baixa" class="action-queue-btn action-queue-btn--warning" hidden>
+            Estornar Baixa
+        </button>
+        {% endif %}
+
         <button id="drawer-btn-etiqueta" class="action-queue-btn action-queue-btn--outline">
             Imprimir Etiqueta (60x40mm)
         </button>

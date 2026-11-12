@@ -16,11 +16,15 @@
     {% include "produtos/index/_aba_catalogo.html" %}
     {% include "produtos/index/_drawer_cilindro.html" %}
     {% include "produtos/index/_modais.html" %}
+    {% if modulos_ativos.patrimonio %}
+        {% include "produtos/retestes/_modal_retorno_reteste.html" %}
+        {% include "produtos/patrimonio/_modal_baixa_patrimonial.html" %}
+    {% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <!-- Script Modular do Drawer e Ativo 360° -->
-<script src="{% static 'produtos/js/cilindros_drawer.js' %}?v=20261111_s0102"></script>
+<script src="{% static 'produtos/js/cilindros_drawer.js' %}?v=20261112_s03"></script>
 <!-- Catálogo (SKUs, modelos e gases) e cadastro de cilindro -->
 <script src="{% static 'produtos/js/catalogo.js' %}?v=20261027_f2"></script>
 <script src="{% static 'produtos/js/cadastro_cilindro.js' %}?v=20261027_f2"></script>

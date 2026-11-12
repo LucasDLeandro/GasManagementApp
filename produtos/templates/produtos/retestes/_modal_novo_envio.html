@@ -1,0 +1,82 @@
+<!-- Modal: Novo Envio para Reteste em Lote (Stepper 3 Etapas) -->
+<div class="modal-overlay" id="modal-novo-envio" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-novo-envio">
+    <div class="modal-content ds-modal-lg">
+        <div class="modal-header">
+            <h3 id="titulo-modal-novo-envio">Novo Envio para Requalificadora</h3>
+            <button type="button" class="close-modal" data-fechar-modal="modal-novo-envio" aria-label="Fechar">×</button>
+        </div>
+
+        <div id="container-stepper-envio">
+            {% include "components/_stepper.html" with id="stepper-novo-envio" etapas="Requalificadora|Cilindros|Revisão" %}
+
+            <form id="form-novo-envio" novalidate>
+                <!-- Etapa 1: Requalificadora -->
+                <div class="ds-step-pane" data-step="1">
+                    <div class="form-grid">
+                        <div class="form-group ds-col-span-2">
+                            <label for="envio-oficina-nome">Nome da Requalificadora / Oficina *</label>
+                            <input type="text" id="envio-oficina-nome" name="oficina_nome" required maxlength="150" class="form-control" placeholder="Ex: Requalificadora Central Ltda">
+                        </div>
+                        <div class="form-group">
+                            <label for="envio-oficina-cnpj">CNPJ da Requalificadora *</label>
+                            <input type="text" id="envio-oficina-cnpj" name="oficina_cnpj" required maxlength="20" class="form-control font-mono" placeholder="00.000.000/0000-00">
+                        </div>
+                        <div class="form-group">
+                            <label for="envio-documento">Documento de Envio (Romaneio / NF)</label>
+                            <input type="text" id="envio-documento" name="documento_envio" maxlength="100" class="form-control" placeholder="Ex: ROM-2026-001">
+                        </div>
+                        <div class="form-group">
+                            <label for="envio-data">Data de Envio *</label>
+                            <input type="date" id="envio-data" name="data_envio" required class="form-control">
+                        </div>
+                        <div class="form-group ds-col-span-2">
+                            <label for="envio-observacoes">Observações da Remessa</label>
+                            <textarea id="envio-observacoes" name="observacoes" rows="2" class="form-control" placeholder="Instruções adicionais de transporte ou ensaio..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Etapa 2: Bipagem e Seleção de Cilindros -->
+                <div class="ds-step-pane ds-hidden" data-step="2">
+                    <div class="modal-section-card">
+                        <h4 class="modal-section-title">Bipar ou Adicionar Cilindros (somente Vazio em Triagem e sem bloqueio)</h4>
+                        <div class="form-grid">
+                            <div class="form-group ds-col-span-2">
+                                <label for="envio-bipe-input">Leitor de Código de Barras / QR ou Número de Série</label>
+                                <div class="ds-input-group">
+                                    <input type="text" id="envio-bipe-input" class="form-control font-mono" placeholder="Bipe o QR ou digite a série e pressione Enter...">
+                                    <button type="button" class="btn-secondary" id="btn-adicionar-bipe-envio">Adicionar</button>
+                                </div>
+                                <span class="ds-field-help" id="envio-bipe-feedback">Somente cilindros em status Vazio em Triagem e sem bloqueio sanitário são aceitos.</span>
+                            </div>
+                        </div>
+
+                        <div class="ds-chips-container" id="lista-chips-envio"></div>
+                        <p class="text-muted text-sm mt-2">
+                            Total selecionado: <strong id="total-cilindros-envio">0</strong> cilindro(s).
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Etapa 3: Revisão -->
+                <div class="ds-step-pane ds-hidden" data-step="3">
+                    <div class="modal-section-card">
+                        <h4 class="modal-section-title">Resumo da Remessa para Requalificação</h4>
+                        <dl class="ds-review" id="envio-revisao-dl"></dl>
+                    </div>
+                    <p class="ds-page-subtitle ds-mt">Ao confirmar, os cilindros selecionados transitarão para <strong>Em Requalificação</strong> com registro no ledger.</p>
+                </div>
+
+                <div class="ds-stepper-footer ds-mt">
+                    <button type="button" class="btn-outline" data-fechar-modal="modal-novo-envio">Cancelar</button>
+                    <div class="ds-stepper-nav">
+                        <button type="button" class="btn-secondary" data-stepper-voltar hidden>Voltar</button>
+                        <button type="button" class="btn-primary" data-stepper-proximo>Próximo</button>
+                        <button type="submit" class="btn-primary" data-stepper-confirmar hidden>Confirmar Envio</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+

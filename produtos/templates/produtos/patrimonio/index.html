@@ -22,6 +22,7 @@
         <button type="button" class="tab-btn" data-tab="classes" id="tab-nav-classes">Classes de ativo</button>
         <button type="button" class="tab-btn" data-tab="fabricantes" id="tab-nav-fabricantes">Fabricantes</button>
         <button type="button" class="tab-btn" data-tab="indenizacao" id="tab-nav-indenizacao">Indenização</button>
+        <button type="button" class="tab-btn" data-tab="baixas" id="tab-nav-baixas">Baixas</button>
     </nav>
 
     <!-- Painéis das Abas -->
@@ -44,6 +45,10 @@
     <div class="tab-pane ds-hidden" id="aba-indenizacao" role="tabpanel" aria-labelledby="tab-nav-indenizacao">
         {% include "produtos/patrimonio/_aba_indenizacoes.html" %}
     </div>
+
+    <div class="tab-pane ds-hidden" id="aba-baixas" role="tabpanel" aria-labelledby="tab-nav-baixas">
+        {% include "produtos/patrimonio/_aba_baixas.html" %}
+    </div>
 </div>
 
 <!-- Modais do Módulo de Patrimônio -->
@@ -61,5 +66,5 @@
         temFinanceiro: {{ modulos_ativos.financeiro|yesno:"true,false" }}
     };
 </script>
-<script src="{% static 'produtos/js/patrimonio.js' %}?v=20261112_02"></script>
+<script src="{% static 'produtos/js/patrimonio.js' %}?v=20261112_03"></script>
 {% endblock %}
