@@ -55,13 +55,6 @@ class Tenant(models.Model):
         verbose_name="Valor da Mensalidade SaaS"
     )
 
-    modulos_ativos = models.JSONField(
-        default=list,
-        blank=True,
-        null=True,
-        verbose_name="Lista Customizada de Módulos Ativos"
-    )
-
     # 9 Flags Granulares de Módulos (Sprint 7B)
     modulo_patrimonio_ativo = models.BooleanField(
         default=True,

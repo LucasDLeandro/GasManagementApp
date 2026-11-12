@@ -63,15 +63,7 @@ class PainelMonitorDadosAPIView(View):
 
         cache.set(rl_key, chamadas + 1, timeout=60)
 
-        # 2. Resposta rápida via cache (0 queries no banco)
-        cache_key = f"cache_monitor_dados_{token}"
-        cached_data = cache.get(cache_key)
-        if cached_data is not None:
-            response = JsonResponse(cached_data)
-            response['X-Robots-Tag'] = 'noindex, nofollow'
-            return response
-
-        # 3. Resolução do painel (fail-closed, 404 para inexistente ou inativo)
+        # 2. Resolução do painel (fail-closed, 404 para inexistente ou inativo - ANTES do cache)
         painel = PainelMonitor.unscoped.select_related('tenant', 'filial').filter(
             token=token,
             ativo=True
@@ -81,6 +73,14 @@ class PainelMonitorDadosAPIView(View):
             resp_404 = JsonResponse({"erro": "Painel não encontrado ou inativo."}, status=404)
             resp_404['X-Robots-Tag'] = 'noindex, nofollow'
             return resp_404
+
+        # 3. Resposta rápida via cache por painel validado
+        cache_key = f"cache_monitor_dados_{token}"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            response = JsonResponse(cached_data)
+            response['X-Robots-Tag'] = 'noindex, nofollow'
+            return response
 
         # 4. Atualização throttled de ultimo_acesso_em (no máximo 1x a cada 60s)
         agora = timezone.now()

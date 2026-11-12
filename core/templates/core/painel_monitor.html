@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
   <title>BAROS Monitor TV</title>
   <link rel="stylesheet" href="{% static 'core/css/painel_monitor.css' %}">
 </head>
+
 <body class="monitor-body" data-token="{{ token }}">
   <!-- Banner de Desconexão (exibido após 2 minutos sem resposta da API) -->
   <aside id="banner-desconexao" class="banner-desconexao monitor-oculto" role="alert" aria-live="assertive">
@@ -23,7 +25,8 @@
     <div class="monitor-header-right">
       <div id="monitor-relogio" class="monitor-relogio" aria-label="Horário atual">--:--:--</div>
       <div id="monitor-sync" class="monitor-sync">Conectando...</div>
-      <button id="btn-fullscreen" type="button" class="monitor-btn-fullscreen" aria-label="Alternar Tela Cheia">Tela Cheia</button>
+      <button id="btn-fullscreen" type="button" class="monitor-btn-fullscreen" aria-label="Alternar Tela Cheia">Tela
+        Cheia</button>
     </div>
   </header>
 
@@ -93,6 +96,7 @@
             <span class="metrica-sub">Balanço</span>
           </div>
         </div>
+        <div id="patio-gases-lista" class="patio-gases-container"></div>
       </article>
 
       <!-- Card Retornos e Triagem -->
@@ -102,10 +106,6 @@
           <div class="metrica-grupo">
             <span id="metrica-vazios" class="metrica-numero">0</span>
             <span class="metrica-sub">Vazios Triagem</span>
-          </div>
-          <div class="metrica-grupo">
-            <span id="metrica-recolhas" class="metrica-numero">0</span>
-            <span class="metrica-sub">Recolhas Hoje</span>
           </div>
         </div>
       </article>
@@ -119,8 +119,8 @@
             <span class="metrica-sub">Quarentena</span>
           </div>
           <div class="metrica-grupo">
-            <span id="metrica-inspecoes" class="metrica-numero metrica-numero-critico">0</span>
-            <span class="metrica-sub">Não Conformes</span>
+            <span id="metrica-inspecoes" class="metrica-numero metrica-numero-alerta">0</span>
+            <span class="metrica-sub">Insp. Pendentes</span>
           </div>
           <div id="tanques-lista" class="metrica-grupo"></div>
         </div>
@@ -146,4 +146,5 @@
 
   <script src="{% static 'core/js/painel_monitor.js' %}"></script>
 </body>
+
 </html>

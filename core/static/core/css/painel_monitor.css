@@ -402,3 +402,28 @@ body.monitor-body {
   font-size: 16px;
   font-weight: 800;
 }
+
+/* Pílulas de Demanda por Gás */
+.patio-gases-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.patio-gas-pill {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: var(--tv-surface-alt);
+  color: var(--tv-text);
+  border: 1px solid var(--tv-border);
+}
+
+.patio-gas-pill-falta {
+  background-color: var(--tv-critico-bg);
+  color: var(--tv-critico);
+  border-color: var(--tv-critico);
+}
+

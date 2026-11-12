@@ -181,79 +181,142 @@ def montar_dados_painel(painel) -> dict:
     # --------------------------------------------------------------------------
     # 2. PÁTIO × DEMANDA & 3. RETORNOS & 4. ALERTAS
     # --------------------------------------------------------------------------
-    from produtos.models import Cilindro
+    from produtos.models import Cilindro, GasQuimico
+    # Nota arquitetural: Cilindro não possui filial_id. O pátio consolida a frota do tenant.
     cil_qs = Cilindro.unscoped.filter(tenant=tenant)
-    if painel.filial_id:
-        cil_qs = cil_qs.filter(filial_id=painel.filial_id)
 
-    # Query 5: Agregação rápida de contadores de pátio e reteste
+    # Agregação única consolidada de contadores de pátio, reteste e bloqueios sanitários
     aggr_patio = cil_qs.aggregate(
         cheios=Count('id', filter=Q(status='CHEIO_DISPONIVEL')),
         vazios=Count('id', filter=Q(status='VAZIO_TRIAGEM')),
         reteste_vencido=Count('id', filter=Q(
             status__in=['CHEIO_DISPONIVEL', 'VAZIO_TRIAGEM'],
             data_proximo_reteste__lt=hoje
-        ))
+        )),
+        bloqueios_sanitarios=Count('id', filter=Q(
+            bloqueio_sanitario=True
+        ) & ~Q(status='BAIXADO'))
     )
 
     if secoes_cfg.get('patio_demanda', True):
-        # Quantidade total pedida em aberto
+        # Mapeamento e normalização de gases para consolidação Pátio x Demanda (com cache do catálogo)
+        todos_gases_quimicos = cache.get_or_set(
+            'catalogo_gases_quimicos',
+            lambda: list(GasQuimico.objects.all()),
+            timeout=300
+        )
+        mapa_gas_lookup = {}
+        for g in todos_gases_quimicos:
+            nome_display = g.sigla or g.nome
+            if g.sigla:
+                mapa_gas_lookup[g.sigla.strip().lower()] = nome_display
+            if g.nome:
+                mapa_gas_lookup[g.nome.strip().lower()] = nome_display
+
+        # Pares ordenados por tamanho decrescente para priorizar termos mais específicos
+        pares_lookup = sorted(mapa_gas_lookup.items(), key=lambda x: len(x[0]), reverse=True)
+
+        def resolver_chave_gas(nome_ou_sigla: str) -> str:
+            s = (nome_ou_sigla or '').strip()
+            if not s:
+                return 'Outros'
+            s_lower = s.lower()
+            if s_lower in mapa_gas_lookup:
+                return mapa_gas_lookup[s_lower]
+            for k, display in pares_lookup:
+                if len(k) >= 2 and (k in s_lower or k in s_lower.split()):
+                    return display
+            return s
+
+        # 1. Cheios disponíveis por gás no pátio (agregação agrupada no banco)
+        cheios_por_gas = {}
+        if aggr_patio['cheios'] > 0:
+            cil_cheios_qs = Cilindro.unscoped.filter(
+                tenant=tenant,
+                status='CHEIO_DISPONIVEL'
+            ).values('gas_dedicado__sigla', 'gas_dedicado__nome').annotate(total=Count('id'))
+
+            for c in cil_cheios_qs:
+                raw_gas = c['gas_dedicado__sigla'] or c['gas_dedicado__nome'] or 'Outros'
+                chave_g = resolver_chave_gas(raw_gas)
+                cheios_por_gas[chave_g] = cheios_por_gas.get(chave_g, 0) + c['total']
+
+        # 2. Demanda por gás nos pedidos em aberto (Pendente, Em Separação)
+        # com prazo de entrega hoje ou vencido (ou sem prazo definido)
         from vendas.models import ItemVenda
-        itens_abertos = ItemVenda.unscoped.filter(
+        itens_abertos_qs = ItemVenda.unscoped.filter(
             venda__tenant=tenant,
             venda__status__in=['Pendente', 'Em Separação']
+        ).filter(
+            Q(venda__prazo_entrega__lte=hoje) | Q(venda__prazo_entrega__isnull=True)
         )
         if painel.filial_id:
-            itens_abertos = itens_abertos.filter(venda__filial_id=painel.filial_id)
-        total_pedido = itens_abertos.aggregate(total=Sum('quantidade'))['total'] or 0
+            itens_abertos_qs = itens_abertos_qs.filter(venda__filial_id=painel.filial_id)
 
-        cheios = aggr_patio['cheios'] or 0
-        saldo = cheios - int(total_pedido)
+        itens_abertos_qs = itens_abertos_qs.select_related('sku__gas', 'produto')
+
+        pedidos_por_gas = {}
+        for item in itens_abertos_qs:
+            if item.sku and item.sku.gas:
+                raw_gas = item.sku.gas.sigla or item.sku.gas.nome
+            elif item.produto:
+                raw_gas = item.produto.nome
+            else:
+                raw_gas = 'Outros'
+            chave_g = resolver_chave_gas(raw_gas)
+            pedidos_por_gas[chave_g] = pedidos_por_gas.get(chave_g, 0) + int(item.quantidade)
+
+        # 3. Consolidação individual por gás
+        todos_nomes_gases = sorted(set(list(cheios_por_gas.keys()) + list(pedidos_por_gas.keys())))
+        lista_gases = []
+        tot_cheios = 0
+        tot_pedidos = 0
+
+        for g_nome in todos_nomes_gases:
+            c_qtd = cheios_por_gas.get(g_nome, 0)
+            p_qtd = pedidos_por_gas.get(g_nome, 0)
+            s_qtd = c_qtd - p_qtd
+            falta = (s_qtd < 0)
+            tot_cheios += c_qtd
+            tot_pedidos += p_qtd
+            lista_gases.append({
+                'gas': g_nome,
+                'cheios_disponiveis': c_qtd,
+                'quantidade_pedida': p_qtd,
+                'saldo': s_qtd,
+                'em_falta': falta
+            })
+
+        tot_saldo = tot_cheios - tot_pedidos
+        tem_falta_geral = any(g['em_falta'] for g in lista_gases) if lista_gases else (tot_saldo < 0)
 
         dados['patio_demanda'] = {
-            'cheios_disponiveis': cheios,
-            'quantidade_pedida': int(total_pedido),
-            'saldo': saldo,
-            'em_falta': saldo < 0
+            'cheios_disponiveis': tot_cheios,
+            'quantidade_pedida': tot_pedidos,
+            'saldo': tot_saldo,
+            'em_falta': tem_falta_geral,
+            'gases': lista_gases,
         }
 
     if secoes_cfg.get('retornos', True):
-        recolhas_hoje = 0
-        try:
-            from logistica.models import Entrega
-            recolhas_qs = Entrega.unscoped.filter(
-                tenant=tenant,
-                status__in=['Agendada', 'Em Rota'],
-                data_criacao__date=hoje
-            )
-            if painel.filial_id:
-                recolhas_qs = recolhas_qs.filter(filial_id=painel.filial_id)
-            recolhas_hoje = recolhas_qs.count()
-        except Exception:
-            pass
-
+        # Nota: O sistema registra recolhas em trânsito no ato da bipagem em campo (full-for-empty),
+        # sem modelo de previsão prévia agendada de recolhas de vasilhames.
         dados['retornos'] = {
             'vazios_triagem': aggr_patio['vazios'] or 0,
-            'recolhas_previstas_hoje': recolhas_hoje
         }
 
     if secoes_cfg.get('alertas', True):
-        bloqueios_count = 0
-        recalls_count = 0
-        try:
-            from produtos.models import AuditoriaBloqueioSanitario, RecallCampanha
-            bloqueios_count = AuditoriaBloqueioSanitario.unscoped.filter(
-                tenant=tenant, ativo=True
-            ).count()
-            recalls_count = RecallCampanha.unscoped.filter(
-                tenant=tenant, status__in=['INICIADA', 'EM_ANDAMENTO']
-            ).count()
-        except Exception:
-            pass
+        from produtos.models import RecallCampanha
+
+        # Campanhas de recall abertas / em andamento
+        recalls_count = RecallCampanha.unscoped.filter(
+            tenant=tenant,
+            status__in=['ABERTO', 'HOMOLOGADO_RT', 'EM_NOTIFICACAO']
+        ).count()
 
         dados['alertas'] = {
             'reteste_vencido_patio': aggr_patio['reteste_vencido'] or 0,
-            'bloqueios_sanitarios': bloqueios_count,
+            'bloqueios_sanitarios': aggr_patio['bloqueios_sanitarios'] or 0,
             'recalls_abertos': recalls_count
         }
 
@@ -261,38 +324,43 @@ def montar_dados_painel(painel) -> dict:
     # 5. FÁBRICA / ENVASE (Somente com Módulo Envase Ativo)
     # --------------------------------------------------------------------------
     if tem_envase and secoes_cfg.get('fabrica', True):
-        inspecoes_pendentes = 0
-        lotes_quarentena = 0
+        from produtos.models import LoteEnvase, TanqueCriogenico
+
+        # Inspeções pendentes na rampa: cilindros em VAZIO_TRIAGEM sem inspeção aprovada recente nos últimos 7 dias
+        inspecoes_pendentes = Cilindro.unscoped.filter(
+            tenant=tenant,
+            status='VAZIO_TRIAGEM'
+        ).exclude(
+            inspecoes_pre_envase__aprovado=True,
+            inspecoes_pre_envase__realizado_em__gte=agora - timezone.timedelta(days=7)
+        ).count()
+
+        # Lotes de produção em quarentena aguardando liberação do CQ/RT
+        lotes_quarentena = LoteEnvase.unscoped.filter(
+            tenant=tenant,
+            status_qualidade='QUARENTENA'
+        ).count()
+
+        # Níveis operacionais dos tanques criogênicos
+        tanques_qs = TanqueCriogenico.unscoped.filter(
+            tenant=tenant
+        ).select_related('gas')
+        if painel.filial_id:
+            tanques_qs = tanques_qs.filter(filial_id=painel.filial_id)
+
         tanques_info = []
-
-        try:
-            from produtos.models import LoteEnvase, InspecaoPreEnvase, TanqueCriogenico
-            inspecoes_pendentes = InspecaoPreEnvase.unscoped.filter(
-                tenant=tenant, conforme=False
-            ).count()
-            lotes_quarentena = LoteEnvase.unscoped.filter(
-                tenant=tenant, status='QUARENTENA'
-            ).count()
-
-            tanques_qs = TanqueCriogenico.unscoped.filter(
-                tenant=tenant
-            ).select_related('gas')
-            if painel.filial_id:
-                tanques_qs = tanques_qs.filter(filial_id=painel.filial_id)
-
-            for t in tanques_qs:
-                cap = float(t.capacidade_kg or 0)
-                saldo = float(t.saldo_atual_kg or 0)
-                pct = round((saldo / cap * 100), 1) if cap > 0 else 0.0
-                gas_sigla = t.gas.sigla if t.gas else "Gás"
-                tanques_info.append({
-                    'nome': t.descricao,
-                    'gas': gas_sigla,
-                    'percentual_nivel': pct,
-                    'alerta_nivel_baixo': pct < 20.0
-                })
-        except Exception:
-            pass
+        for t in tanques_qs:
+            cap = float(t.capacidade_kg or 0)
+            saldo = float(t.saldo_atual_kg or 0)
+            pct = round((saldo / cap * 100), 1) if cap > 0 else 0.0
+            gas_sigla = t.gas.sigla if t.gas else "Gás"
+            nome_tanque = f"{t.codigo} - {t.descricao}" if t.descricao else t.codigo
+            tanques_info.append({
+                'nome': nome_tanque,
+                'gas': gas_sigla,
+                'percentual_nivel': pct,
+                'alerta_nivel_baixo': pct < 20.0
+            })
 
         dados['fabrica'] = {
             'inspecoes_pendentes': inspecoes_pendentes,
@@ -303,3 +371,4 @@ def montar_dados_painel(painel) -> dict:
     # Guarda no cache por 15 segundos
     cache.set(cache_key, dados, timeout=15)
     return dados
+

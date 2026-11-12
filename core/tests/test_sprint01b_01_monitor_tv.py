@@ -371,8 +371,11 @@ class MonitorTVTests(TestCase):
 
         client = APIClient()
 
-        # Sem módulo envase
-        self.tenant_a.modulos_ativos = ['distribuicao']
+        # Sem módulo envase (plano STARTER, distribuição ativa, envase inativo)
+        self.tenant_a.plano = 'STARTER'
+        self.tenant_a.modulo_patrimonio_ativo = True
+        self.tenant_a.modulo_vendas_ativo = True
+        self.tenant_a.modulo_envase_ativo = False
         self.tenant_a.save()
         cache.clear()
 
@@ -383,7 +386,7 @@ class MonitorTVTests(TestCase):
         self.assertIn('esteira', dados)
 
         # Com módulo envase ativo
-        self.tenant_a.modulos_ativos = ['distribuicao', 'envase']
+        self.tenant_a.modulo_envase_ativo = True
         self.tenant_a.save()
         cache.clear()
 
@@ -490,12 +493,15 @@ class MonitorTVTests(TestCase):
             self.assertEqual(resp.status_code, 200)
         self.assertLessEqual(len(ctx), 15, f"Esperado <= 15 queries, foram executadas {len(ctx)}")
 
-        # 2. Segunda consulta imediata: consome cache de 15s (0 queries de aplicação no banco)
+        # 2. Segunda consulta imediata: consome cache de 15s
+        # Executa apenas 1 query de validação pré-cache do token (ativo=True), sem nenhuma query de negócio
         with CaptureQueriesContext(connection) as ctx_cache:
             resp_cache = client.get(f'/painel/{token}/dados/')
             self.assertEqual(resp_cache.status_code, 200)
         queries_app = [q for q in ctx_cache if 'SAVEPOINT' not in q['sql'].upper()]
-        self.assertEqual(len(queries_app), 0, f"Consultas de banco inesperadas durante hit de cache: {queries_app}")
+        self.assertLessEqual(len(queries_app), 1, f"Consultas de banco inesperadas durante hit de cache: {queries_app}")
+        if queries_app:
+            self.assertIn("core_painelmonitor", queries_app[0]['sql'])
 
     # --------------------------------------------------------------------------
     # 9. RBAC DE GESTÃO DE PAINÉIS (CONFIGURAÇÕES: SÓ ADMIN E GERENTE)
@@ -609,3 +615,331 @@ class MonitorTVTests(TestCase):
         import re
         matches_style = re.findall(r'style\s*=\s*["\'][^"\']+["\']', conteudo_html, flags=re.IGNORECASE)
         self.assertEqual(len(matches_style), 0, f"Estilos inline proibidos encontrados no HTML: {matches_style}")
+
+    # --------------------------------------------------------------------------
+    # 12. DADOS REAIS POR SEÇÃO DIFERENTES DE ZERO (REVISÃO SPRINT 01B.01)
+    # --------------------------------------------------------------------------
+
+    def test_12_dados_reais_por_secao_diferentes_de_zero(self):
+        """
+        Monta dados reais para cada indicador das seções alertas, retornos e fabrica,
+        garantindo que cada contagem venha diferente de zero e precisa conforme modelos.
+        """
+        from core.models import PainelMonitor
+        from core.services.painel_monitor import gerar_token_painel
+        from produtos.models import LoteEnvase, RecallCampanha
+
+        token = gerar_token_painel()
+        with tenant_context(self.tenant_a):
+            PainelMonitor.objects.create(
+                tenant=self.tenant_a,
+                nome="TV Indicadores Operacionais",
+                token=token,
+                ativo=True,
+                secoes={'fabrica': True, 'patio_demanda': True, 'retornos': True, 'alertas': True}
+            )
+
+            # 1. Bloqueio sanitário (Cilindro.bloqueio_sanitario=True, exceto BAIXADO)
+            Cilindro.objects.create(
+                tenant=self.tenant_a,
+                codigo_qr=f'QR-SAN-{uuid.uuid4().hex[:6]}',
+                numero_serie_ogiva='SN-SAN-01',
+                fabricante='Cilbras',
+                ano_fabricacao=2021,
+                modelo=self.modelo_10m3,
+                gas_dedicado=self.gas_o2,
+                propriedade='PROPRIO',
+                data_ultimo_reteste=self.hoje - datetime.timedelta(days=100),
+                data_proximo_reteste=self.hoje + datetime.timedelta(days=365),
+                status='CHEIO_DISPONIVEL',
+                bloqueio_sanitario=True
+            )
+
+            # 2. Reteste vencido no pátio
+            Cilindro.objects.create(
+                tenant=self.tenant_a,
+                codigo_qr=f'QR-RET-{uuid.uuid4().hex[:6]}',
+                numero_serie_ogiva='SN-RET-01',
+                fabricante='Cilbras',
+                ano_fabricacao=2015,
+                modelo=self.modelo_10m3,
+                gas_dedicado=self.gas_o2,
+                propriedade='PROPRIO',
+                data_ultimo_reteste=self.hoje - datetime.timedelta(days=1900),
+                data_proximo_reteste=self.hoje - datetime.timedelta(days=20),
+                status='CHEIO_DISPONIVEL',
+                bloqueio_sanitario=False
+            )
+
+            # 3. Cilindro em VAZIO_TRIAGEM sem inspeção (conta para vazios_triagem e inspeções pendentes)
+            Cilindro.objects.create(
+                tenant=self.tenant_a,
+                codigo_qr=f'QR-VAZ-{uuid.uuid4().hex[:6]}',
+                numero_serie_ogiva='SN-VAZ-01',
+                fabricante='Cilbras',
+                ano_fabricacao=2022,
+                modelo=self.modelo_10m3,
+                gas_dedicado=self.gas_o2,
+                propriedade='PROPRIO',
+                data_ultimo_reteste=self.hoje - datetime.timedelta(days=100),
+                data_proximo_reteste=self.hoje + datetime.timedelta(days=365),
+                status='VAZIO_TRIAGEM',
+                bloqueio_sanitario=False
+            )
+
+            # 4. Lote de envase em quarentena
+            lote = LoteEnvase.objects.create(
+                tenant=self.tenant_a,
+                gas=self.gas_o2,
+                codigo_lote=f'LOT-{uuid.uuid4().hex[:6].upper()}',
+                status_qualidade='QUARENTENA',
+                data_envase=self.hoje,
+                data_validade=self.hoje + datetime.timedelta(days=365),
+                pureza_percentual=Decimal('99.50'),
+                responsavel_tecnico='Dra. Farmacêutica RT',
+                massa_gas_total_kg=Decimal('250.0')
+            )
+
+            # 5. Recall em andamento
+            RecallCampanha.objects.create(
+                tenant=self.tenant_a,
+                lote=lote,
+                codigo_campanha=f'REC-{uuid.uuid4().hex[:6].upper()}',
+                status='ABERTO',
+                motivo='Desvio analítico de pureza residual',
+                criado_por=self.user_admin
+            )
+
+            # 6. Tanque criogênico com nível baixo (< 20%)
+            TanqueCriogenico.objects.create(
+                tenant=self.tenant_a,
+                codigo='TQ-CRYO-01',
+                descricao='Tanque O2 Principal',
+                gas=self.gas_o2,
+                capacidade_kg=Decimal('1000.0'),
+                saldo_atual_kg=Decimal('180.0')
+            )
+
+        client = APIClient()
+        resp = client.get(f'/painel/{token}/dados/')
+        self.assertEqual(resp.status_code, 200)
+        dados = resp.json()
+
+        # Validações dos Alertas
+        self.assertEqual(dados['alertas']['bloqueios_sanitarios'], 1)
+        self.assertEqual(dados['alertas']['recalls_abertos'], 1)
+        self.assertEqual(dados['alertas']['reteste_vencido_patio'], 1)
+
+        # Validações dos Retornos
+        self.assertEqual(dados['retornos']['vazios_triagem'], 1)
+
+        # Validações da Fábrica / Envase
+        self.assertEqual(dados['fabrica']['lotes_quarentena'], 1)
+        self.assertEqual(dados['fabrica']['inspecoes_pendentes'], 1)
+        self.assertEqual(len(dados['fabrica']['tanques']), 1)
+        tanque = dados['fabrica']['tanques'][0]
+        self.assertEqual(tanque['nome'], 'TQ-CRYO-01 - Tanque O2 Principal')
+        self.assertEqual(tanque['percentual_nivel'], 18.0)
+        self.assertTrue(tanque['alerta_nivel_baixo'])
+
+    # --------------------------------------------------------------------------
+    # 13. PAINEL COM FILIAL ASSOCIADA RESPONDE 200 SEM ERRO NO PÁTIO
+    # --------------------------------------------------------------------------
+
+    def test_13_painel_com_filial_responde_200_sem_erro_no_patio(self):
+        """Painel vinculado a uma filial não causa erro 500 no pátio (Cilindro não tem filial)."""
+        from core.models import PainelMonitor, Filial
+        from core.services.painel_monitor import gerar_token_painel
+
+        token = gerar_token_painel()
+        with tenant_context(self.tenant_a):
+            filial = Filial.objects.create(
+                tenant=self.tenant_a,
+                nome='Filial Valinhos',
+                cnpj='11.111.111/0003-88',
+                matriz=False,
+                ativo=True
+            )
+            PainelMonitor.objects.create(
+                tenant=self.tenant_a,
+                filial=filial,
+                nome="TV Filial Valinhos",
+                token=token,
+                ativo=True
+            )
+
+        client = APIClient()
+        resp_html = client.get(f'/painel/{token}/')
+        self.assertEqual(resp_html.status_code, 200)
+
+        resp_json = client.get(f'/painel/{token}/dados/')
+        self.assertEqual(resp_json.status_code, 200)
+        dados = resp_json.json()
+        self.assertIn('patio_demanda', dados)
+
+    # --------------------------------------------------------------------------
+    # 14. PÁTIO × DEMANDA POR GÁS COM SKU E PRODUTO LEGADO
+    # --------------------------------------------------------------------------
+
+    def test_14_patio_demanda_por_gas_com_sku_e_produto_legado(self):
+        """
+        Pátio x Demanda calcula cheios disponíveis, demanda e saldo individualmente por gás:
+        - Gas 1 (SKU): demanda maior que pátio -> em_falta=True
+        - Gas 2 (Produto legado): pátio suficiente -> em_falta=False
+        """
+        from core.models import PainelMonitor
+        from core.services.painel_monitor import gerar_token_painel
+        from produtos.models import GasQuimico, Produto
+        from vendas.models import ItemVenda
+
+        token = gerar_token_painel()
+        with tenant_context(self.tenant_a):
+            PainelMonitor.objects.create(
+                tenant=self.tenant_a,
+                nome="TV Demanda por Gás",
+                token=token,
+                ativo=True
+            )
+
+            # Gás 1: O2 (via SKU) -> 2 cheios no pátio, pedido de 5 -> falta 3
+            for i in range(2):
+                Cilindro.objects.create(
+                    tenant=self.tenant_a,
+                    codigo_qr=f'QR-O2-{uuid.uuid4().hex[:6]}',
+                    numero_serie_ogiva=f'SN-O2-{i}',
+                    fabricante='Cilbras',
+                    ano_fabricacao=2020,
+                    modelo=self.modelo_10m3,
+                    gas_dedicado=self.gas_o2,
+                    propriedade='PROPRIO',
+                    data_ultimo_reteste=self.hoje - datetime.timedelta(days=100),
+                    data_proximo_reteste=self.hoje + datetime.timedelta(days=365),
+                    status='CHEIO_DISPONIVEL'
+                )
+
+            venda_o2 = Venda.objects.create(
+                tenant=self.tenant_a,
+                cliente=self.cliente_a,
+                status='Pendente',
+                prazo_entrega=self.hoje
+            )
+            ItemVenda.objects.create(
+                tenant=self.tenant_a,
+                venda=venda_o2,
+                sku=self.sku_o2,
+                forma_faturamento='CARGA',
+                quantidade=5,
+                valor_total=Decimal('750.00')
+            )
+
+            # Gás 2: Argônio (via Produto Legado) -> 10 cheios no pátio, pedido de 4 -> saldo +6
+            gas_ar = GasQuimico.objects.create(
+                nome='Argônio Puro',
+                sigla='AR-IND',
+                categoria='INDUSTRIAL'
+            )
+            prod_argonio = Produto.objects.create(
+                tenant=self.tenant_a,
+                nome='Argônio Puro 10m³',
+                categoria='GAS_INDUSTRIAL',
+                capacidade=Decimal('10.0'),
+                unidade_medida='M3',
+                preco=Decimal('220.00'),
+                estoque=20,
+                origem='0',
+                medicinal=False,
+                exige_rastro=True
+            )
+            for j in range(10):
+                Cilindro.objects.create(
+                    tenant=self.tenant_a,
+                    codigo_qr=f'QR-AR-{uuid.uuid4().hex[:6]}',
+                    numero_serie_ogiva=f'SN-AR-{j}',
+                    fabricante='Cilbras',
+                    ano_fabricacao=2021,
+                    modelo=self.modelo_10m3,
+                    gas_dedicado=gas_ar,
+                    propriedade='PROPRIO',
+                    data_ultimo_reteste=self.hoje - datetime.timedelta(days=100),
+                    data_proximo_reteste=self.hoje + datetime.timedelta(days=365),
+                    status='CHEIO_DISPONIVEL'
+                )
+
+            venda_ar = Venda.objects.create(
+                tenant=self.tenant_a,
+                cliente=self.cliente_a,
+                status='Em Separação',
+                prazo_entrega=self.hoje
+            )
+            ItemVenda.objects.create(
+                tenant=self.tenant_a,
+                venda=venda_ar,
+                produto=prod_argonio,
+                forma_faturamento='CARGA',
+                quantidade=4,
+                valor_total=Decimal('880.00')
+            )
+
+        client = APIClient()
+        resp = client.get(f'/painel/{token}/dados/')
+        self.assertEqual(resp.status_code, 200)
+        dados = resp.json()
+
+        gases = dados['patio_demanda']['gases']
+        mapa_gases = {g['gas']: g for g in gases}
+
+        # Gás 1 (O2) em falta
+        self.assertIn('O2-MED', mapa_gases)
+        item_o2 = mapa_gases['O2-MED']
+        self.assertEqual(item_o2['cheios_disponiveis'], 2)
+        self.assertEqual(item_o2['quantidade_pedida'], 5)
+        self.assertEqual(item_o2['saldo'], -3)
+        self.assertTrue(item_o2['em_falta'])
+
+        # Gás 2 (Argônio) com saldo positivo
+        self.assertIn('AR-IND', mapa_gases)
+        item_ar = mapa_gases['AR-IND']
+        self.assertEqual(item_ar['cheios_disponiveis'], 10)
+        self.assertEqual(item_ar['quantidade_pedida'], 4)
+        self.assertEqual(item_ar['saldo'], 6)
+        self.assertFalse(item_ar['em_falta'])
+
+        # Status global de falta
+        self.assertTrue(dados['patio_demanda']['em_falta'])
+
+    # --------------------------------------------------------------------------
+    # 15. REVOGAÇÃO IMEDIATA MESMO COM CACHE QUENTE
+    # --------------------------------------------------------------------------
+
+    def test_15_revogacao_imediata_mesmo_com_cache_quente(self):
+        """Ao desativar/revogar um painel, requisições subsequentes recebem 404 imediatamente mesmo com cache populado."""
+        from core.models import PainelMonitor
+        from core.services.painel_monitor import gerar_token_painel
+
+        token = gerar_token_painel()
+        with tenant_context(self.tenant_a):
+            painel = PainelMonitor.objects.create(
+                tenant=self.tenant_a,
+                nome="TV Revogação Cache",
+                token=token,
+                ativo=True
+            )
+
+        client = APIClient()
+
+        # 1. Primeira consulta gera cache quente
+        resp1 = client.get(f'/painel/{token}/dados/')
+        self.assertEqual(resp1.status_code, 200)
+
+        # 2. Força um dado em cache para testar se a view resolve o painel ANTES do cache
+        cache_key = f"cache_monitor_dados_{token}"
+        cache.set(cache_key, {"forged": True}, timeout=60)
+
+        # 3. Desativa o painel no banco
+        painel.ativo = False
+        painel.save(update_fields=['ativo'])
+
+        # 4. Requisição deve retornar 404 imediatamente, sem retornar os dados em cache
+        resp_revogado = client.get(f'/painel/{token}/dados/')
+        self.assertEqual(resp_revogado.status_code, 404)
+        self.assertNotIn('forged', resp_revogado.json())

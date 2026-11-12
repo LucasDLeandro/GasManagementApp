@@ -52,8 +52,8 @@
   const metricaCheios = document.getElementById("metrica-cheios");
   const metricaPedidos = document.getElementById("metrica-pedidos");
   const metricaSaldo = document.getElementById("metrica-saldo");
+  const containerPatioGases = document.getElementById("patio-gases-lista");
   const metricaVazios = document.getElementById("metrica-vazios");
-  const metricaRecolhas = document.getElementById("metrica-recolhas");
 
   const cardFabrica = document.getElementById("card-fabrica");
   const metricaQuarentena = document.getElementById("metrica-quarentena");
@@ -274,15 +274,39 @@
               metricaSaldo.classList.add("metrica-numero-ok");
             }
           }
+
+          if (containerPatioGases) {
+            while (containerPatioGases.firstChild) {
+              containerPatioGases.removeChild(containerPatioGases.firstChild);
+            }
+            if (Array.isArray(dados.patio_demanda.gases)) {
+              dados.patio_demanda.gases.forEach(function (g) {
+                const pill = document.createElement("span");
+                pill.classList.add("patio-gas-pill");
+                if (g.em_falta) {
+                  pill.classList.add("patio-gas-pill-falta");
+                }
+                const sinal = g.saldo > 0 ? "+" : "";
+                pill.textContent =
+                  g.gas +
+                  ": " +
+                  g.cheios_disponiveis +
+                  "/" +
+                  g.quantidade_pedida +
+                  " (" +
+                  sinal +
+                  g.saldo +
+                  ")";
+                containerPatioGases.appendChild(pill);
+              });
+            }
+          }
         }
 
         // 3. Retornos
         if (dados.retornos) {
           if (metricaVazios) {
             metricaVazios.textContent = String(dados.retornos.vazios_triagem || 0);
-          }
-          if (metricaRecolhas) {
-            metricaRecolhas.textContent = String(dados.retornos.recolhas_previstas_hoje || 0);
           }
         }
 
