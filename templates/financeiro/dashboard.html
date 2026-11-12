@@ -4,9 +4,7 @@
 {% block extra_css %}
 <style>
     .fin-container {
-        padding: 24px;
-        max-width: 1400px;
-        margin: 0 auto;
+        min-width: 0;
     }
     .fin-header {
         display: flex;
@@ -255,22 +253,16 @@
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="fin-container">
+<div class="ds-page fin-container">
     <!-- Top Header -->
-    <div class="fin-header">
+    <header class="ds-page-header">
         <div>
-            <h1>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="1" x2="12" y2="23"></line>
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-                Núcleo Contábil & Financeiro Base (Sprint 9A)
-            </h1>
-            <p style="color: var(--color-text-muted); font-size: 0.9rem; margin-top: 4px;">
+            <h1 class="ds-page-title">Núcleo Contábil & Financeiro</h1>
+            <p class="ds-page-subtitle">
                 Razão imutável com encadeamento SHA-256, Plano de Contas, Balancete e Gestão de Contas.
             </p>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div class="ds-page-actions">
             <button class="btn-fin btn-fin-outline" onclick="verificarIntegridadeHash()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -285,7 +277,7 @@
                 Transferência entre Contas
             </button>
         </div>
-    </div>
+    </header>
 
     <!-- KPI Cards -->
     <div class="kpi-grid">
@@ -323,22 +315,22 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="fin-tabs">
-        <button class="fin-tab-btn active" onclick="switchFinTab('contas')">Contas & Saldos</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('receber')">Contas a Receber</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('pagar')">Contas a Pagar</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('aprovacao')">Fila de Aprovação ({{ titulos_em_aprovacao|length }})</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('campo')">Despesas de Campo ({{ despesas_campo_pendentes|length }})</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('faturas')">Faturas de Posto ({{ faturas_posto_recentes|length }})</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('caixas')">Caixas de Rota ({{ fechamentos_caixa_recentes|length }})</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('plano')">Plano de Contas</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('balancete')">Balancete</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('razao')">Razão Contábil</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('abertura')">Saldo de Abertura</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('pendencias')">Pendências ({{ pendencias|length }})</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('periodos')">Períodos</button>
-        <button class="fin-tab-btn" onclick="switchFinTab('apoio')">Apoio (CC / Fornec)</button>
-    </div>
+    <nav class="tabs-nav" role="tablist" aria-label="Abas do Financeiro">
+        <button type="button" class="tab-btn fin-tab-btn active" role="tab" aria-selected="true" onclick="switchFinTab('contas')">Contas & Saldos</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('receber')">Contas a Receber</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('pagar')">Contas a Pagar</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('aprovacao')">Fila de Aprovação ({{ titulos_em_aprovacao|length }})</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('campo')">Despesas de Campo ({{ despesas_campo_pendentes|length }})</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('faturas')">Faturas de Posto ({{ faturas_posto_recentes|length }})</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('caixas')">Caixas de Rota ({{ fechamentos_caixa_recentes|length }})</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('plano')">Plano de Contas</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('balancete')">Balancete</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('razao')">Razão Contábil</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('abertura')">Saldo de Abertura</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('pendencias')">Pendências ({{ pendencias|length }})</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('periodos')">Períodos</button>
+        <button type="button" class="tab-btn fin-tab-btn" role="tab" aria-selected="false" onclick="switchFinTab('apoio')">Apoio (CC / Fornec)</button>
+    </nav>
 
 
     <!-- TAB 1: CONTAS FINANCEIRAS -->
@@ -1346,11 +1338,15 @@
 <script>
     function switchFinTab(tabId) {
         document.querySelectorAll('.fin-tab-pane').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.fin-tab-btn').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.fin-tab-btn').forEach(el => {
+            el.classList.remove('active');
+            el.setAttribute('aria-selected', 'false');
+        });
         const pane = document.getElementById('tab-' + tabId);
         if (pane) pane.classList.add('active');
         if (event && event.currentTarget) {
             event.currentTarget.classList.add('active');
+            event.currentTarget.setAttribute('aria-selected', 'true');
         }
     }
 

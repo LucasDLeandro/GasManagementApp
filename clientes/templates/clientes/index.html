@@ -8,14 +8,15 @@
 {% endblock %}
 
 {% block dashboard_content %}
-    <div class="clientes-header">
+<div class="ds-page">
+    <header class="ds-page-header">
         <div>
-            <h2 style="margin:0 0 4px 0;">Comercial & Estadia (Ativos em Clientes)</h2>
-            <p style="margin:0; font-size: 0.85rem; color: var(--color-text-muted);">
+            <h1 class="ds-page-title">Comercial & Estadia (Ativos em Clientes)</h1>
+            <p class="ds-page-subtitle">
                 Gestão de clientes, contratos versionados de comodato, fechamento de faturas e prevenção de extravios.
             </p>
         </div>
-        <div style="display:flex; gap:10px;">
+        <div class="ds-page-actions">
             <button class="btn-secondary" id="btn-abrir-novo-contrato" onclick="abrirModalContrato()">
                 + Novo Contrato de Comodato
             </button>
@@ -23,17 +24,17 @@
                 + Novo Cliente
             </button>
         </div>
-    </div>
+    </header>
 
     <!-- Navegação de Abas -->
-    <div class="tabs-nav" style="width: 100%; overflow-x: auto;">
-        <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
-        <button class="tab-btn" onclick="switchTab('pj')">Clientes PJ</button>
-        <button class="tab-btn" onclick="switchTab('gov')">Governamental</button>
-        <button class="tab-btn" onclick="switchTab('contratos')">Contratos & Franquias</button>
-        <button class="tab-btn" onclick="switchTab('fechamento')">Fechamento de Faturas</button>
-        <button class="tab-btn" onclick="switchTab('extravios')">Fila de Extravios & Radar</button>
-    </div>
+    <nav class="tabs-nav" role="tablist" aria-label="Abas de Comercial e Estadia">
+        <button type="button" class="tab-btn active" role="tab" aria-selected="true" onclick="switchTab('dashboard')">Dashboard</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('pj')">Clientes PJ</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('gov')">Governamental</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('contratos')">Contratos & Franquias</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('fechamento')">Fechamento de Faturas</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('extravios')">Fila de Extravios & Radar</button>
+    </nav>
     
     <div class="tab-content">
         <!-- 1. DASHBOARD TAB -->
@@ -811,6 +812,7 @@
             </form>
         </div>
     </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}

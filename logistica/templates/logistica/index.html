@@ -8,37 +8,38 @@
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="logistica-header">
+<div class="ds-page">
+<header class="ds-page-header">
     <div>
-        <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0;">Gestão de Logística & Expedição</h2>
-        <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Montagem de romaneios com conformidade ANTT 5.998/2022, roteirização e comprovantes digitais (D8).</p>
+        <h1 class="ds-page-title">Gestão de Logística & Expedição</h1>
+        <p class="ds-page-subtitle">Montagem de romaneios com conformidade ANTT 5.998/2022, roteirização e comprovantes digitais.</p>
     </div>
-    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-        <button type="button" class="btn-secondary" id="btn-abrir-pendencias-val" style="position: relative; display: flex; align-items: center; gap: 6px; font-weight: 600;" title="Validações de carga pendentes de aprovação">
-            <span>⚖️ Validações Pendentes</span>
+    <div class="ds-page-actions">
+        <button type="button" class="btn-secondary" id="btn-abrir-pendencias-val" title="Validações de carga pendentes de aprovação">
+            <span>Validações Pendentes</span>
             <span class="badge" id="badge-pendencias-val" style="display: none; background: #ef4444; color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 700;">0</span>
         </button>
-        <button type="button" class="btn-secondary" id="btn-abrir-relatorio-divergencias" style="display: flex; align-items: center; gap: 6px; font-weight: 600;" title="Relatório analítico de divergências e perdas de carga">
-            <span>📊 Divergências & Perdas</span>
+        <button type="button" class="btn-secondary" id="btn-abrir-relatorio-divergencias" title="Relatório analítico de divergências e perdas de carga">
+            <span>Divergências & Perdas</span>
         </button>
-        <a href="{% url 'logistica:app_campo' %}" class="btn-secondary" style="text-decoration: none;" title="Abrir interface PWA de campo para motoristas">
-            📱 App de Campo PWA &rarr;
+        <a href="{% url 'logistica:app_campo' %}" class="btn-secondary" title="Abrir interface PWA de campo para motoristas">
+            App de Campo PWA &rarr;
         </a>
     </div>
-</div>
+</header>
 
-<!-- Sistema de Abas (Segmented Pills) -->
+<!-- Sistema de Abas -->
 <div class="tabs-container">
-    <div class="tabs-nav">
-        <button class="tab-btn active" data-target="tab-entregas">📦 Quadro de Entregas</button>
-        <button class="tab-btn" data-target="tab-veiculos">🚚 Frota / Veículos</button>
-        <button class="tab-btn" data-target="tab-rotas">🗺️ Rotas / Fretes</button>
-        <button class="tab-btn" data-target="tab-combustivel">⛽ Combustível</button>
-        <button class="tab-btn" data-target="tab-manutencao">🔧 Manutenção</button>
-        <button class="tab-btn" data-target="tab-seguros">🛡️ Seguros & Sinistros</button>
-        <button class="tab-btn" data-target="tab-rentabilidade">📊 Rentabilidade</button>
-        <button class="tab-btn" data-target="tab-historico">📜 Histórico & Comprovantes (D8)</button>
-    </div>
+    <nav class="tabs-nav" role="tablist" aria-label="Abas de Logística">
+        <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-target="tab-entregas">Quadro de Entregas</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="tab-veiculos">Frota / Veículos</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="tab-rotas">Rotas / Fretes</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="tab-combustivel">Combustível</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="tab-manutencao">Manutenção</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="tab-seguros">Seguros & Sinistros</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="tab-rentabilidade">Rentabilidade</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="tab-historico">Histórico & Comprovantes</button>
+    </nav>
 
     <div class="tabs-content">
         <!-- Aba 1: Kanban Híbrido (Pedidos e Caminhões) -->
@@ -1559,31 +1560,31 @@
                         <tbody id="tbody-veiculo-tco-composicao">
                             <tr>
                                 <td>⛽ Combustível</td>
-                                <td>Abastecimentos (Sprint L2)</td>
+                                <td>Abastecimentos</td>
                                 <td style="text-align:right;" id="tco-comp-combustivel">R$ 0,00</td>
                                 <td style="text-align:right;" id="tco-comp-combustivel-pct">0%</td>
                             </tr>
                             <tr>
                                 <td>🔧 Manutenção e Peças</td>
-                                <td>Ordens de Serviço Concluídas (Sprint L3)</td>
+                                <td>Ordens de Serviço Concluídas</td>
                                 <td style="text-align:right;" id="tco-comp-manutencao">R$ 0,00</td>
                                 <td style="text-align:right;" id="tco-comp-manutencao-pct">0%</td>
                             </tr>
                             <tr>
                                 <td>🛡️ Seguro da Frota (Rateado)</td>
-                                <td>Apólices Vigentes (Sprint L5)</td>
+                                <td>Apólices Vigentes</td>
                                 <td style="text-align:right;" id="tco-comp-seguro">R$ 0,00</td>
                                 <td style="text-align:right;" id="tco-comp-seguro-pct">0%</td>
                             </tr>
                             <tr>
                                 <td>🚨 Prejuízo com Sinistros</td>
-                                <td>Franquias e Danos Líquidos (Sprint L5)</td>
+                                <td>Franquias e Danos Líquidos</td>
                                 <td style="text-align:right;" id="tco-comp-sinistros">R$ 0,00</td>
                                 <td style="text-align:right;" id="tco-comp-sinistros-pct">0%</td>
                             </tr>
                             <tr>
                                 <td>📉 Depreciação Econômica</td>
-                                <td>FIPE e Vida Útil Contábil (Sprint L1/L6)</td>
+                                <td>FIPE e Vida Útil Contábil</td>
                                 <td style="text-align:right;" id="tco-comp-depreciacao">R$ 0,00</td>
                                 <td style="text-align:right;" id="tco-comp-depreciacao-pct">0%</td>
                             </tr>
@@ -3586,6 +3587,7 @@
             </div>
         </form>
     </div>
+</div>
 </div>
 {% endblock %}
 

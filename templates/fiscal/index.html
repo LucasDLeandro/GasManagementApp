@@ -3,25 +3,23 @@
 {% block title %}Emissão Fiscal & NF-e | GasManagementApp{% endblock %}
 
 {% block dashboard_content %}
-<div class="fiscal-dashboard-container" style="padding: 24px; max-width: 1400px; margin: 0 auto;">
+<div class="ds-page fiscal-dashboard-container">
     
     <!-- Header & Ações Globais -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+    <header class="ds-page-header">
         <div>
-            <h1 style="font-size: 24px; font-weight: 700; color: var(--color-text, #1e293b); margin: 0 0 4px 0;">
-                📑 Gestão Fiscal & NF-e (Modelo 55)
-            </h1>
-            <p style="color: var(--color-text-muted, #64748b); font-size: 14px; margin: 0;">
+            <h1 class="ds-page-title">Gestão Fiscal & NF-e (Modelo 55)</h1>
+            <p class="ds-page-subtitle">
                 Emissão eletrônica de NF-e, motor tributário homologado e governança com SEFAZ.
             </p>
         </div>
 
-        <div style="display: flex; gap: 12px; align-items: center;">
-            <button onclick="abrirModalDownloadContador()" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; background: var(--color-surface, #fff); border: 1px solid var(--color-border, #cbd5e1); font-weight: 600; cursor: pointer;">
-                📦 Exportar XMLs (Contador)
+        <div class="ds-page-actions">
+            <button onclick="abrirModalDownloadContador()" class="btn-secondary">
+                Exportar XMLs (Contador)
             </button>
-            <button onclick="auditarLacunas()" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; background: #0284c7; color: white; border: none; font-weight: 600; cursor: pointer;">
-                🔍 Auditar Numeração
+            <button onclick="auditarLacunas()" class="btn-primary">
+                Auditar Numeração
             </button>
         </div>
     </div>

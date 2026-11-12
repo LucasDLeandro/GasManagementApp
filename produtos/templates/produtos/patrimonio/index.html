@@ -16,13 +16,13 @@
     </header>
 
     <!-- Navegação de Abas (Design System v1, seção 4.2) -->
-    <nav class="tabs-nav" aria-label="Abas de Patrimônio">
-        <button type="button" class="tab-btn active" data-tab="ativos" id="tab-nav-ativos">Ativos imobilizados</button>
-        <button type="button" class="tab-btn" data-tab="lotes" id="tab-nav-lotes">Lotes de aquisição</button>
-        <button type="button" class="tab-btn" data-tab="classes" id="tab-nav-classes">Classes de ativo</button>
-        <button type="button" class="tab-btn" data-tab="fabricantes" id="tab-nav-fabricantes">Fabricantes</button>
-        <button type="button" class="tab-btn" data-tab="indenizacao" id="tab-nav-indenizacao">Indenização</button>
-        <button type="button" class="tab-btn" data-tab="baixas" id="tab-nav-baixas">Baixas</button>
+    <nav class="tabs-nav" role="tablist" aria-label="Abas de Patrimônio">
+        <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab="ativos" id="tab-nav-ativos">Ativos imobilizados</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="lotes" id="tab-nav-lotes">Lotes de aquisição</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="classes" id="tab-nav-classes">Classes de ativo</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="fabricantes" id="tab-nav-fabricantes">Fabricantes</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="indenizacao" id="tab-nav-indenizacao">Indenização</button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="baixas" id="tab-nav-baixas">Baixas</button>
     </nav>
 
     <!-- Painéis das Abas -->

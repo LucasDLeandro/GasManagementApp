@@ -8,21 +8,24 @@
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="accounts-header">
+<div class="ds-page">
+<header class="ds-page-header">
     <div>
-        <h2 style="font-size: 24px; font-weight: 700; color: var(--color-text); margin: 0 0 4px 0;">Gestão de Pessoal & Acessos</h2>
-        <p style="margin: 0; color: var(--color-text-muted); font-size: 14px;">Administração de usuários, papéis RBAC do tenant ativo e dados funcionais.</p>
+        <h1 class="ds-page-title">Gestão de Pessoal & Acessos</h1>
+        <p class="ds-page-subtitle">Administração de usuários, papéis RBAC do tenant ativo e dados funcionais.</p>
     </div>
-    <button class="btn-primary" id="btn-novo-funcionario" style="display: inline-flex; align-items: center; gap: 8px;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="8.5" cy="7" r="4"></circle>
-            <line x1="20" y1="8" x2="20" y2="14"></line>
-            <line x1="23" y1="11" x2="17" y2="11"></line>
-        </svg>
-        Novo Funcionário
-    </button>
-</div>
+    <div class="ds-page-actions">
+        <button class="btn-primary" id="btn-novo-funcionario">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="8.5" cy="7" r="4"></circle>
+                <line x1="20" y1="8" x2="20" y2="14"></line>
+                <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+            Novo Funcionário
+        </button>
+    </div>
+</header>
 
 <!-- Barra de Busca Rápida de Funcionários -->
 <div class="accounts-search-bar">
@@ -283,6 +286,7 @@
             </div>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}
 

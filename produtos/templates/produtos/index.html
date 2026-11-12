@@ -8,6 +8,7 @@
 {% endblock %}
 
 {% block dashboard_content %}
+<div class="ds-page">
     {% include "produtos/index/_abas_nav.html" %}
     {% include "produtos/index/_aba_ativos.html" %}
     {% include "produtos/index/_aba_rampa.html" %}
@@ -20,6 +21,7 @@
         {% include "produtos/retestes/_modal_retorno_reteste.html" %}
         {% include "produtos/patrimonio/_modal_baixa_patrimonial.html" %}
     {% endif %}
+</div>
 {% endblock %}
 
 {% block extra_js %}

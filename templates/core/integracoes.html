@@ -4,44 +4,32 @@
 {% block title %}Cockpit de Integrações & Webhooks - Baros{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'core/css/integracoes.css' %}">
+<link rel="stylesheet" href="{% static 'core/css/integracoes.css' %}?v=20261112_u01">
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="integracoes-container">
+<div class="ds-page integracoes-container">
     
     <!-- Cabeçalho Principal -->
-    <div class="integracoes-header">
-        <div class="integracoes-title">
-            <h1>Cockpit de Integrações ERP & Webhooks</h1>
-            <p>Gerenciamento de disparos em tempo real com assinatura criptográfica HMAC-SHA256, blindagem anti-SSRF e exportações canônicas D9.</p>
+    <header class="ds-page-header">
+        <div>
+            <h1 class="ds-page-title">Cockpit de Integrações ERP & Webhooks</h1>
+            <p class="ds-page-subtitle">Gerenciamento de disparos em tempo real com assinatura criptográfica HMAC-SHA256, blindagem anti-SSRF e exportações canônicas ERP.</p>
         </div>
-    </div>
+    </header>
 
     <!-- Navegação de Abas -->
-    <div class="integracoes-tabs">
-        <button class="tab-btn active" data-target="tab-webhooks">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-            Webhooks & Delivery Logs (D7)
+    <nav class="tabs-nav" role="tablist" aria-label="Abas de Integrações">
+        <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-target="tab-webhooks">
+            Webhooks & Delivery Logs
         </button>
-        <button class="tab-btn" data-target="tab-erp">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="16 18 22 12 16 6"></polyline>
-                <polyline points="8 6 2 12 8 18"></polyline>
-            </svg>
-            Exportação Canônica ERP (D9)
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="tab-erp">
+            Exportação Canônica ERP
         </button>
-        <button class="tab-btn" data-target="tab-paineis">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
-                <polyline points="17 2 12 7 7 2"></polyline>
-            </svg>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="tab-paineis">
             Monitores de TV (Operacional)
         </button>
-    </div>
+    </nav>
 
     <!-- ABA 1: WEBHOOKS & OUTBOX LOGS -->
     <div id="tab-webhooks" class="tab-content" style="display: block;">
