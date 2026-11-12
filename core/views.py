@@ -12,10 +12,36 @@ from vendas.models import Venda
 from core.mixins import TenantViewSetMixin
 from clientes.models import Cliente
 from logistica.models import Veiculo
-from produtos.models import Produto, Cilindro, LoteEnvase, EnvaseCilindro
+from produtos.models import Produto, Cilindro, LoteEnvase, EnvaseCilindro, RecallCampanha
+from core.models import PainelMonitor
 from core.tenancy import get_current_tenant
-from core.permissions import resolve_request_membership
+from core.permissions import resolve_request_membership, IsTenantAdminOrGerente
 from clientes.services import calcular_radar_comodato_tenant
+from django.db.models.functions import TruncDate
+from decimal import Decimal
+
+
+class VisaoGestaoAPIView(TenantViewSetMixin, APIView):
+    """
+    API da Visão do Negócio no topo da Home (Sprint 01B.02 - Tarefa 01B.4).
+    Acesso restrito exclusivamente a Administradores e Gerentes.
+    """
+    permission_classes = [IsAuthenticated, IsTenantAdminOrGerente]
+
+    def get(self, request):
+        tenant = getattr(request, 'tenant', None) or get_current_tenant()
+        if not tenant:
+            membership = resolve_request_membership(request)
+            tenant = membership.tenant if membership else None
+
+        if not tenant:
+            return Response({"erro": "Tenant não identificado."}, status=400)
+
+        periodo = request.GET.get('periodo', 'mes_atual')
+        from core.services.visao_gestao import montar_visao_gestao
+        dados = montar_visao_gestao(tenant, request.user, tipo_periodo=periodo, request=request)
+        return Response(dados)
+
 
 class DashboardStatsAPIView(TenantViewSetMixin, APIView):
     permission_classes = [IsAuthenticated]
@@ -94,11 +120,20 @@ class DashboardStatsAPIView(TenantViewSetMixin, APIView):
             radar_faixas = radar['faixas']
             radar_itens = radar['itens']
 
+            # Otimização: Consulta agrupada única dos últimos 7 dias (substitui o laço de 7 queries)
+            sete_dias_atras = hoje - datetime.timedelta(days=6)
+            vendas_7d_dict = dict(
+                Venda.objects.filter(data_venda__date__gte=sete_dias_atras)
+                .exclude(status='Cancelada')
+                .annotate(dia=TruncDate('data_venda'))
+                .values('dia')
+                .annotate(total=Sum('valor_total'))
+                .values_list('dia', 'total')
+            )
             for i in range(6, -1, -1):
                 dia = hoje - datetime.timedelta(days=i)
                 labels_semana.append(dia.strftime('%d/%m'))
-                vendas_dia = Venda.objects.filter(data_venda__date=dia).exclude(status='Cancelada').aggregate(total=Sum('valor_total'))['total'] or 0
-                vendas_semana.append(float(vendas_dia))
+                vendas_semana.append(float(vendas_7d_dict.get(dia, Decimal('0.00'))))
 
         # 4. Gráfico Donut de Status
         status_counts = dict(Cilindro.objects.values_list('status').annotate(total=Count('id')))
@@ -1000,9 +1035,25 @@ class TrocarTenantView(LoginRequiredMixin, View):
         return HttpResponseRedirect(redirect_url)
 
 
+def formatar_tempo_espera(dt):
+    if not dt:
+        return ""
+    seg = (timezone.now() - dt).total_seconds()
+    if seg < 0:
+        return "mais antigo: recente"
+    minutos = int(seg // 60)
+    if minutos < 60:
+        return f"mais antigo: há {minutos} min"
+    horas = int(minutos // 60)
+    if horas < 24:
+        return f"mais antigo: há {horas} h"
+    dias = int(horas // 24)
+    return f"mais antigo: há {dias} d"
+
+
 class HomeView(LoginRequiredMixin, TemplateView):
     """
-    Home adaptativa com Fila de Ação Imediata personalizada pelo papel do usuário (Fase 1).
+    Home adaptativa com Fila de Ação Imediata personalizada pelo papel do usuário (Fase 1 e Sprint 01B).
     Redireciona automaticamente MOTORISTA para a interface PWA de campo (/campo/).
     """
     template_name = 'core/home.html'
@@ -1032,29 +1083,50 @@ class HomeView(LoginRequiredMixin, TemplateView):
         papel = membership.papel if membership else ('ADMIN' if user.is_superuser else None)
         hoje = timezone.now().date()
 
+        # Botão 'Abrir Monitor' para ADMIN e GERENTE quando houver painel cadastrado
+        painel_ativo = PainelMonitor.objects.filter(tenant=tenant, ativo=True).first() if tenant else None
+        context['tem_painel_monitor'] = bool(painel_ativo)
+        context['url_painel_monitor'] = f"/painel/{painel_ativo.token}/" if painel_ativo else None
+
         fila_itens = []
+        is_gestao = bool(papel in ('ADMIN', 'GERENTE') or user.is_superuser)
 
-        # 1. ADMIN ou GERENTE
-        if papel in ('ADMIN', 'GERENTE') or user.is_superuser:
-            # Extravios potenciais (> 180 dias retidos em clientes) - apenas módulo distribuição
-            if tem_distribuicao:
-                limite_extravio = timezone.now() - datetime.timedelta(days=180)
-                extravios_count = Cilindro.objects.filter(
-                    status='EM_POSSE_CLIENTE',
-                    posse_desde__lte=limite_extravio
-                ).count()
-                if extravios_count > 0:
-                    fila_itens.append({
-                        'prioridade': 'danger',
-                        'badge': 'Risco Patrimonial',
-                        'count': extravios_count,
-                        'titulo': 'Cilindros com Retenção > 180 dias',
-                        'descricao': 'Ativos em clientes há mais de 6 meses sem giro. Candidatos à declaração de extravio e cobrança de reposição.',
-                        'link': '/produtos/?filtro=extravio_candidato',
-                        'botao_texto': 'Revisar Cascos'
-                    })
+        # ----------------------------------------------------------------------
+        # 1. Conformidade & Bloqueios Sanitários (ADMIN, GERENTE e RT)
+        # ----------------------------------------------------------------------
+        if is_gestao or papel == 'RESPONSAVEL_TECNICO':
+            # Cilindros com bloqueio sanitário ativo
+            cilindros_bloqueados = Cilindro.objects.filter(bloqueio_sanitario=True).count()
+            if cilindros_bloqueados > 0:
+                fila_itens.append({
+                    'prioridade': 'danger',
+                    'badge': 'Bloqueio Sanitário',
+                    'count': cilindros_bloqueados,
+                    'titulo': 'Cilindros com Bloqueio Sanitário',
+                    'descricao': 'Ativos isolados por contaminação, suspeita técnica ou recall pendente de liberação ou purga.',
+                    'link': '/produtos/?bloqueio_sanitario=true',
+                    'botao_texto': 'Auditar Bloqueios'
+                })
 
-            # Alertas de Reteste INMETRO (Universal - Sprint 01.01)
+            # Campanhas de Recall Abertas
+            recalls_abertos = RecallCampanha.objects.filter(
+                status__in=['ABERTO', 'HOMOLOGADO_RT', 'EM_NOTIFICACAO']
+            ).count()
+            if recalls_abertos > 0:
+                fila_itens.append({
+                    'prioridade': 'danger',
+                    'badge': 'Alerta Máximo',
+                    'count': recalls_abertos,
+                    'titulo': 'Campanhas de Recall Sanitário',
+                    'descricao': 'Processos de contenção e rastreabilidade ativa de lotes em andamento.',
+                    'link': '/produtos/anvisa/recall/',
+                    'botao_texto': 'Acompanhar Recall'
+                })
+
+        # ----------------------------------------------------------------------
+        # 2. Retestes INMETRO (Universal: ADMIN, GERENTE e Pátio)
+        # ----------------------------------------------------------------------
+        if is_gestao or papel == 'OPERADOR_PATIO':
             from produtos.services.reteste import filtro_reteste_proximo_ou_vencido
             reteste_vencidos = Cilindro.objects.filter(
                 filtro_reteste_proximo_ou_vencido(dias=30, data_referencia=hoje)
@@ -1070,65 +1142,69 @@ class HomeView(LoginRequiredMixin, TemplateView):
                     'botao_texto': 'Ver Cilindros'
                 })
 
-        # 2. RESPONSÁVEL TÉCNICO (RT)
-        if papel == 'RESPONSAVEL_TECNICO' or user.is_superuser:
-            # Lotes em quarentena aguardando laudo
-            lotes_quarentena = LoteEnvase.objects.filter(status_qualidade='QUARENTENA').count()
-            if lotes_quarentena > 0:
-                fila_itens.append({
-                    'prioridade': 'quarantine',
-                    'badge': 'Quarentena ANVISA',
-                    'count': lotes_quarentena,
-                    'titulo': 'Lotes Aguardando Homologação',
-                    'descricao': 'Lotes químicos produzidos que requerem análise de controle de qualidade e liberação formal do RT.',
-                    'link': '/produtos/anvisa/recall/',
-                    'botao_texto': 'Analisar Lotes'
-                })
-
-            # Cilindros com bloqueio sanitário ativo
-            cilindros_bloqueados = Cilindro.objects.filter(bloqueio_sanitario=True).count()
-            if cilindros_bloqueados > 0:
+        # ----------------------------------------------------------------------
+        # 3. Risco Patrimonial / Extravios (ADMIN e GERENTE)
+        # ----------------------------------------------------------------------
+        if is_gestao and tem_distribuicao:
+            limite_extravio = timezone.now() - datetime.timedelta(days=180)
+            extravios_count = Cilindro.objects.filter(
+                status='EM_POSSE_CLIENTE',
+                posse_desde__lte=limite_extravio
+            ).count()
+            if extravios_count > 0:
                 fila_itens.append({
                     'prioridade': 'danger',
-                    'badge': 'Bloqueio Sanitário',
-                    'count': cilindros_bloqueados,
-                    'titulo': 'Cilindros com Bloqueio Sanitário',
-                    'descricao': 'Ativos isolados por contaminação, suspeita técnica ou recall pendente de liberação ou purga.',
-                    'link': '/produtos/?bloqueio_sanitario=true',
-                    'botao_texto': 'Auditar Bloqueios'
+                    'badge': 'Risco Patrimonial',
+                    'count': extravios_count,
+                    'titulo': 'Cilindros com Retenção > 180 dias',
+                    'descricao': 'Ativos em clientes há mais de 6 meses sem giro. Candidatos à declaração de extravio e cobrança de reposição.',
+                    'link': '/produtos/?filtro=extravio_candidato',
+                    'botao_texto': 'Revisar Cascos'
                 })
 
-            # Campanhas de Recall Abertas
-            recalls_abertos = RecallCampanha.objects.filter(status__in=['ABERTO', 'HOMOLOGADO_RT']).count()
-            if recalls_abertos > 0:
+        # ----------------------------------------------------------------------
+        # 4. Pedidos: Pendente separado de Em Separação (ADMIN, GERENTE e VENDEDOR)
+        # ----------------------------------------------------------------------
+        if (is_gestao or papel == 'VENDEDOR') and tem_distribuicao:
+            # 4.1 Pedidos Aguardando Separação / Aprovação (Pendente)
+            vendas_pend_qs = Venda.objects.filter(status='Pendente')
+            vendas_pend_count = vendas_pend_qs.count()
+            if vendas_pend_count > 0:
+                v_mais_antiga = vendas_pend_qs.order_by('data_venda').first()
+                tempo_str = formatar_tempo_espera(v_mais_antiga.data_venda) if v_mais_antiga else ""
+                desc = f"{tempo_str} • Pedidos fechados aguardando início de separação." if tempo_str else "Pedidos fechados aguardando início de separação."
                 fila_itens.append({
-                    'prioridade': 'danger',
-                    'badge': 'Alerta Máximo',
-                    'count': recalls_abertos,
-                    'titulo': 'Campanhas de Recall Sanitário',
-                    'descricao': 'Processos de contenção e rastreabilidade ativa de lotes em andamento.',
-                    'link': '/produtos/anvisa/recall/',
-                    'botao_texto': 'Acompanhar Recall'
+                    'prioridade': 'warning',
+                    'badge': 'Comercial',
+                    'count': vendas_pend_count,
+                    'titulo': 'Pedidos Aguardando Separação',
+                    'descricao': desc,
+                    'link': '/vendas/?status=Pendente',
+                    'botao_texto': 'Ver Pedidos'
                 })
 
-        # 3. OPERADOR DE PÁTIO
-        if papel in ('OPERADOR_PATIO', 'ADMIN') or user.is_superuser:
-            # Vazios em Triagem
-            vazios_triagem = Cilindro.objects.filter(status='VAZIO_TRIAGEM').count()
-            if vazios_triagem > 0:
+            # 4.2 Pedidos em Separação (Em Separação)
+            vendas_sep_qs = Venda.objects.filter(status='Em Separação')
+            vendas_sep_count = vendas_sep_qs.count()
+            if vendas_sep_count > 0:
+                v_sep_antiga = vendas_sep_qs.order_by('data_atualizacao').first()
+                dt_sep = (v_sep_antiga.data_atualizacao or v_sep_antiga.data_venda) if v_sep_antiga else None
+                tempo_str = formatar_tempo_espera(dt_sep) if dt_sep else ""
+                desc = f"{tempo_str} • Pedidos com bipagem e separação de cascos em andamento." if tempo_str else "Pedidos com separação em andamento."
                 fila_itens.append({
                     'prioridade': 'info',
-                    'badge': 'Operação de Pátio',
-                    'count': vazios_triagem,
-                    'titulo': 'Cilindros Vazios em Triagem',
-                    'descricao': 'Cascos recolhidos aguardando inspeção pré-envase (IN 129/2022) ou requalificação.',
-                    'link': '/produtos/?status=VAZIO_TRIAGEM',
-                    'botao_texto': 'Iniciar Triagem'
+                    'badge': 'Expedição',
+                    'count': vendas_sep_count,
+                    'titulo': 'Pedidos em Separação',
+                    'descricao': desc,
+                    'link': '/vendas/?status=Em+Separa%C3%A7%C3%A3o',
+                    'botao_texto': 'Acompanhar Separação'
                 })
 
-        # 4. MOTORISTA (apenas módulo distribuição)
-        if tem_distribuicao and (papel in ('MOTORISTA', 'ADMIN') or user.is_superuser):
-            # Entregas pendentes
+        # ----------------------------------------------------------------------
+        # 5. Logística / Rotas (ADMIN, GERENTE e MOTORISTA)
+        # ----------------------------------------------------------------------
+        if (is_gestao or papel == 'MOTORISTA') and tem_distribuicao:
             entregas_motorista = Entrega.objects.filter(status__in=['Em Separação', 'Em Rota'])
             if papel == 'MOTORISTA' and not user.is_superuser:
                 entregas_motorista = entregas_motorista.filter(motorista=user)
@@ -1141,24 +1217,43 @@ class HomeView(LoginRequiredMixin, TemplateView):
                     'titulo': 'Romaneios / Rotas Ativas',
                     'descricao': 'Cargas liberadas ou em trânsito para execução de entregas e recolhas de cilindros.',
                     'link': '/campo/',
-                    'botao_texto': 'Abrir App de Campo'
+                    'botao_texto': 'Abrir App de Campo' if papel == 'MOTORISTA' else 'Ver Rotas'
                 })
 
-        # 5. VENDEDOR (apenas módulo distribuição)
-        if tem_distribuicao and (papel in ('VENDEDOR', 'ADMIN') or user.is_superuser):
-            vendas_pendentes = Venda.objects.filter(status__in=['Pendente', 'Em Separação']).count()
-            if vendas_pendentes > 0:
+        # ----------------------------------------------------------------------
+        # 6. Operação de Pátio (ADMIN, GERENTE e OPERADOR_PATIO)
+        # ----------------------------------------------------------------------
+        if is_gestao or papel == 'OPERADOR_PATIO':
+            vazios_triagem = Cilindro.objects.filter(status='VAZIO_TRIAGEM').count()
+            if vazios_triagem > 0:
                 fila_itens.append({
-                    'prioridade': 'warning',
-                    'badge': 'Comercial',
-                    'count': vendas_pendentes,
-                    'titulo': 'Pedidos Aguardando Expedição',
-                    'descricao': 'Pedidos fechados que necessitam de separação de cascos e alocação de frota.',
-                    'link': '/vendas/',
-                    'botao_texto': 'Ver Pedidos'
+                    'prioridade': 'info',
+                    'badge': 'Operação de Pátio',
+                    'count': vazios_triagem,
+                    'titulo': 'Cilindros Vazios em Triagem',
+                    'descricao': 'Cascos recolhidos aguardando inspeção pré-envase (IN 129/2022) ou requalificação.',
+                    'link': '/produtos/?status=VAZIO_TRIAGEM',
+                    'botao_texto': 'Iniciar Triagem'
+                })
+
+        # ----------------------------------------------------------------------
+        # 7. Envase & Lotes em Quarentena (ADMIN, GERENTE e RT)
+        # ----------------------------------------------------------------------
+        if (is_gestao or papel == 'RESPONSAVEL_TECNICO') and tem_envase:
+            lotes_quarentena = LoteEnvase.objects.filter(status_qualidade='QUARENTENA').count()
+            if lotes_quarentena > 0:
+                fila_itens.append({
+                    'prioridade': 'quarantine',
+                    'badge': 'Quarentena ANVISA',
+                    'count': lotes_quarentena,
+                    'titulo': 'Lotes Aguardando Homologação',
+                    'descricao': 'Lotes químicos produzidos que requerem análise de controle de qualidade e liberação formal do RT.',
+                    'link': '/produtos/anvisa/recall/',
+                    'botao_texto': 'Analisar Lotes'
                 })
 
         context['fila_acao_imediata'] = fila_itens
+        context['is_gestao'] = is_gestao
         return context
 
 

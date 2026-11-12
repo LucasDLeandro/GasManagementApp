@@ -1,179 +1,224 @@
 {% extends 'base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Radar de Comodato & Pátio - Baros{% endblock %}
+{% block title %}Radar de Comodato & Gestão - Baros{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'core/css/dashboard.css' %}">
-<style>
-    .kpi-radar-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 20px;
-        margin-bottom: 25px;
-    }
-
-    .kpi-radar-card {
-        background: var(--color-surface, #ffffff);
-        border: 1px solid var(--color-border, #e2e8f0);
-        border-radius: 12px;
-        padding: 20px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .kpi-radar-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
-    }
-
-    .kpi-radar-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .bg-indigo { background: rgba(99, 102, 241, 0.12); color: #4f46e5; }
-    .bg-amber { background: rgba(245, 158, 11, 0.12); color: #d97706; }
-    .bg-emerald { background: rgba(16, 185, 129, 0.12); color: #059669; }
-    .bg-rose { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
-
-    .kpi-radar-info .kpi-label {
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--color-text-muted, #64748b);
-        display: block;
-        margin-bottom: 4px;
-    }
-
-    .kpi-radar-info .kpi-value {
-        font-size: 24px;
-        font-weight: 700;
-        color: var(--color-text, #0f172a);
-        margin: 0;
-    }
-
-    .kpi-radar-info .kpi-sub {
-        font-size: 11px;
-        color: var(--color-text-muted, #94a3b8);
-        margin-top: 3px;
-        display: block;
-    }
-
-    .radar-charts-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        margin-bottom: 25px;
-    }
-
-    @media (max-width: 992px) {
-        .radar-charts-grid { grid-template-columns: 1fr; }
-    }
-
-    .radar-card-box {
-        background: var(--color-surface, #ffffff);
-        border: 1px solid var(--color-border, #e2e8f0);
-        border-radius: 12px;
-        padding: 24px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    }
-
-    .radar-card-box h3 {
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 18px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        color: var(--color-text, #0f172a);
-    }
-
-    .radar-table-container {
-        overflow-x: auto;
-        margin-top: 10px;
-    }
-
-    .radar-table {
-        width: 100%;
-        border-collapse: collapse;
-        text-align: left;
-        font-size: 14px;
-    }
-
-    .radar-table th {
-        background: var(--color-bg, #f8fafc);
-        color: var(--color-text-muted, #64748b);
-        font-weight: 600;
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--color-border, #e2e8f0);
-    }
-
-    .radar-table td {
-        padding: 14px 16px;
-        border-bottom: 1px solid var(--color-border, #f1f5f9);
-        color: var(--color-text, #1e293b);
-    }
-
-    .badge-status {
-        display: inline-block;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-
-    .badge-normal { background: #dcfce7; color: #166534; }
-    .badge-alerta { background: #fef3c7; color: #92400e; }
-    .badge-critico { background: #fee2e2; color: #991b1b; }
-
-    .faixa-bar-item {
-        margin-bottom: 14px;
-    }
-    .faixa-bar-header {
-        display: flex;
-        justify-content: space-between;
-        font-size: 13px;
-        font-weight: 500;
-        margin-bottom: 5px;
-    }
-    .faixa-progress-bg {
-        width: 100%;
-        height: 10px;
-        background: #f1f5f9;
-        border-radius: 5px;
-        overflow: hidden;
-    }
-    .faixa-progress-fill {
-        height: 100%;
-        border-radius: 5px;
-        transition: width 0.4s ease;
-    }
-</style>
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="dashboard-header" style="margin-bottom: 25px;">
-    {% if not tem_modulo_distribuicao and tem_modulo_envase %}
-    <h2>Painel da Estação de Envase & Rampa (IN 129/2022)</h2>
-    <p>Monitoramento de bateladas na rampa, quarentena de lotes e controle de pureza e rastreabilidade ANVISA.</p>
-    {% elif tem_modulo_distribuicao and not tem_modulo_envase %}
-    <h2>Painel Operacional & Radar de Comodato</h2>
-    <p>Monitoramento patrimonial de ativos em posse de clientes, conformidade normativa INMETRO e ação imediata.</p>
-    {% else %}
-    <h2>Painel Operacional Integrado (Envase & Distribuição)</h2>
-    <p>Visão 360° de rampa de envase, logística de entregas e radar de comodato patrimonial.</p>
+<div class="dashboard-header-flex">
+    <div class="dashboard-header-title">
+        {% if not tem_modulo_distribuicao and tem_modulo_envase %}
+        <h2>Painel da Estação de Envase & Rampa (IN 129/2022)</h2>
+        <p>Monitoramento de bateladas na rampa, quarentena de lotes e controle de pureza e rastreabilidade ANVISA.</p>
+        {% elif tem_modulo_distribuicao and not tem_modulo_envase %}
+        <h2>Painel Operacional & Radar de Comodato</h2>
+        <p>Monitoramento patrimonial de ativos em posse de clientes, conformidade normativa INMETRO e ação imediata.</p>
+        {% else %}
+        <h2>Painel Operacional Integrado (Envase & Distribuição)</h2>
+        <p>Visão 360° de rampa de envase, logística de entregas e radar de comodato patrimonial.</p>
+        {% endif %}
+    </div>
+    {% if tem_painel_monitor and is_gestao %}
+    <div class="dashboard-header-actions">
+        <a href="{{ url_painel_monitor }}" target="_blank" rel="noopener noreferrer" class="btn-monitor-tv" title="Abrir monitor de TV em tempo real para pátio ou expedição">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+                <polyline points="17 2 12 7 7 2"></polyline>
+            </svg>
+            Abrir Monitor de TV
+        </a>
+    </div>
     {% endif %}
 </div>
 
-<!-- FILA DE AÇÃO IMEDIATA POR PAPEL (FASE 1) -->
+<!-- ======================================================================= -->
+<!-- BLOCO: VISÃO DO NEGÓCIO (ADMIN & GERENTE - SPRINT 01B.02)               -->
+<!-- ======================================================================= -->
+{% if is_gestao %}
+<section class="visao-gestao-section" id="secao-visao-gestao" aria-label="Visão de Gestão do Negócio">
+    <div class="visao-gestao-header">
+        <div class="visao-gestao-title-area">
+            <h3>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                Visão do Negócio & Indicadores Estratégicos
+            </h3>
+            <p>Métricas consolidadas do período com isolamento patrimonial, faturamento e giro de cascos.</p>
+        </div>
+        <div class="visao-gestao-controls">
+            <div class="visao-periodo-btn-group" role="group" aria-label="Seletor de Período">
+                <button type="button" class="visao-periodo-btn active" data-periodo="mes_atual">Mês Atual</button>
+                <button type="button" class="visao-periodo-btn" data-periodo="mes_anterior">Mês Anterior</button>
+                <button type="button" class="visao-periodo-btn" data-periodo="ultimos_30_dias">Últimos 30 Dias</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="visao-gestao-grid">
+        <!-- 1. Vendas & Faturamento -->
+        <div class="visao-card">
+            <div class="visao-card-header">
+                <span class="visao-card-title">Vendas & Faturamento</span>
+                <span class="visao-card-tooltip-icon" title="Fórmula: Soma do valor_total das vendas no período, excluindo pedidos Cancelados, Pendentes e Bloqueados por Crédito. Variação calculada sobre o período homólogo anterior.">?</span>
+            </div>
+            <div class="visao-metric-row">
+                <span class="visao-metric-large" id="gestao-faturamento">R$ 0,00</span>
+                <span class="visao-metric-delta delta-neutral" id="gestao-variacao-fat">-</span>
+            </div>
+            <div class="visao-card-subdetails">
+                <div class="visao-card-subitem">
+                    <span>Pedidos Faturados:</span>
+                    <strong id="gestao-pedidos-count">0</strong>
+                </div>
+                <div class="visao-card-subitem">
+                    <span>Ticket Médio:</span>
+                    <strong id="gestao-ticket-medio">R$ 0,00</strong>
+                </div>
+                <div class="visao-card-subitem">
+                    <span>À vista × A prazo:</span>
+                    <strong id="gestao-vista-prazo">- / -</strong>
+                </div>
+                <div id="gestao-box-bloqueados" class="visao-alerta-bloqueados" style="display: none;">
+                    ⚠️ <strong id="gestao-bloqueados-qtd">0</strong> pedidos bloqueados (<span id="gestao-bloqueados-val">R$ 0,00</span>)
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Patrimônio & Parque de Cilindros -->
+        <div class="visao-card">
+            <div class="visao-card-header">
+                <span class="visao-card-title">Patrimônio de Cascos</span>
+                <span class="visao-card-tooltip-icon" title="Fórmula: Valoração prioritária pela Tabela de Indenização de Cilindros vigente (por modelo e gás) e fallback para valor de aquisição. Cascos sem cadastro não somam zero silenciosamente.">?</span>
+            </div>
+            <div class="visao-metric-row">
+                <span class="visao-metric-large" id="gestao-valor-parque">R$ 0,00</span>
+            </div>
+            <div class="visao-card-subdetails">
+                <div class="visao-card-subitem">
+                    <span>Base de Avaliação:</span>
+                    <strong id="gestao-cascos-cobertura">0 de 0 cascos</strong>
+                </div>
+                <div class="visao-card-subitem">
+                    <span>Em Posse de Clientes:</span>
+                    <strong id="gestao-cascos-clientes">0</strong>
+                </div>
+                <div class="visao-card-subitem">
+                    <span>Risco > 90d / > 180d:</span>
+                    <strong id="gestao-risco-reais">R$ 0 / R$ 0</strong>
+                </div>
+                <div class="visao-card-subitem">
+                    <span>Estadia Acumulada:</span>
+                    <strong id="gestao-estadia-faturar">R$ 0,00</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Giro do Casco & Nível de Serviço -->
+        <div class="visao-card">
+            <div class="visao-card-header">
+                <span class="visao-card-title">Giro & Nível de Serviço</span>
+                <span class="visao-card-tooltip-icon" title="Fórmula Giro: Média em dias de ciclos fechados nos últimos 90 dias (entrega e recolha), desconsiderando estornos. Nível de Serviço: % de entregas concluídas dentro do prazo_entrega prometido.">?</span>
+            </div>
+            <div class="visao-metric-row">
+                <span class="visao-metric-large" id="gestao-giro-medio">0,0 dias</span>
+            </div>
+            <div class="visao-card-subdetails">
+                <div class="visao-card-subitem">
+                    <span>Nível de Serviço (OTIF):</span>
+                    <strong id="gestao-otif-pct">100%</strong>
+                </div>
+                <div class="visao-card-subitem">
+                    <span>Entregas Avaliadas:</span>
+                    <strong id="gestao-otif-base">0 entregas</strong>
+                </div>
+                <div class="visao-card-subitem" style="flex-direction: column; align-items: flex-start; margin-top: 4px;">
+                    <span style="margin-bottom: 2px;">Giro médio por Gás:</span>
+                    <div class="visao-gas-pills" id="gestao-giro-gases">
+                        <span class="visao-gas-pill">Sem dados</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Conformidade Normativa (INMETRO) -->
+        <div class="visao-card">
+            <div class="visao-card-header">
+                <span class="visao-card-title">Conformidade Normativa</span>
+                <span class="visao-card-tooltip-icon" title="Fórmula: Cilindros ativos com data_proximo_reteste vencida ou a vencer nos próximos 90 dias calendário.">?</span>
+            </div>
+            <div class="visao-metric-row">
+                <span class="visao-metric-large" id="gestao-retestes-vencidos">0</span>
+                <span class="visao-metric-delta delta-neutral" id="gestao-retestes-90d-badge">0 a vencer em 90d</span>
+            </div>
+            <div class="visao-card-subdetails">
+                <div class="visao-card-subitem">
+                    <span>Retestes Vencidos (Pátio/Campo):</span>
+                    <strong id="gestao-retestes-vencidos-txt">0</strong>
+                </div>
+                <div class="visao-card-subitem" style="flex-direction: column; align-items: flex-start; margin-top: 4px;">
+                    <span style="margin-bottom: 2px;">Vencimentos nos próximos 3 meses:</span>
+                    <div class="visao-gas-pills" id="gestao-retestes-meses">
+                        <span class="visao-gas-pill">Nenhum</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Bloco Financeiro / Dinheiro -->
+        <div class="visao-card" id="card-bloco-financeiro">
+            <div class="visao-card-header">
+                <span class="visao-card-title">Fluxo Financeiro</span>
+                <span class="visao-card-tooltip-icon" title="Fórmula: Títulos financeiros em aberto a receber, vencidos (inadimplência), saldo das contas bancárias/caixa e contas a pagar nos próximos 7 dias.">?</span>
+            </div>
+            
+            <div id="gestao-financeiro-ativo-area">
+                <div class="visao-metric-row">
+                    <span class="visao-metric-large" id="gestao-fin-receber">R$ 0,00</span>
+                </div>
+                <div class="visao-card-subdetails">
+                    <div class="visao-card-subitem">
+                        <span>Vencido (Inadimplência):</span>
+                        <strong id="gestao-fin-inadimplencia" style="color: var(--status-danger-text);">R$ 0,00</strong>
+                    </div>
+                    <div class="visao-card-subitem">
+                        <span>Saldo Caixa / Bancos:</span>
+                        <strong id="gestao-fin-caixa">R$ 0,00</strong>
+                    </div>
+                    <div class="visao-card-subitem">
+                        <span>A Pagar (7 dias):</span>
+                        <strong id="gestao-fin-pagar">R$ 0,00</strong>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Maiores Devedores:</span>
+                        <div id="gestao-top-devedores-list">
+                            <span style="font-size: 0.75rem; color: var(--color-text-muted);">Nenhum débito em aberto</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="gestao-financeiro-inativo-area" class="visao-card-modulo-off" style="display: none;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                    <line x1="2" y1="10" x2="22" y2="10"></line>
+                </svg>
+                <h4>Módulo Financeiro</h4>
+                <p id="gestao-aviso-financeiro-txt">Contas a receber, fluxo de caixa e inadimplência ficam disponíveis com a contratação do módulo financeiro.</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- ======================================================================= -->
+<!-- FILA DE AÇÃO IMEDIATA POR PAPEL (FASE 1 & SPRINT 01B.02)                -->
+<!-- ======================================================================= -->
 {% if fila_acao_imediata %}
 <div class="action-queue-section">
     <div class="action-queue-header">
@@ -205,7 +250,9 @@
 </div>
 {% endif %}
 
-<!-- KPIS MÓDULO ENVASE (IN 129/2022) -->
+<!-- ======================================================================= -->
+<!-- KPIS MÓDULO ENVASE (IN 129/2022)                                        -->
+<!-- ======================================================================= -->
 {% if tem_modulo_envase %}
 {% if tem_modulo_distribuicao %}
 <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 14px 0; color: var(--color-text); display: flex; align-items: center; gap: 8px;">
@@ -225,7 +272,7 @@
         <div class="kpi-radar-info">
             <span class="kpi-label">Lotes Ativos (CQ)</span>
             <h3 class="kpi-value" id="kpi-lotes-ativos">-</h3>
-            <span class="kpi-sub" style="color: #4f46e5;">Em quarentena ou aprovados</span>
+            <span class="kpi-sub">Em quarentena ou aprovados</span>
         </div>
     </div>
 
@@ -239,7 +286,7 @@
         <div class="kpi-radar-info">
             <span class="kpi-label">Volume Envasado (Mês)</span>
             <h3 class="kpi-value" id="kpi-volume-envasado">-</h3>
-            <span class="kpi-sub" style="color: #059669;">Cilindros na rampa no mês</span>
+            <span class="kpi-sub">Cilindros na rampa no mês</span>
         </div>
     </div>
 
@@ -254,7 +301,7 @@
         <div class="kpi-radar-info">
             <span class="kpi-label">Cilindros na Triagem</span>
             <h3 class="kpi-value" id="kpi-vazios-rampa">-</h3>
-            <span class="kpi-sub" style="color: #d97706;">Vazios aguardando inspeção</span>
+            <span class="kpi-sub">Vazios aguardando inspeção</span>
         </div>
     </div>
 
@@ -269,13 +316,15 @@
         <div class="kpi-radar-info">
             <span class="kpi-label">Alertas de Reteste INMETRO</span>
             <h3 class="kpi-value" id="kpi-alertas-reteste-envase">-</h3>
-            <span class="kpi-sub" style="color: #dc2626;">Vencidos ou em até 30 dias</span>
+            <span class="kpi-sub">Vencidos ou em até 30 dias</span>
         </div>
     </div>
 </div>
 {% endif %}
 
-<!-- KPIS MÓDULO DISTRIBUIÇÃO & COMODATO -->
+<!-- ======================================================================= -->
+<!-- KPIS MÓDULO DISTRIBUIÇÃO & COMODATO                                     -->
+<!-- ======================================================================= -->
 {% if tem_modulo_distribuicao %}
 {% if tem_modulo_envase %}
 <h3 style="font-size: 16px; font-weight: 600; margin: 25px 0 14px 0; color: var(--color-text); display: flex; align-items: center; gap: 8px;">
@@ -307,7 +356,7 @@
         <div class="kpi-radar-info">
             <span class="kpi-label">Cilindros Sem Giro > 30d</span>
             <h3 class="kpi-value" id="kpi-sem-giro">-</h3>
-            <span class="kpi-sub" style="color: #d97706;">Retidos além da carência</span>
+            <span class="kpi-sub">Retidos além da carência</span>
         </div>
     </div>
 
@@ -321,7 +370,7 @@
         <div class="kpi-radar-info">
             <span class="kpi-label">Receita de Locação Acumulada</span>
             <h3 class="kpi-value" id="kpi-receita-locacao">-</h3>
-            <span class="kpi-sub" style="color: #059669;">Diárias excedentes faturáveis</span>
+            <span class="kpi-sub">Diárias excedentes faturáveis</span>
         </div>
     </div>
 
@@ -336,20 +385,21 @@
         <div class="kpi-radar-info">
             <span class="kpi-label">Alertas de Reteste INMETRO</span>
             <h3 class="kpi-value" id="kpi-alertas-reteste">-</h3>
-            <span class="kpi-sub" style="color: #dc2626;">Vencidos ou em até 30 dias</span>
+            <span class="kpi-sub">Vencidos ou em até 30 dias</span>
         </div>
     </div>
 </div>
 {% endif %}
 
-<!-- GRÁFICOS E TABELAS ADAPTATIVOS -->
+<!-- ======================================================================= -->
+<!-- GRÁFICOS E TABELAS ADAPTATIVOS                                          -->
+<!-- ======================================================================= -->
 {% if tem_modulo_distribuicao %}
-<!-- GRÁFICOS: APEXCHARTS DONUT & FAIXAS DE RETENÇÃO -->
 <div class="radar-charts-grid">
     <div class="radar-card-box">
         <h3>
             <span>Distribuição da Frota por Status</span>
-            <small style="font-size: 12px; color: #64748b;">Tempo Real</small>
+            <small style="font-size: 12px; color: var(--color-text-muted);">Tempo Real</small>
         </h3>
         <div id="frotaStatusDonutChart" style="min-height: 290px;"></div>
     </div>
@@ -357,7 +407,7 @@
     <div class="radar-card-box">
         <h3>
             <span>Radar de Permanência em Clientes</span>
-            <span id="badge-risco-total" style="font-size: 12px; background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 6px;">
+            <span id="badge-risco-total" class="badge-status badge-critico">
                 Risco Cascos: R$ 0
             </span>
         </h3>
@@ -368,7 +418,7 @@
                     <strong id="faixa-0-29-count">0 cilindros</strong>
                 </div>
                 <div class="faixa-progress-bg">
-                    <div id="faixa-0-29-bar" class="faixa-progress-fill" style="width: 0%; background: #10b981;"></div>
+                    <div id="faixa-0-29-bar" class="faixa-progress-fill fill-green" style="width: 0%;"></div>
                 </div>
             </div>
 
@@ -378,7 +428,7 @@
                     <strong id="faixa-30-59-count">0 cilindros</strong>
                 </div>
                 <div class="faixa-progress-bg">
-                    <div id="faixa-30-59-bar" class="faixa-progress-fill" style="width: 0%; background: #f59e0b;"></div>
+                    <div id="faixa-30-59-bar" class="faixa-progress-fill fill-amber" style="width: 0%;"></div>
                 </div>
             </div>
 
@@ -388,7 +438,7 @@
                     <strong id="faixa-60-89-count">0 cilindros</strong>
                 </div>
                 <div class="faixa-progress-bg">
-                    <div id="faixa-60-89-bar" class="faixa-progress-fill" style="width: 0%; background: #f97316;"></div>
+                    <div id="faixa-60-89-bar" class="faixa-progress-fill fill-orange" style="width: 0%;"></div>
                 </div>
             </div>
 
@@ -398,7 +448,7 @@
                     <strong id="faixa-90-count">0 cilindros</strong>
                 </div>
                 <div class="faixa-progress-bg">
-                    <div id="faixa-90-bar" class="faixa-progress-fill" style="width: 0%; background: #ef4444;"></div>
+                    <div id="faixa-90-bar" class="faixa-progress-fill fill-red" style="width: 0%;"></div>
                 </div>
             </div>
         </div>
@@ -410,7 +460,7 @@
     <h3>
         <span>Radar de Cilindros Retidos em Clientes</span>
         <input type="text" id="filtro-radar" placeholder="Buscar por Cliente, QR ou Gás..." 
-               style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: normal; width: 260px;">
+               style="padding: 6px 12px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px; font-weight: normal; width: 260px;">
     </h3>
     
     <div class="radar-table-container">
@@ -428,7 +478,7 @@
             </thead>
             <tbody id="radar-tbody">
                 <tr>
-                    <td colspan="7" style="text-align: center; color: #94a3b8; padding: 30px;">Carregando dados do radar...</td>
+                    <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 30px;">Carregando dados do radar...</td>
                 </tr>
             </tbody>
         </table>
@@ -440,7 +490,7 @@
     <div class="radar-card-box">
         <h3>
             <span>Distribuição dos Ativos no Pátio</span>
-            <small style="font-size: 12px; color: #64748b;">Tempo Real</small>
+            <small style="font-size: 12px; color: var(--color-text-muted);">Tempo Real</small>
         </h3>
         <div id="frotaStatusDonutChart" style="min-height: 290px;"></div>
     </div>
@@ -448,19 +498,17 @@
     <div class="radar-card-box">
         <h3>
             <span>Acesso Rápido à Estação de Envase</span>
-            <span style="font-size: 12px; background: rgba(14, 165, 233, 0.15); color: #0284c7; padding: 3px 8px; border-radius: 6px; font-weight: 600;">
-                IN 129/2022
-            </span>
+            <span class="badge-status badge-normal">IN 129/2022</span>
         </h3>
         <div style="padding-top: 10px; display: flex; flex-direction: column; gap: 14px;">
             <p style="margin: 0; font-size: 13px; color: var(--color-text-muted);">
                 Acesse diretamente a rampa para acoplamento contínuo com leitor óptico, validação de segurança e checklist pré-envase.
             </p>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <a href="{% url 'produtos:index' %}?aba=rampa" class="action-queue-btn" style="background: var(--color-primary); color: #fff;">
+                <a href="{% url 'produtos:index' %}?aba=rampa" class="action-queue-btn">
                     Abrir Rampa em Batelada &rarr;
                 </a>
-                <a href="{% url 'produtos:index' %}?aba=lotes" class="action-queue-btn" style="background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);">
+                <a href="{% url 'produtos:index' %}?aba=lotes" class="action-queue-btn">
                     Central de Lotes & Qualidade CQ
                 </a>
             </div>
@@ -495,7 +543,7 @@
             </thead>
             <tbody id="lotes-envase-tbody">
                 <tr>
-                    <td colspan="7" style="text-align: center; color: #94a3b8; padding: 25px;">Carregando lotes químicos...</td>
+                    <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Carregando lotes químicos...</td>
                 </tr>
             </tbody>
         </table>
@@ -524,10 +572,221 @@ document.addEventListener('DOMContentLoaded', () => {
     let donutChart = null;
     let todosItensRadar = [];
 
+    // =========================================================================
+    // VISÃO DE GESTÃO (ADMIN & GERENTE)
+    // =========================================================================
+    let periodoGestaoAtivo = 'mes_atual';
+
+    async function carregarVisaoGestao(periodo) {
+        const container = document.getElementById('secao-visao-gestao');
+        if (!container) return;
+
+        try {
+            const res = await fetch(`/inicio/api/gestao/?periodo=${encodeURIComponent(periodo)}`, {
+                headers: getAuthHeaders()
+            });
+            if (!res.ok) {
+                console.warn("Visão de gestão indisponível ou permissão negada.");
+                return;
+            }
+            const data = await res.json();
+
+            // 1. Vendas & Faturamento
+            const v = data.vendas || {};
+            const elFat = document.getElementById('gestao-faturamento');
+            if (elFat) elFat.textContent = formatCurrency(v.faturamento_periodo);
+
+            const elDelta = document.getElementById('gestao-variacao-fat');
+            if (elDelta) {
+                if (v.variacao_faturamento_pct !== null && v.variacao_faturamento_pct !== undefined) {
+                    const sinal = v.variacao_faturamento_pct > 0 ? '+' : '';
+                    elDelta.textContent = `${sinal}${v.variacao_faturamento_pct}%`;
+                    elDelta.className = 'visao-metric-delta ' + (v.variacao_faturamento_pct >= 0 ? 'delta-up' : 'delta-down');
+                } else {
+                    elDelta.textContent = 'Sem base ant.';
+                    elDelta.className = 'visao-metric-delta delta-neutral';
+                }
+            }
+
+            const elPed = document.getElementById('gestao-pedidos-count');
+            if (elPed) elPed.textContent = v.total_pedidos_faturados || 0;
+
+            const elTicket = document.getElementById('gestao-ticket-medio');
+            if (elTicket) elTicket.textContent = formatCurrency(v.ticket_medio);
+
+            const elVistaPrazo = document.getElementById('gestao-vista-prazo');
+            if (elVistaPrazo) {
+                elVistaPrazo.textContent = `${formatCurrency(v.vendas_a_vista)} / ${formatCurrency(v.vendas_a_prazo)}`;
+            }
+
+            const boxBloq = document.getElementById('gestao-box-bloqueados');
+            const bloq = v.pedidos_bloqueados_credito || {};
+            if (boxBloq) {
+                if (bloq.quantidade > 0) {
+                    boxBloq.style.display = 'block';
+                    document.getElementById('gestao-bloqueados-qtd').textContent = bloq.quantidade;
+                    document.getElementById('gestao-bloqueados-val').textContent = formatCurrency(bloq.valor_total);
+                } else {
+                    boxBloq.style.display = 'none';
+                }
+            }
+
+            // 2. Patrimônio
+            const p = data.patrimonio || {};
+            const elValParque = document.getElementById('gestao-valor-parque');
+            if (elValParque) elValParque.textContent = formatCurrency(p.valor_parque_total);
+
+            const elCob = document.getElementById('gestao-cascos-cobertura');
+            if (elCob) {
+                let cobText = `${p.cascos_avaliados || 0} de ${p.total_cascos || 0} cascos`;
+                if (p.cascos_sem_valor > 0) {
+                    cobText += ` (${p.cascos_sem_valor} sem valor)`;
+                }
+                elCob.textContent = cobText;
+            }
+
+            const elCli = document.getElementById('gestao-cascos-clientes');
+            if (elCli) elCli.textContent = p.cascos_em_clientes || 0;
+
+            const elRisco = document.getElementById('gestao-risco-reais');
+            if (elRisco) {
+                elRisco.textContent = `${formatCurrency(p.risco_reais_90d)} / ${formatCurrency(p.risco_reais_180d)}`;
+            }
+
+            const elEstadia = document.getElementById('gestao-estadia-faturar');
+            if (elEstadia) elEstadia.textContent = formatCurrency(p.estadia_a_faturar);
+
+            // 3. Giro do Casco & Nível de Serviço
+            const g = data.giro_casco || {};
+            const elGiro = document.getElementById('gestao-giro-medio');
+            if (elGiro) elGiro.textContent = `${(g.giro_medio_dias || 0).toFixed(1)} dias`;
+
+            const ns = data.nivel_servico || {};
+            const elOtif = document.getElementById('gestao-otif-pct');
+            if (elOtif) elOtif.textContent = `${(ns.percentual_no_prazo || 100).toFixed(1)}%`;
+
+            const elOtifBase = document.getElementById('gestao-otif-base');
+            if (elOtifBase) {
+                elOtifBase.textContent = `${ns.entregas_no_prazo || 0} de ${ns.total_entregas_avaliadas || 0} entregas`;
+            }
+
+            const containerGases = document.getElementById('gestao-giro-gases');
+            if (containerGases) {
+                const porGas = g.giro_por_gas || {};
+                const keys = Object.keys(porGas);
+                if (keys.length > 0) {
+                    containerGases.innerHTML = keys.map(k => `
+                        <span class="visao-gas-pill"><strong>${k}:</strong> ${porGas[k]}d</span>
+                    `).join('');
+                } else {
+                    containerGases.innerHTML = '<span class="visao-gas-pill">Sem ciclos recentes</span>';
+                }
+            }
+
+            // 4. Conformidade Normativa
+            const conf = data.conformidade || {};
+            const elRetVenc = document.getElementById('gestao-retestes-vencidos');
+            if (elRetVenc) elRetVenc.textContent = conf.retestes_vencidos || 0;
+
+            const elRet90dBadge = document.getElementById('gestao-retestes-90d-badge');
+            if (elRet90dBadge) {
+                elRet90dBadge.textContent = `${conf.retestes_90_dias || 0} a vencer em 90d`;
+            }
+
+            const elRetVencTxt = document.getElementById('gestao-retestes-vencidos-txt');
+            if (elRetVencTxt) elRetVencTxt.textContent = conf.retestes_vencidos || 0;
+
+            const containerMeses = document.getElementById('gestao-retestes-meses');
+            if (containerMeses) {
+                const meses = conf.retestes_por_mes || [];
+                if (meses.length > 0) {
+                    containerMeses.innerHTML = meses.map(m => `
+                        <span class="visao-gas-pill"><strong>${m.mes}:</strong> ${m.quantidade}</span>
+                    `).join('');
+                } else {
+                    containerMeses.innerHTML = '<span class="visao-gas-pill">Nenhum reteste a vencer</span>';
+                }
+            }
+
+            // 5. Bloco Financeiro
+            const finAreaAtiva = document.getElementById('gestao-financeiro-ativo-area');
+            const finAreaInativa = document.getElementById('gestao-financeiro-inativo-area');
+            const fin = data.financeiro;
+
+            if (fin) {
+                if (finAreaAtiva) finAreaAtiva.style.display = 'block';
+                if (finAreaInativa) finAreaInativa.style.display = 'none';
+
+                const aReceber = fin.a_receber || {};
+                const elRec = document.getElementById('gestao-fin-receber');
+                if (elRec) elRec.textContent = formatCurrency(aReceber.total_em_aberto);
+
+                const elInad = document.getElementById('gestao-fin-inadimplencia');
+                if (elInad) elInad.textContent = formatCurrency(aReceber.vencido_inadimplencia);
+
+                const caixa = fin.caixa || {};
+                const elCaixa = document.getElementById('gestao-fin-caixa');
+                if (elCaixa) elCaixa.textContent = formatCurrency(caixa.saldo_total_disponivel);
+
+                const aPagar = fin.a_pagar || {};
+                const elPagar = document.getElementById('gestao-fin-pagar');
+                if (elPagar) elPagar.textContent = formatCurrency(aPagar.proximos_7_dias);
+
+                const elDevList = document.getElementById('gestao-top-devedores-list');
+                if (elDevList) {
+                    const devedores = fin.top_devedores || [];
+                    if (devedores.length > 0) {
+                        elDevList.innerHTML = devedores.map(d => `
+                            <div class="visao-devedor-item">
+                                <span>
+                                    ${d.cliente_nome}
+                                    ${d.tem_casco_retido_90d ? '<span class="tag-retencao-90d" title="Cliente com cascos retidos há mais de 90 dias">Casco >90d</span>' : ''}
+                                </span>
+                                <strong>${formatCurrency(d.total_devido)}</strong>
+                            </div>
+                        `).join('');
+                    } else {
+                        elDevList.innerHTML = '<span style="font-size: 0.75rem; color: var(--color-text-muted);">Nenhum débito em aberto</span>';
+                    }
+                }
+            } else {
+                if (finAreaAtiva) finAreaAtiva.style.display = 'none';
+                if (finAreaInativa) {
+                    finAreaInativa.style.display = 'flex';
+                    if (data.aviso_modulo_financeiro) {
+                        const elAviso = document.getElementById('gestao-aviso-financeiro-txt');
+                        if (elAviso) elAviso.textContent = data.aviso_modulo_financeiro;
+                    }
+                }
+            }
+
+        } catch (err) {
+            console.error("Erro ao carregar visão de gestão:", err);
+        }
+    }
+
+    // Seletor de Período da Visão de Gestão
+    const botoesPeriodo = document.querySelectorAll('.visao-periodo-btn');
+    botoesPeriodo.forEach(btn => {
+        btn.addEventListener('click', () => {
+            botoesPeriodo.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            periodoGestaoAtivo = btn.dataset.periodo;
+            carregarVisaoGestao(periodoGestaoAtivo);
+        });
+    });
+
+    if (document.getElementById('secao-visao-gestao')) {
+        carregarVisaoGestao(periodoGestaoAtivo);
+    }
+
+    // =========================================================================
+    // DASHBOARD OPERACIONAL & RADAR METAMÓRFICO
+    // =========================================================================
     async function carregarDashboardMetamorfico() {
         try {
             const res = await fetch('/inicio/api/stats/', { headers: getAuthHeaders() });
-            if (!res.ok) throw new Error("Erro ao carregar métricas");
+            if (!res.ok) throw new Error("Erro ao carregar métricas operacionais");
             const data = await res.json();
 
             // 1. Atualiza KPIs Universais
@@ -551,7 +810,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const elVazios = document.getElementById('kpi-vazios-rampa');
                 if (elVazios) elVazios.textContent = data.cilindros_vazios_triagem || 0;
 
-                // Tabela de Lotes Recentes (variante limpa)
                 renderTabelaLotesRecentes(data.lotes_recentes || []);
             }
 
@@ -566,7 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const elBadgeRisco = document.getElementById('badge-risco-total');
                 if (elBadgeRisco) elBadgeRisco.textContent = "Risco Cascos: " + formatCurrency(data.risco_patrimonial_total);
 
-                // Atualiza Barras de Faixas de Retenção
+                // Barras de Faixas de Retenção
                 const faixas = data.radar_faixas || {};
                 const totalEmPosse = (faixas.dias_0_a_29 || 0) + (faixas.dias_30_a_59 || 0) + (faixas.dias_60_a_89 || 0) + (faixas.dias_90_mais || 0);
 
@@ -588,12 +846,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('faixa-90-bar').style.width = calcPerc(faixas.dias_90_mais) + '%';
                 }
 
-                // DataTable Radar
                 todosItensRadar = data.radar_itens || [];
                 renderTabelaRadar(todosItensRadar);
             }
 
-            // 4. Donut Chart ApexCharts (adaptativo para ambos os modos)
+            // 4. Donut Chart ApexCharts
             const donutContainer = document.querySelector("#frotaStatusDonutChart");
             if (donutContainer) {
                 renderDonutChart(data.donut_labels, data.donut_series);
@@ -613,9 +870,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 height: 290
             },
             colors: ['#10b981', '#f59e0b', '#3b82f6', '#94a3b8', '#ef4444'],
-            legend: {
-                position: 'bottom'
-            },
+            legend: { position: 'bottom' },
             plotOptions: {
                 pie: {
                     donut: {
@@ -647,7 +902,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.getElementById('radar-tbody');
         if (!tbody) return;
         if (!itens || itens.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 25px;">Nenhum cilindro retido em cliente no momento.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Nenhum cilindro retido em cliente no momento.</td></tr>';
             return;
         }
 
@@ -660,20 +915,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr>
                     <td>
                         <strong>${item.numero_serie}</strong><br>
-                        <small style="color: #64748b;">${item.codigo_qr}</small>
+                        <small style="color: var(--color-text-muted);">${item.codigo_qr}</small>
                     </td>
                     <td><span style="font-weight: 500;">${item.gas}</span> (${item.gas_sigla})</td>
                     <td>
                         <strong>${item.cliente_nome}</strong><br>
-                        <small style="color: #94a3b8;">${item.cliente_cnpj}</small>
+                        <small style="color: var(--color-text-muted);">${item.cliente_cnpj}</small>
                     </td>
                     <td>${item.data_entrega}</td>
                     <td>
                         <strong>${item.dias_parado} dias</strong>
-                        ${item.dias_excedentes > 0 ? `<br><small style="color: #d97706;">+${item.dias_excedentes}d excedentes</small>` : ''}
+                        ${item.dias_excedentes > 0 ? `<br><small style="color: var(--status-warning-text);">+${item.dias_excedentes}d excedentes</small>` : ''}
                     </td>
                     <td>
-                        <strong style="color: #059669;">${formatCurrency(item.valor_acumulado)}</strong>
+                        <strong style="color: var(--status-approved-text);">${formatCurrency(item.valor_acumulado)}</strong>
                     </td>
                     <td><span class="badge-status ${badgeClass}">${item.status_risco}</span></td>
                 </tr>
@@ -685,7 +940,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.getElementById('lotes-envase-tbody');
         if (!tbody) return;
         if (!lotes || lotes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 25px;">Nenhum lote químico registrado recentemente.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 25px;">Nenhum lote químico registrado recentemente.</td></tr>';
             return;
         }
 
