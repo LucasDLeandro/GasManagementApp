@@ -26,3 +26,4 @@ Arquivo curto e atualizado a cada sprint (pelo agente, no fim da sprint, e pelo 
 | 01B.02 Home de gestão | concluída | `sprint-01b.02/home-gestao` | `docs/sprints/relatorios/SPRINT_01B_02.md` |
 | 02 Produtos, telas de Patrimônio | concluída | `sprint-02/produtos-patrimonio` | `docs/sprints/relatorios/SPRINT_02.md` |
 | 03 Retestes e baixa patrimonial | concluída | `sprint-03/produtos-retestes-baixa` | `docs/sprints/relatorios/SPRINT_03.md` |
+| H01 Hotfix tela inicial | concluída | `hotfix-h01/tela-inicial` | `docs/sprints/relatorios/SPRINT_H01.md` |
