@@ -54,6 +54,9 @@ Leia este arquivo inteiro antes de começar qualquer sprint. Leia também `CLAUD
 8. Template com mais de ~800 linhas deve ser dividido em parciais (`templates/<app>/<tela>/_parte.html`) ou em páginas separadas.
 9. Ao alterar um arquivo estático, atualize o `?v=AAAAMMDD_xx` dele no template que o carrega (cache do navegador).
 10. Toda tela precisa funcionar nos temas **claro, escuro e alto contraste solar** e com **375px** de largura.
+11. **Blocos do layout:** página que estende `base_dashboard.html` coloca o conteúdo em `{% block dashboard_content %}` (nunca em `{% block content %}`, que é o layout inteiro, com menu e `core.js`) e todo `<script>` em `{% block extra_js %}`, que carrega depois do `core.js`. Dentro do script, chame funções de inicialização só depois de declarar as constantes que elas usam.
+12. **Console sem erros:** toda tela alterada é aberta no navegador, com o console do desenvolvedor aberto, antes do último commit. O relatório registra "console sem erros" por tela, ou os erros encontrados e como foram corrigidos. Os testes do pytest não executam JavaScript: esta verificação é obrigatória.
+13. **Altere só o necessário:** não reformate arquivos inteiros (desligue a formatação automática ao salvar). Mudanças grandes de formatação escondem erros na revisão, e uma ferramenta de edição já corrompeu um arquivo inteiro de JavaScript neste projeto (commit `5f6e56c`).
 
 ## 5. Testes
 - Rode a suíte completa **no início** (anote o resultado de partida no relatório) e antes do último commit: `venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`. **Ela precisa terminar verde.** Leva cerca de 5 minutos.
@@ -106,6 +109,7 @@ Uma sprint só está pronta quando **todos** estes itens passam. Rode-os no fim 
    - `grep -c 'style="' <arquivo>` → 0 (exceto largura dinâmica de barra de progresso, justificada no relatório);
    - `grep -nE '(^|[^.[:alnum:]_])(alert|confirm|prompt)\(' <arquivo>` → nada;
    - `grep -n 'innerHTML' <arquivo>` → só atribuições de texto fixo ou `''` (nenhuma com dado da API).
-5. Todos os itens **Testes** e **Critérios de aceite** da sprint marcados no relatório, incluindo a verificação no navegador descrita (papel usado, o que clicou, o que viu, temas e 375px).
+5. Todos os itens **Testes** e **Critérios de aceite** da sprint marcados no relatório, incluindo a verificação no navegador descrita (papel usado, o que clicou, o que viu, temas, 375px e **console sem erros** em cada tela alterada; seção 4.12).
+5a. `tests/test_integridade_js.py` (criado na Sprint H01) verde, com o node disponível. Se o node não estiver instalado, instale-o ou registre no relatório que a checagem foi pulada.
 6. `git status` limpo: só os commits da sprint, nada de `db.sqlite3`, `.env`, `media/`, cópias de banco ou arquivos temporários.
 7. Relatório completo (seção 7), com as **Notas de deploy**.

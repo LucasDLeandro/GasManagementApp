@@ -10,6 +10,9 @@ Cada arquivo `Sxx_*.md` é uma mensagem pronta: **abra o arquivo, copie o conte�
 | 01.01 | `S01_01_ativos_drawer.md` | Ativos 360°: filtros pela URL (atalhos da home), contadores, drawer sem XSS | 01.00 |
 | 01.02 | `S01_02_etiquetas.md` | Etiquetas: só a página real do servidor, QR legível, CSS de impressão | 01.01 |
 | 01B | `S01B_paineis_monitor_e_gestao.md` | Histórico de status, **monitor operacional para TV** (link sem login), home com visão de gestão (com e sem módulo financeiro). **Dividir em sub-sprints antes de começar** | 01.02 |
+| H01 | `H01_hotfix_tela_inicial.md` | **Urgente.** Tela inicial com JavaScript corrompido (visão do negócio, botões de período e cartões sem dados) e verificação automática de JavaScript | `fase-2/produtos` |
+| U01 | `U01_interface_layout_abas_rolagem.md` | Rolagem horizontal da página, largura única das telas, um só componente de abas, barras de rolagem e textos internos de desenvolvimento | H01 |
+| U02 | `U02_financeiro_primeiros_passos.md` | Financeiro: plano de contas padrão ao ligar o módulo, primeiros passos e textos | U01 |
 | 02 | `S02_produtos_patrimonio.md` | Patrimônio: ativos, lotes de aquisição, classes, fabricantes, indenização | 01 |
 | 03 | `S03_produtos_retestes_e_baixa.md` | Retestes em lote (envio e retorno com expansão) e baixa patrimonial | 02 |
 | 04 | `S04_produtos_granel_tanques_estoque_custos.md` | Tanques, granel, estoque de gás e de produto, custo de envase, **nível do tanque em tempo real, autonomia e saída a granel** | 03 |
