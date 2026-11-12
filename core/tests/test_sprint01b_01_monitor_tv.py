@@ -943,3 +943,149 @@ class MonitorTVTests(TestCase):
         resp_revogado = client.get(f'/painel/{token}/dados/')
         self.assertEqual(resp_revogado.status_code, 404)
         self.assertNotIn('forged', resp_revogado.json())
+
+    # --------------------------------------------------------------------------
+    # 16. PÁTIO DO MONITOR CONTA SÓ CHEIOS APTOS (FIX PRELIMINAR 01B.02)
+    # --------------------------------------------------------------------------
+
+    def test_16_monitor_patio_conta_so_cheios_aptos(self):
+        """
+        'Cheios disponíveis' no monitor deve excluir:
+        - Cilindros com bloqueio_sanitario=True
+        - Cilindros com envase_atual em lote cujo status_qualidade NÃO seja APROVADO (ex: QUARENTENA ou REPROVADO)
+        """
+        from core.models import PainelMonitor
+        from core.services.painel_monitor import gerar_token_painel
+        from produtos.models import LoteEnvase, EnvaseCilindro
+
+        token = gerar_token_painel()
+        with tenant_context(self.tenant_a):
+            PainelMonitor.objects.create(
+                tenant=self.tenant_a,
+                nome="TV Cheios Aptos",
+                token=token,
+                ativo=True
+            )
+
+            # Lote aprovado
+            lote_aprovado = LoteEnvase.objects.create(
+                tenant=self.tenant_a,
+                gas=self.gas_o2,
+                codigo_lote=f'LOT-OK-{uuid.uuid4().hex[:6].upper()}',
+                status_qualidade='APROVADO',
+                data_envase=self.hoje,
+                data_validade=self.hoje + datetime.timedelta(days=365),
+                pureza_percentual=Decimal('99.8'),
+                responsavel_tecnico='Dra. RT',
+                massa_gas_total_kg=Decimal('200.0')
+            )
+
+            # Lote em quarentena
+            lote_quarentena = LoteEnvase.objects.create(
+                tenant=self.tenant_a,
+                gas=self.gas_o2,
+                codigo_lote=f'LOT-QUAR-{uuid.uuid4().hex[:6].upper()}',
+                status_qualidade='QUARENTENA',
+                data_envase=self.hoje,
+                data_validade=self.hoje + datetime.timedelta(days=365),
+                pureza_percentual=Decimal('99.1'),
+                responsavel_tecnico='Dra. RT',
+                massa_gas_total_kg=Decimal('200.0')
+            )
+
+            # 1. Apto com lote aprovado
+            cil_apto = Cilindro.objects.create(
+                tenant=self.tenant_a,
+                codigo_qr=f'QR-APTO-{uuid.uuid4().hex[:6]}',
+                numero_serie_ogiva='SN-APTO-01',
+                fabricante='Cilbras',
+                ano_fabricacao=2021,
+                modelo=self.modelo_10m3,
+                gas_dedicado=self.gas_o2,
+                propriedade='PROPRIO',
+                data_ultimo_reteste=self.hoje - datetime.timedelta(days=100),
+                data_proximo_reteste=self.hoje + datetime.timedelta(days=365),
+                status='CHEIO_DISPONIVEL',
+                bloqueio_sanitario=False
+            )
+            env_apto = EnvaseCilindro.objects.create(
+                tenant=self.tenant_a,
+                cilindro=cil_apto,
+                lote=lote_aprovado,
+                pressao_final_bar=200,
+                envasado_em=timezone.now(),
+                operador=self.user_admin
+            )
+            cil_apto.envase_atual = env_apto
+            cil_apto.save(update_fields=['envase_atual'])
+
+            # 2. Apto sem envase_atual (comprado cheio de terceiro / distribuidora)
+            Cilindro.objects.create(
+                tenant=self.tenant_a,
+                codigo_qr=f'QR-TERC-{uuid.uuid4().hex[:6]}',
+                numero_serie_ogiva='SN-TERC-01',
+                fabricante='Cilbras',
+                ano_fabricacao=2021,
+                modelo=self.modelo_10m3,
+                gas_dedicado=self.gas_o2,
+                propriedade='PROPRIO',
+                data_ultimo_reteste=self.hoje - datetime.timedelta(days=100),
+                data_proximo_reteste=self.hoje + datetime.timedelta(days=365),
+                status='CHEIO_DISPONIVEL',
+                bloqueio_sanitario=False
+            )
+
+            # 3. Inapto: bloqueio sanitário ativo
+            Cilindro.objects.create(
+                tenant=self.tenant_a,
+                codigo_qr=f'QR-BLOQ-{uuid.uuid4().hex[:6]}',
+                numero_serie_ogiva='SN-BLOQ-01',
+                fabricante='Cilbras',
+                ano_fabricacao=2021,
+                modelo=self.modelo_10m3,
+                gas_dedicado=self.gas_o2,
+                propriedade='PROPRIO',
+                data_ultimo_reteste=self.hoje - datetime.timedelta(days=100),
+                data_proximo_reteste=self.hoje + datetime.timedelta(days=365),
+                status='CHEIO_DISPONIVEL',
+                bloqueio_sanitario=True
+            )
+
+            # 4. Inapto: lote de envase atual em QUARENTENA
+            cil_quar = Cilindro.objects.create(
+                tenant=self.tenant_a,
+                codigo_qr=f'QR-QUAR-{uuid.uuid4().hex[:6]}',
+                numero_serie_ogiva='SN-QUAR-01',
+                fabricante='Cilbras',
+                ano_fabricacao=2021,
+                modelo=self.modelo_10m3,
+                gas_dedicado=self.gas_o2,
+                propriedade='PROPRIO',
+                data_ultimo_reteste=self.hoje - datetime.timedelta(days=100),
+                data_proximo_reteste=self.hoje + datetime.timedelta(days=365),
+                status='CHEIO_DISPONIVEL',
+                bloqueio_sanitario=False
+            )
+            env_quar = EnvaseCilindro.objects.create(
+                tenant=self.tenant_a,
+                cilindro=cil_quar,
+                lote=lote_quarentena,
+                pressao_final_bar=200,
+                envasado_em=timezone.now(),
+                operador=self.user_admin
+            )
+            cil_quar.envase_atual = env_quar
+            cil_quar.save(update_fields=['envase_atual'])
+
+        client = APIClient()
+        resp = client.get(f'/painel/{token}/dados/')
+        self.assertEqual(resp.status_code, 200)
+        dados = resp.json()
+
+        # Deve contabilizar EXATAMENTE os 2 cilindros aptos (1 com lote aprovado + 1 sem envase interno)
+        self.assertEqual(dados['patio_demanda']['cheios_disponiveis'], 2)
+
+        gases = dados['patio_demanda']['gases']
+        mapa_gases = {g['gas']: g for g in gases}
+        self.assertIn('O2-MED', mapa_gases)
+        self.assertEqual(mapa_gases['O2-MED']['cheios_disponiveis'], 2)
