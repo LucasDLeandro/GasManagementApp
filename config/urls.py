@@ -38,12 +38,17 @@ from produtos.views import (
     PassaporteLaudoPublicoView,
 )
 from logistica.views import AppCampoView, TrackingPublicoView
+from core.views_painel import PainelMonitorView, PainelMonitorDadosAPIView
 
 api_router = DefaultRouter()
 api_router.register(r'webhooks', WebhookEndpointViewSet, basename='webhook-endpoint')
 api_router.register(r'webhook-logs', WebhookDeliveryLogViewSet, basename='webhook-log')
 
 urlpatterns = [
+    # Monitor Operacional de TV (Sprint 01B.01)
+    path('painel/<str:token>/', PainelMonitorView.as_view(), name='painel_monitor'),
+    path('painel/<str:token>/dados/', PainelMonitorDadosAPIView.as_view(), name='painel_monitor_dados'),
+
     # Rastreio Público da Entrega em Tempo Real (Sprint 8)
     path('rastreio/<uuid:token>/', TrackingPublicoView.as_view(), name='rastreio_publico'),
 

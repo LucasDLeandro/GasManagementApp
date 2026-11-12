@@ -1,4 +1,5 @@
 import uuid
+import secrets
 from decimal import Decimal
 from django.db import models
 from django.conf import settings
@@ -52,6 +53,13 @@ class Tenant(models.Model):
         decimal_places=2,
         default=Decimal('0.00'),
         verbose_name="Valor da Mensalidade SaaS"
+    )
+
+    modulos_ativos = models.JSONField(
+        default=list,
+        blank=True,
+        null=True,
+        verbose_name="Lista Customizada de Módulos Ativos"
     )
 
     # 9 Flags Granulares de Módulos (Sprint 7B)
@@ -874,5 +882,52 @@ class SolicitacaoTitularLGPD(TenantAwareModel):
 
     def __str__(self):
         return f"Protocolo LGPD #{self.protocolo} - {self.identificador_titular} [{self.get_status_display()}]"
+
+
+def default_token_painel():
+    return secrets.token_urlsafe(32)
+
+
+class PainelMonitor(TenantAwareModel):
+    nome = models.CharField(max_length=100, verbose_name="Nome do Painel")
+    filial = models.ForeignKey(
+        'core.Filial',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paineis_monitor',
+        verbose_name="Filial"
+    )
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+        default=default_token_painel,
+        verbose_name="Token de Acesso"
+    )
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    mostrar_nomes_clientes = models.BooleanField(default=True, verbose_name="Mostrar Nomes dos Clientes")
+    tempo_alerta_min = models.PositiveIntegerField(default=30, verbose_name="Tempo de Alerta (min)")
+    tempo_critico_min = models.PositiveIntegerField(default=60, verbose_name="Tempo Crítico (min)")
+    secoes = models.JSONField(default=dict, blank=True, verbose_name="Seções Habilitadas")
+    ultimo_acesso_em = models.DateTimeField(null=True, blank=True, verbose_name="Último Acesso")
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paineis_monitor_criados',
+        verbose_name="Criado por"
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+
+    class Meta:
+        verbose_name = "Painel Monitor de TV"
+        verbose_name_plural = "Painéis Monitores de TV"
+        ordering = ['nome']
+
+    def __str__(self):
+        return f"{self.nome} ({'Ativo' if self.ativo else 'Inativo'})"
+
 
 

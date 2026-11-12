@@ -80,14 +80,23 @@ def is_modulo_ativo(tenant: Any, codigo_modulo: str) -> bool:
     """Verifica se um módulo está ativo no tenant."""
     if not tenant:
         return False
-    info = MODULOS_REGISTRO.get(codigo_modulo)
-    if not info:
-        return False
 
     # 1. Se tenant define lista modulos_ativos explicitamente (ex: em testes ou mock)
     mod_list = getattr(tenant, 'modulos_ativos', None)
-    if isinstance(mod_list, (list, tuple, set)):
-        return codigo_modulo in mod_list
+    if mod_list and isinstance(mod_list, (list, tuple, set)):
+        if codigo_modulo in mod_list:
+            return True
+        if codigo_modulo == 'distribuicao' and ('logistica' in mod_list or 'vendas' in mod_list):
+            return True
+        return False
+
+    # Suporte a alias de distribuição
+    if codigo_modulo == 'distribuicao':
+        return getattr(tenant, 'tem_modulo_distribuicao', True)
+
+    info = MODULOS_REGISTRO.get(codigo_modulo)
+    if not info:
+        return False
 
     # 2. Flag explícita no tenant
     flag = getattr(tenant, info['flag'], False)

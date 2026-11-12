@@ -34,6 +34,13 @@
             </svg>
             Exportação Canônica ERP (D9)
         </button>
+        <button class="tab-btn" data-target="tab-paineis">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+                <polyline points="17 2 12 7 7 2"></polyline>
+            </svg>
+            Monitores de TV (Operacional)
+        </button>
     </div>
 
     <!-- ABA 1: WEBHOOKS & OUTBOX LOGS -->
@@ -241,6 +248,47 @@
 
     </div>
 
+    <!-- ABA 3: MONITORES DE TV OPERACIONAIS (01B.2) -->
+    <div id="tab-paineis" class="tab-content" style="display: none;">
+        <div class="integracoes-card">
+            <div class="card-header-row">
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+                        <polyline points="17 2 12 7 7 2"></polyline>
+                    </svg>
+                    Painéis Monitores de TV Cadastrados
+                </h2>
+                <button id="btn-abrir-novo-painel" class="btn-action-sm btn-action-primary" type="button">
+                    + Cadastrar Novo Monitor de TV
+                </button>
+            </div>
+
+            <div class="modern-table-container">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>Nome do Painel</th>
+                            <th>Link Público Seguro</th>
+                            <th>Privacidade</th>
+                            <th>Alertas (Min)</th>
+                            <th>Último Acesso</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-paineis">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 24px;">
+                                Carregando monitores de TV...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <!-- ==============================================================================
@@ -349,6 +397,44 @@
         <label style="font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 4px; display: block;">Resposta do Endpoint Externo:</label>
         <pre><code id="inspect-response-code"></code></pre>
     </div>
+</dialog>
+
+<!-- Modal: Cadastro de Novo Monitor de TV (01B.2) -->
+<dialog id="modal-novo-painel" class="modal-secret-highlight" style="max-width: 550px;">
+    <h3 style="margin-top: 0; font-size: 18px;">Cadastrar Novo Monitor de TV</h3>
+    <p style="color: var(--color-text-muted); font-size: 13px; margin-bottom: 16px;">
+        Gera um link seguro com token url-safe de 32 bytes para exibição em TVs operacionais sem exigir login ou expor dados financeiros.
+    </p>
+
+    <form id="form-novo-painel">
+        <div style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Nome do Painel *</label>
+            <input type="text" id="painel-nome" required placeholder="Ex: TV Expedição / Pátio" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-hover); color: var(--color-text); font-size: 13px;">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+            <div>
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Alerta (Minutos)</label>
+                <input type="number" id="painel-tempo-alerta" value="30" min="5" max="180" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-hover); color: var(--color-text); font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Crítico (Minutos)</label>
+                <input type="number" id="painel-tempo-critico" value="60" min="10" max="360" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-hover); color: var(--color-text); font-size: 13px;">
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="painel-mostrar-nomes" checked>
+                <span>Exibir nomes dos clientes (desmarque para TVs em áreas públicas ou visíveis a terceiros)</span>
+            </label>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" class="btn-action-sm" onclick="document.getElementById('modal-novo-painel').close()">Cancelar</button>
+            <button type="submit" class="btn-action-sm btn-action-primary">Salvar Monitor</button>
+        </div>
+    </form>
 </dialog>
 
 {% endblock %}

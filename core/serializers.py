@@ -37,6 +37,37 @@ class WebhookEndpointSerializer(serializers.ModelSerializer):
         return value
 
 
+class PainelMonitorSerializer(serializers.ModelSerializer):
+    url_painel = serializers.SerializerMethodField()
+
+    class Meta:
+        from .models import PainelMonitor
+        model = PainelMonitor
+        fields = [
+            'id',
+            'nome',
+            'filial',
+            'token',
+            'ativo',
+            'mostrar_nomes_clientes',
+            'tempo_alerta_min',
+            'tempo_critico_min',
+            'secoes',
+            'ultimo_acesso_em',
+            'criado_em',
+            'url_painel',
+        ]
+        read_only_fields = ['id', 'token', 'ultimo_acesso_em', 'criado_em', 'url_painel']
+
+    def get_url_painel(self, obj):
+        request = self.context.get('request')
+        relative_url = f"/painel/{obj.token}/"
+        if request:
+            return request.build_absolute_uri(relative_url)
+        return relative_url
+
+
+
 class WebhookDeliveryLogSerializer(serializers.ModelSerializer):
     endpoint_url = serializers.CharField(source='endpoint.url', read_only=True)
 
