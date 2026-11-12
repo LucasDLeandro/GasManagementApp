@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Detecta aba inicial pela URL ou padrão 'ativos'
     const paramAba = new URLSearchParams(window.location.search).get('aba');
     const abaInicial = ['ativos', 'lotes', 'classes', 'fabricantes', 'indenizacao'].includes(paramAba) ? paramAba : 'ativos';
-    trocarAba(abaInicial);
+    // A aba inicial é carregada no fim deste bloco, depois de todas as declarações (evita erro de TDZ).
 
     function carregarAba(aba) {
         switch (aba) {
@@ -1157,5 +1157,6 @@ document.addEventListener('DOMContentLoaded', () => {
             select.appendChild(opt);
         });
     }
-});
 
+    trocarAba(abaInicial);
+});

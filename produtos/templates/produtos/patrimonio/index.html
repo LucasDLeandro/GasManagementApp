@@ -3,7 +3,7 @@
 
 {% block title %}Patrimônio — Baros{% endblock %}
 
-{% block content %}
+{% block dashboard_content %}
 <div class="ds-page">
     <header class="ds-page-header">
         <div>
@@ -52,13 +52,14 @@
 {% include "produtos/patrimonio/_modal_fabricante.html" %}
 {% include "produtos/patrimonio/_modal_indenizacao.html" %}
 {% include "produtos/patrimonio/_modal_ativo.html" %}
+{% endblock %}
 
+{% block extra_js %}
 <script>
     window.PATRIMONIO_CONFIG = {
         podeEditar: {{ pode_editar_patrimonio|yesno:"true,false" }},
         temFinanceiro: {{ modulos_ativos.financeiro|yesno:"true,false" }}
     };
 </script>
-<script src="{% static 'produtos/js/patrimonio.js' %}?v=20261112_01"></script>
+<script src="{% static 'produtos/js/patrimonio.js' %}?v=20261112_02"></script>
 {% endblock %}
-
