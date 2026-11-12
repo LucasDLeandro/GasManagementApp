@@ -249,6 +249,78 @@
         font-size: 0.9rem;
         box-sizing: border-box;
     }
+    .fin-onboarding-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 4px solid var(--color-primary);
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin-bottom: 20px;
+    }
+    .fin-onboarding-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+    }
+    .fin-onboarding-title {
+        margin: 0 0 4px 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--color-text);
+    }
+    .fin-onboarding-desc {
+        margin: 0;
+        font-size: 0.88rem;
+        color: var(--color-text-muted);
+    }
+    .fin-onboarding-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 12px;
+    }
+    .fin-onboarding-item {
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        background: var(--color-background);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .fin-onboarding-item-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+    }
+    .fin-onboarding-item-title {
+        font-weight: 600;
+        font-size: 0.92rem;
+        color: var(--color-text);
+    }
+    .fin-onboarding-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+        text-transform: uppercase;
+    }
+    .fin-onboarding-badge.ok {
+        background: rgba(16, 185, 129, 0.14);
+        color: #047857;
+    }
+    .fin-onboarding-badge.pending {
+        background: rgba(245, 158, 11, 0.16);
+        color: #b45309;
+    }
+    .fin-onboarding-item-help {
+        margin: 0;
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+    }
 </style>
 {% endblock %}
 
@@ -259,7 +331,7 @@
         <div>
             <h1 class="ds-page-title">Núcleo Contábil & Financeiro</h1>
             <p class="ds-page-subtitle">
-                Razão imutável com encadeamento SHA-256, Plano de Contas, Balancete e Gestão de Contas.
+                Plano de contas, contas bancárias e caixa, balancete, títulos e controle financeiro.
             </p>
         </div>
         <div class="ds-page-actions">
@@ -279,12 +351,85 @@
         </div>
     </header>
 
+    {% if not plano_contas or not contas_financeiras or not condicoes %}
+    <section class="fin-onboarding-card" id="fin-primeiros-passos">
+        <div class="fin-onboarding-header">
+            <div>
+                <h2 class="fin-onboarding-title">Primeiros passos no Financeiro</h2>
+                <p class="fin-onboarding-desc">
+                    Complete os cadastros iniciais para começar a registrar contas a pagar, contas a receber e movimentações.
+                </p>
+            </div>
+            {% if is_admin %}
+            <button type="button" class="btn-fin btn-fin-primary" id="btn-seed-plano-padrao" onclick="aplicarPlanoContasPadrao()">
+                Aplicar plano de contas padrão
+            </button>
+            {% endif %}
+        </div>
+        <div class="fin-onboarding-list">
+            <div class="fin-onboarding-item">
+                <div class="fin-onboarding-item-top">
+                    <span class="fin-onboarding-item-title">1. Plano de contas</span>
+                    {% if plano_contas %}
+                    <span class="fin-onboarding-badge ok">Configurado</span>
+                    {% else %}
+                    <span class="fin-onboarding-badge pending">Pendente</span>
+                    {% endif %}
+                </div>
+                <p class="fin-onboarding-item-help">
+                    {% if plano_contas %}
+                    {{ plano_contas|length }} contas estruturadas disponíveis.
+                    {% else %}
+                    Aplique o plano de contas padrão para classificar receitas e despesas.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="fin-onboarding-item">
+                <div class="fin-onboarding-item-top">
+                    <span class="fin-onboarding-item-title">2. Conta bancária ou caixa</span>
+                    {% if contas_financeiras %}
+                    <span class="fin-onboarding-badge ok">Configurado</span>
+                    {% else %}
+                    <span class="fin-onboarding-badge pending">Pendente</span>
+                    {% endif %}
+                </div>
+                <p class="fin-onboarding-item-help">
+                    {% if contas_financeiras %}
+                    {{ contas_financeiras|length }} conta(s) ativa(s) para recebimentos e pagamentos.
+                    {% else %}
+                    Cadastre ao menos um caixa ou conta bancária na aba Contas &amp; Saldos.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="fin-onboarding-item">
+                <div class="fin-onboarding-item-top">
+                    <span class="fin-onboarding-item-title">3. Condições de pagamento</span>
+                    {% if condicoes %}
+                    <span class="fin-onboarding-badge ok">Configurado</span>
+                    {% else %}
+                    <span class="fin-onboarding-badge pending">Pendente</span>
+                    {% endif %}
+                </div>
+                <p class="fin-onboarding-item-help">
+                    {% if condicoes %}
+                    {{ condicoes|length }} condição(ões) cadastrada(s).
+                    {% else %}
+                    Necessária para gerar parcelas de títulos (à vista, 30 dias, etc.).
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
     <!-- KPI Cards -->
     <div class="kpi-grid">
-        <div class="kpi-card success">
+        <div class="kpi-card{% if balancete.fechamento_correto %} success{% elif not balancete.sem_lancamentos %} danger{% endif %}">
             <div class="kpi-title">Balancete de Verificação</div>
             <div class="kpi-value" id="kpi-balancete-status">
-                {% if balancete.fechamento_correto %}
+                {% if balancete.sem_lancamentos %}
+                    Sem lançamentos no período
+                {% elif balancete.fechamento_correto %}
                     ZERADO (OK)
                 {% else %}
                     DIVERGENTE
@@ -1568,6 +1713,31 @@
             }
         }
         return cookieValue;
+    }
+
+    async function aplicarPlanoContasPadrao() {
+        const confirmado = await Baros.confirmar({
+            titulo: 'Aplicar plano de contas padrão?',
+            mensagem: 'Esta ação cria as contas contábeis, centros de custo e condições de pagamento iniciais padrão para a empresa.',
+            textoConfirmar: 'Aplicar plano padrão',
+            textoCancelar: 'Cancelar'
+        });
+        if (!confirmado) return;
+
+        const btn = document.getElementById('btn-seed-plano-padrao');
+        if (btn) btn.disabled = true;
+        try {
+            const resp = await Baros.api('/financeiro/api/plano-contas/seed-padrao/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            Baros.toast(resp.detail || 'Plano de contas padrão aplicado com sucesso.', 'success');
+            window.location.reload();
+        } catch (err) {
+            if (btn) btn.disabled = false;
+            Baros.toast((err && err.message) || 'Erro ao aplicar plano de contas padrão.', 'error');
+        }
     }
 </script>
 {% endblock %}

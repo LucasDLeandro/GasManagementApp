@@ -155,7 +155,14 @@ def obter_balancete_verificacao(*, tenant, data_inicio, data_fim, filial=None, a
         })
 
     diferenca = quantize(total_debitos_periodo - total_creditos_periodo, 2)
-    fechado = (diferenca == Decimal('0.00'))
+    sem_lancamentos = not qs_periodo.exists()
+    fechado = (not sem_lancamentos) and (diferenca == Decimal('0.00'))
+    if sem_lancamentos:
+        status_texto = 'Sem lançamentos no período'
+    elif fechado:
+        status_texto = 'ZERADO (OK)'
+    else:
+        status_texto = 'DIVERGENTE'
 
     # Resultado do exercício no período (Receitas - Despesas / grupos 3 a 9)
     resultado_exercicio = Decimal('0.00')
@@ -174,7 +181,9 @@ def obter_balancete_verificacao(*, tenant, data_inicio, data_fim, filial=None, a
         'data_inicio': data_inicio,
         'data_fim': data_fim,
         'total_contas': len(linhas_contas),
+        'sem_lancamentos': sem_lancamentos,
         'fechamento_correto': fechado,
+        'status_texto': status_texto,
         'diferenca': diferenca,
         'resultado_exercicio': resultado_exercicio,
         'linhas': linhas_contas,

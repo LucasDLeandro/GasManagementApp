@@ -1036,3 +1036,18 @@ def seed_financeiro_tenant_completo(tenant):
     seed_plano_contas_padrao(tenant)
     seed_centros_custo_padrao(tenant)
     seed_condicoes_pagamento_padrao(tenant)
+
+
+def aplicar_seed_tenants_plano_vazio():
+    """Aplica o seed financeiro nos tenants com módulo ativo e plano de contas vazio."""
+    from core.context import tenant_context
+    from core.models import Tenant
+
+    tenants_sem_plano = Tenant.objects.filter(modulo_financeiro_ativo=True).order_by('id')
+    aplicados = []
+    for tenant in tenants_sem_plano:
+        if not PlanoContas.unscoped.filter(tenant=tenant).exists():
+            with tenant_context(tenant):
+                seed_financeiro_tenant_completo(tenant)
+            aplicados.append(tenant.id)
+    return aplicados

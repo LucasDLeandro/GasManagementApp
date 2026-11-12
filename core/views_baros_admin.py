@@ -15,6 +15,7 @@ from core.context import get_current_ip, get_current_request_id
 from core.models import AcessoSuporte, FaturaSaaS, LogAuditoriaSaaS, PlanoSaaS, Tenant
 from core.modulos import MODULOS_REGISTRO, validar_toggle
 from core.money import quantize
+from core.seeds import executar_seeds
 from core.services.assinatura import transicionar
 from core.services.onboarding import onboarding_tenant
 
@@ -472,6 +473,9 @@ class BarosAdminToggleModuloView(View):
         flag_name = MODULOS_REGISTRO[modulo]['flag']
         setattr(tenant, flag_name, novo_valor)
         tenant.save(update_fields=[flag_name])
+
+        if novo_valor:
+            executar_seeds(tenant, modulo=modulo)
 
         # Grava auditoria SaaS
         LogAuditoriaSaaS.objects.create(

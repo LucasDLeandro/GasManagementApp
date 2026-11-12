@@ -63,5 +63,13 @@ def seed_financeiro_rbac(tenant: Any) -> dict[str, Any]:
     return {'status': 'FINANCEIRO_RBAC_SEEDED', 'tenant': tenant.nome}
 
 
+def seed_financeiro_padrao_completo(tenant: Any) -> dict[str, Any]:
+    """Popula plano de contas, centros de custo e condições de pagamento padrão do financeiro."""
+    from financeiro.seeds import seed_financeiro_tenant_completo
+    seed_financeiro_tenant_completo(tenant)
+    return {'status': 'FINANCEIRO_PADRAO_SEEDED', 'tenant': tenant.nome}
+
+
 registrar_seed('patrimonio', seed_patrimonio_defaults)
 registrar_seed('financeiro', seed_financeiro_rbac)
+registrar_seed('financeiro', seed_financeiro_padrao_completo)

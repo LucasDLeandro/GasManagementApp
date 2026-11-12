@@ -362,7 +362,7 @@
                         </a>
                     </li>
                     {% endif %}
-                    {% if modulos_ativos.financeiro or is_admin %}
+                    {% if modulos_ativos.financeiro or request.user.is_superuser %}
                     <li class="nav-item">
                         <a href="{% url 'financeiro:index' %}"
                             class="nav-link {% if request.resolver_match.app_name == 'financeiro' %}active{% endif %}"

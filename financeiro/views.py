@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 
 from core.mixins import TenantViewSetMixin
 from core.permissions import (
+    IsTenantAdmin,
     IsTenantMember,
     IsTenantSubscriptionActive,
     RequiresModuleFinanceiro,
@@ -193,10 +194,22 @@ class PlanoContasViewSet(BaseFinanceiroViewSet):
             qs = qs.filter(tipo=tipo)
         return qs.order_by('codigo_estrutural')
 
-    @action(detail=False, methods=['post'], url_path='seed-padrao')
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='seed-padrao',
+        permission_classes=[
+            IsAuthenticated,
+            IsTenantAdmin,
+            RequiresModuleFinanceiro,
+            IsTenantSubscriptionActive,
+        ],
+    )
     def seed_padrao(self, request):
+        from financeiro.seeds import seed_financeiro_tenant_completo
+
         tenant = getattr(request, 'tenant', None)
-        seed_plano_contas_padrao(tenant)
+        seed_financeiro_tenant_completo(tenant)
         return Response(
             {"detail": "Plano de contas padrão aplicado com sucesso."},
             status=status.HTTP_200_OK
