@@ -100,7 +100,7 @@
 
 1. `26c63da fix(core): pátio do monitor conta só cheios aptos`
 2. `919e1b6 feat(core): home de gestao, filas operacionais e dados de exemplo conforme sprint 01b.02`
-3. Commit desta revisão: `fix(core): conformidade estrita de template, reversao de permissions e limpeza de estilos`
+3. `5f6e56c fix(core): conformidade estrita de template, reversao de permissions e limpeza de estilos`
 
 ---
 
