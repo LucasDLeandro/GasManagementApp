@@ -18,6 +18,7 @@ from .views import (
     DownloadLaudoRecebimentoView,
     ProdutoTemplateView,
     PatrimonioTemplateView,
+    RetestesTemplateView,
     RecallAnvisaTemplateView,
     PassaporteConformidadeView,
     PassaporteSanitarioPublicoView,
@@ -80,6 +81,7 @@ urlpatterns = [
     # Rota para a view HTML do frontend de produtos
     path('', ProdutoTemplateView.as_view(), name='index'),
     path('patrimonio/', PatrimonioTemplateView.as_view(), name='patrimonio'),
+    path('retestes/', RetestesTemplateView.as_view(), name='retestes'),
 
     # Passaporte Público de Conformidade Normativa & Sanitária (Fase 1 e Fase Final)
     path('passaporte/<str:codigo_qr>/', PassaporteSanitarioPublicoView.as_view(), name='passaporte_conformidade'),

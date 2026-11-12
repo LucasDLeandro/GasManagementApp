@@ -38,13 +38,14 @@ def enviar_cilindros_para_reteste(
     oficina_nome,
     oficina_cnpj,
     cilindro_ids,
+    documento_envio="",
     data_envio=None,
     usuario=None,
     observacoes=""
 ):
     """
     Registra o envio em lote de cilindros para requalificação / ensaio hidrostático (Sprint 8B - Tarefa 3).
-    Valida que todos os cilindros estejam em VAZIO_TRIAGEM e em posse física da empresa.
+    Valida que todos os cilindros estejam em VAZIO_TRIAGEM, sem bloqueio sanitário e em posse física da empresa.
     Transita o status para 'EM_REQUALIFICACAO'.
     """
     assert_tenant_writable(tenant)
@@ -59,6 +60,7 @@ def enviar_cilindros_para_reteste(
         tenant=tenant,
         oficina_nome=oficina_nome,
         oficina_cnpj=oficina_cnpj,
+        documento_envio=documento_envio or '',
         data_envio=data_remessa,
         observacoes=observacoes,
         criado_por=usuario
@@ -75,6 +77,11 @@ def enviar_cilindros_para_reteste(
             raise ValidationError(
                 f"O cilindro {cil.numero_serie_ogiva} não pode ser enviado para reteste pois seu "
                 f"status atual é '{cil.get_status_display()}' (exige-se 'Vazio em Triagem')."
+            )
+
+        if cil.bloqueio_sanitario:
+            raise ValidationError(
+                f"O cilindro {cil.numero_serie_ogiva} possui bloqueio sanitário ativo e não pode ser enviado para reteste."
             )
 
         if cil.cliente_posse_atual is not None:
@@ -134,6 +141,7 @@ def registrar_retorno_reteste(
     custo_servico_reteste=Decimal('0.00'),
     motivo_reprovacao="",
     observacoes="",
+    laudo_pdf=None,
     usuario=None,
     client_uuid=None,
     envio_id=None
@@ -254,6 +262,7 @@ def registrar_retorno_reteste(
         motivo_reprovacao=motivo_reprovacao,
         data_proximo_reteste=data_proximo_reteste,
         custo_servico_reteste=custo_reteste,
+        laudo_pdf=laudo_pdf,
         observacoes=obs_final,
         usuario=usuario
     )

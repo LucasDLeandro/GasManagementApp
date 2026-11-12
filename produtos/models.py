@@ -1347,6 +1347,7 @@ class HistoricoRetesteHidrostatico(TenantAwareModel):
     motivo_reprovacao = models.TextField(blank=True, default='', verbose_name="Motivo da Reprovação / Condenação")
     data_proximo_reteste = models.DateField(null=True, blank=True, verbose_name="Data do Próximo Reteste")
     custo_servico_reteste = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0.00'), verbose_name="Custo do Serviço (R$)")
+    laudo_pdf = models.FileField(upload_to='retestes_laudos/%Y/%m/', null=True, blank=True, verbose_name="Laudo Técnico (PDF)")
     observacoes = models.TextField(blank=True, default='', verbose_name="Observações Técnicas")
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1438,6 +1439,7 @@ class EnvioReteste(TenantAwareModel):
     """
     oficina_nome = models.CharField(max_length=150, verbose_name="Oficina / Requalificadora")
     oficina_cnpj = models.CharField(max_length=20, validators=[validar_cnpj], verbose_name="CNPJ da Oficina")
+    documento_envio = models.CharField(max_length=100, blank=True, default='', verbose_name="Documento de Envio / Romaneio")
     data_envio = models.DateField(default=timezone.localdate, verbose_name="Data de Envio")
     observacoes = models.TextField(blank=True, default='', verbose_name="Observações do Envio")
     criado_por = models.ForeignKey(

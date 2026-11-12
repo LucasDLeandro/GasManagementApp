@@ -604,6 +604,7 @@ class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
                 custo_servico_reteste=request.data.get('custo_servico_reteste', '0.00'),
                 motivo_reprovacao=request.data.get('motivo_reprovacao', ''),
                 observacoes=request.data.get('observacoes', ''),
+                laudo_pdf=request.FILES.get('laudo_pdf'),
                 usuario=request.user,
                 envio_id=request.data.get('envio_id')
             )
@@ -638,8 +639,17 @@ class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
             qs = base_qs.filter(data_proximo_reteste__gt=d30, data_proximo_reteste__lte=d60)
         elif filtro == '90dias':
             qs = base_qs.filter(data_proximo_reteste__gt=d60, data_proximo_reteste__lte=d90)
+        elif filtro == 'em_requalificacao':
+            qs = base_qs.filter(status='EM_REQUALIFICACAO')
         else:
             qs = base_qs
+
+        gas_id = request.query_params.get('gas')
+        modelo_id = request.query_params.get('modelo')
+        if gas_id:
+            qs = qs.filter(gas_dedicado_id=gas_id)
+        if modelo_id:
+            qs = qs.filter(modelo_id=modelo_id)
 
         dados = CilindroSerializer(qs.order_by('data_proximo_reteste')[:200], many=True).data
         contadores = {
@@ -647,6 +657,7 @@ class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
             'vencendo_30_dias': base_qs.filter(data_proximo_reteste__gte=hoje, data_proximo_reteste__lte=d30).count(),
             'vencendo_60_dias': base_qs.filter(data_proximo_reteste__gt=d30, data_proximo_reteste__lte=d60).count(),
             'vencendo_90_dias': base_qs.filter(data_proximo_reteste__gt=d60, data_proximo_reteste__lte=d90).count(),
+            'em_requalificacao': base_qs.filter(status='EM_REQUALIFICACAO').count(),
             'total_ativos': base_qs.count()
         }
         return Response({'contadores': contadores, 'cilindros': dados}, status=status.HTTP_200_OK)
@@ -1102,7 +1113,9 @@ class ProdutoTemplateView(LoginRequiredMixin, TemplateView):
         superuser = self.request.user.is_superuser
         contexto.update({
             'pode_editar_catalogo': superuser or papel in ('ADMIN', 'GERENTE'),
+            'pode_editar_patrimonio': superuser or papel in ('ADMIN', 'GERENTE'),
             'pode_cadastrar_cilindro': superuser or papel in PAPEIS_CADASTRO_CILINDRO,
+            'tipos_baixa': BaixaPatrimonial.TIPO_CHOICES,
             'unidades_sku': SkuRecarga.UNIDADE_CHOICES,
             'materiais_modelo': ModeloCilindro.MATERIAL_CHOICES,
             'propriedades_cilindro': [p for p in Cilindro.PROPRIEDADE_CHOICES if p[0] != 'DISTRIBUIDORA'],
@@ -1141,6 +1154,35 @@ class PatrimonioTemplateView(LoginRequiredMixin, TemplateView):
             'tipos_classe': ClasseAtivo.TIPO_CHOICES,
             'metodos_depreciacao': ClasseAtivo.METODO_CHOICES,
             'status_ativos': AtivoImobilizado.STATUS_CHOICES,
+            'tipos_baixa': BaixaPatrimonial.TIPO_CHOICES,
+        })
+        return contexto
+
+
+class RetestesTemplateView(LoginRequiredMixin, TemplateView):
+    """
+    Central de Retestes Hidrostáticos: Vencimentos, Envios em Lote, Retorno Técnico Completo
+    (ABNT NBR 12274) e Retificações (Sprint 03).
+    """
+    template_name = 'produtos/retestes/index.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        tenant = getattr(request, 'tenant', None)
+        try:
+            assert_modulo(tenant, 'patrimonio')
+        except ModuloInativoError:
+            raise PermissionDenied("Módulo patrimônio inativo para esta empresa.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        from core.permissions import resolve_request_membership
+        contexto = super().get_context_data(**kwargs)
+        membership = resolve_request_membership(self.request)
+        papel = membership.papel if membership else None
+        superuser = self.request.user.is_superuser
+        contexto.update({
+            'pode_editar_patrimonio': superuser or papel in ('ADMIN', 'GERENTE'),
+            'tipos_baixa': BaixaPatrimonial.TIPO_CHOICES,
         })
         return contexto
 
@@ -2298,18 +2340,26 @@ class HistoricoRetesteHidrostaticoViewSet(TenantViewSetMixin, viewsets.ModelView
 
     @action(detail=True, methods=['post'], url_path='retificar')
     def retificar(self, request, pk=None):
+        dados = dict(request.data)
+        if dados.get('motivo') and not dados.get('observacoes'):
+            dados['observacoes'] = dados['motivo']
         try:
             novo = retificar_reteste(
                 reteste_anterior_id=pk,
-                novos_dados=request.data,
+                novos_dados=dados,
                 usuario=request.user
             )
             return Response(self.get_serializer(novo).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             msg = e.messages if hasattr(e, 'messages') else str(e)
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'], url_path='laudo')
+    def laudo(self, request, pk=None):
+        reteste = self.get_object()
+        if not reteste.laudo_pdf:
+            return Response({'detail': 'Este reteste não possui laudo em PDF anexado.'}, status=status.HTTP_404_NOT_FOUND)
+        return FileResponse(reteste.laudo_pdf.open('rb'), content_type='application/pdf')
 
 
 class EnvioRetesteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
@@ -2320,6 +2370,7 @@ class EnvioRetesteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         oficina_nome = request.data.get('oficina_nome')
         oficina_cnpj = request.data.get('oficina_cnpj')
+        documento_envio = request.data.get('documento_envio', '')
         cilindro_ids = request.data.get('cilindro_ids', [])
         data_envio = request.data.get('data_envio')
         observacoes = request.data.get('observacoes', '')
@@ -2336,6 +2387,7 @@ class EnvioRetesteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
                 tenant=request.tenant,
                 oficina_nome=oficina_nome,
                 oficina_cnpj=oficina_cnpj,
+                documento_envio=documento_envio,
                 cilindro_ids=cilindro_ids,
                 data_envio=dt_envio,
                 usuario=request.user,
@@ -2345,27 +2397,38 @@ class EnvioRetesteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         except ValidationError as e:
             msg = e.messages if hasattr(e, 'messages') else str(e)
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class BaixaPatrimonialViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = BaixaPatrimonial.unscoped.all()
     serializer_class = BaixaPatrimonialSerializer
-    permission_classes = [RequiresModulePatrimonio]
+    permission_classes = [SomenteGestaoAltera, RequiresModulePatrimonio]
 
     def create(self, request, *args, **kwargs):
         cilindro_id = request.data.get('cilindro') or request.data.get('cilindro_id')
         tipo = request.data.get('tipo', 'INUTILIZACAO_TECNICA')
         data_baixa = request.data.get('data')
-        motivo = request.data.get('motivo', '')
+        motivo = (request.data.get('motivo') or '').strip()
         documento_ref = request.data.get('documento_ref', '')
-        valor_recebido = Decimal(str(request.data.get('valor_recebido', '0.00')))
+        valor_recebido = Decimal(str(request.data.get('valor_recebido') or '0.00'))
+
+        if not cilindro_id:
+            return Response({'error': 'Cilindro é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        cilindro = Cilindro.objects.filter(id=cilindro_id, tenant=request.tenant).first()
+        if not cilindro:
+            return Response({'detail': 'Cilindro não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if len(motivo) < 10:
+            return Response(
+                {'error': 'O motivo da baixa deve ter ao menos 10 caracteres.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             dt_baixa = datetime.date.fromisoformat(str(data_baixa).strip()) if data_baixa else None
             cil, baixa = baixar_cilindro_patrimonial(
-                cilindro_id=cilindro_id,
+                cilindro_id=cilindro.id,
                 tipo=tipo,
                 data_baixa=dt_baixa,
                 motivo=motivo,
@@ -2377,18 +2440,17 @@ class BaixaPatrimonialViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         except ValidationError as e:
             msg = e.messages if hasattr(e, 'messages') else str(e)
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'], url_path='estornar')
     def estornar(self, request, pk=None):
-        motivo = request.data.get('motivo', '')
+        baixa_obj = self.get_object()
+        motivo = (request.data.get('motivo') or '').strip()
         if not motivo:
             return Response({'error': 'Motivo do estorno é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             cil, baixa, mov = estornar_baixa(
-                baixa_id=pk,
+                baixa_id=baixa_obj.id,
                 motivo=motivo,
                 usuario=request.user
             )
@@ -2398,8 +2460,6 @@ class BaixaPatrimonialViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         except ValidationError as e:
             msg = e.messages if hasattr(e, 'messages') else str(e)
             return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class TanqueCriogenicoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
