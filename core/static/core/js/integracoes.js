@@ -544,8 +544,165 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/'/g, '&#039;');
     }
 
+    // ==============================================================================
+    // 5. GESTÃO DE MONITORES DE TV OPERACIONAIS (01B.2)
+    // ==============================================================================
+    const tbodyPaineis = document.getElementById('tbody-paineis');
+    const modalNovoPainel = document.getElementById('modal-novo-painel');
+    const btnAbrirNovoPainel = document.getElementById('btn-abrir-novo-painel');
+    const formNovoPainel = document.getElementById('form-novo-painel');
+
+    if (btnAbrirNovoPainel && modalNovoPainel) {
+        btnAbrirNovoPainel.addEventListener('click', () => {
+            if (formNovoPainel) formNovoPainel.reset();
+            modalNovoPainel.showModal();
+        });
+    }
+
+    if (formNovoPainel) {
+        formNovoPainel.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                nome: document.getElementById('painel-nome')?.value?.trim(),
+                tempo_alerta_min: parseInt(document.getElementById('painel-tempo-alerta')?.value || '30', 10),
+                tempo_critico_min: parseInt(document.getElementById('painel-tempo-critico')?.value || '60', 10),
+                mostrar_nomes_clientes: document.getElementById('painel-mostrar-nomes')?.checked ?? true
+            };
+
+            try {
+                const res = await fetch('/inicio/api/paineis/', {
+                    method: 'POST',
+                    headers: getHeaders(true),
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    modalNovoPainel.close();
+                    await carregarPaineis();
+                } else {
+                    const err = await res.json();
+                    alert('Erro ao salvar monitor: ' + JSON.stringify(err));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Erro de conexão ao salvar monitor.');
+            }
+        });
+    }
+
+    async function carregarPaineis() {
+        if (!tbodyPaineis) return;
+        try {
+            const res = await fetch('/inicio/api/paineis/', {
+                method: 'GET',
+                headers: getHeaders(true)
+            });
+            if (!res.ok) {
+                if (res.status === 403) {
+                    tbodyPaineis.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-danger); padding: 20px;">Acesso restrito a Administradores e Gerentes.</td></tr>';
+                }
+                return;
+            }
+            const data = await res.json();
+            const lista = Array.isArray(data) ? data : (data.results || []);
+
+            if (lista.length === 0) {
+                tbodyPaineis.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 24px;">Nenhum monitor de TV cadastrado. Clique no botão acima para criar o primeiro.</td></tr>';
+                return;
+            }
+
+            tbodyPaineis.innerHTML = '';
+            lista.forEach(p => {
+                const tr = document.createElement('tr');
+                const linkPainel = window.location.origin + '/painel/' + p.token + '/';
+                const statusBadge = p.ativo 
+                    ? '<span class="status-badge status-badge--success">Ativo</span>'
+                    : '<span class="status-badge status-badge--danger">Revogado</span>';
+
+                const ultimoAcesso = p.ultimo_acesso_em 
+                    ? new Date(p.ultimo_acesso_em).toLocaleString('pt-BR')
+                    : 'Nunca acessado';
+
+                tr.innerHTML = `
+                    <td><strong>${escapeHtml(p.nome)}</strong></td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <code style="font-size: 11px;">/painel/${escapeHtml(p.token.substring(0, 10))}...</code>
+                            <button class="btn-action-sm btn-copiar-link" data-link="${linkPainel}" title="Copiar Link Completo">📋 Copiar</button>
+                            <a href="/painel/${escapeHtml(p.token)}/" target="_blank" class="btn-action-sm" title="Abrir em Nova Aba">↗ Abrir</a>
+                        </div>
+                    </td>
+                    <td>${p.mostrar_nomes_clientes ? 'Nomes Visíveis' : '<span style="color: var(--color-warning);">Nomes Ocultos (Bairro/Cidade)</span>'}</td>
+                    <td>${p.tempo_alerta_min}m / ${p.tempo_critico_min}m</td>
+                    <td><small style="color: var(--color-text-muted);">${ultimoAcesso}</small></td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn-action-sm btn-regen-token" data-id="${p.id}" title="Gera um novo token seguro e revoga o anterior">🔄 Novo Token</button>
+                            ${p.ativo ? `<button class="btn-action-sm btn-action-danger btn-revogar-painel" data-id="${p.id}" title="Desativa este painel imediatamente">✕ Revogar</button>` : ''}
+                        </div>
+                    </td>
+                `;
+                tbodyPaineis.appendChild(tr);
+            });
+
+            // Handlers de Ações
+            tbodyPaineis.querySelectorAll('.btn-copiar-link').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const link = btn.getAttribute('data-link');
+                    navigator.clipboard.writeText(link);
+                    btn.textContent = '✅ Copiado!';
+                    setTimeout(() => btn.textContent = '📋 Copiar', 2000);
+                });
+            });
+
+            tbodyPaineis.querySelectorAll('.btn-regen-token').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-id');
+                    if (!confirm('Deseja realmente gerar um novo token? A URL antiga deixará de funcionar imediatamente na TV.')) return;
+                    try {
+                        const res = await fetch(`/inicio/api/paineis/${id}/regenerar_token/`, {
+                            method: 'POST',
+                            headers: getHeaders(true)
+                        });
+                        if (res.ok) {
+                            await carregarPaineis();
+                        } else {
+                            alert('Erro ao regenerar token.');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                });
+            });
+
+            tbodyPaineis.querySelectorAll('.btn-revogar-painel').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-id');
+                    if (!confirm('Deseja revogar e desativar este painel? A TV exibirá erro 404.')) return;
+                    try {
+                        const res = await fetch(`/inicio/api/paineis/${id}/revogar/`, {
+                            method: 'POST',
+                            headers: getHeaders(true)
+                        });
+                        if (res.ok) {
+                            await carregarPaineis();
+                        } else {
+                            alert('Erro ao revogar painel.');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                });
+            });
+
+        } catch (err) {
+            console.error('Erro ao carregar painéis:', err);
+        }
+    }
+
     // Inicialização
     carregarEndpoints();
     carregarLogs();
     atualizarUrlsErp();
+    carregarPaineis();
 });

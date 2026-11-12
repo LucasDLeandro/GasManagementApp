@@ -1,0 +1,150 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>BAROS Monitor TV</title>
+  <link rel="stylesheet" href="{% static 'core/css/painel_monitor.css' %}">
+</head>
+
+<body class="monitor-body" data-token="{{ token }}">
+  <!-- Banner de Desconexão (exibido após 2 minutos sem resposta da API) -->
+  <aside id="banner-desconexao" class="banner-desconexao monitor-oculto" role="alert" aria-live="assertive">
+    <span id="texto-desconexao">SEM CONEXÃO — dados desatualizados</span>
+  </aside>
+
+  <!-- Cabeçalho Superior -->
+  <header class="monitor-header">
+    <div class="monitor-header-left">
+      <h1 id="monitor-titulo" class="monitor-titulo">Monitor Operacional</h1>
+      <span id="monitor-empresa" class="monitor-empresa"></span>
+    </div>
+    <div class="monitor-header-right">
+      <div id="monitor-relogio" class="monitor-relogio" aria-label="Horário atual">--:--:--</div>
+      <div id="monitor-sync" class="monitor-sync">Conectando...</div>
+      <button id="btn-fullscreen" type="button" class="monitor-btn-fullscreen" aria-label="Alternar Tela Cheia">Tela
+        Cheia</button>
+    </div>
+  </header>
+
+  <!-- Área Principal -->
+  <main class="monitor-main">
+    <!-- Seção 1: Esteira de Pedidos -->
+    <section id="secao-esteira" class="secao-esteira" aria-label="Esteira de Pedidos">
+      <!-- Coluna: A Separar -->
+      <article class="coluna-pedidos">
+        <header class="coluna-cabecalho">
+          <span class="coluna-titulo">A Separar</span>
+          <span id="badge-total-a-separar" class="coluna-badge-total">0</span>
+        </header>
+        <div id="cards-a-separar" class="coluna-cards-lista"></div>
+      </article>
+
+      <!-- Coluna: Em Separação -->
+      <article class="coluna-pedidos">
+        <header class="coluna-cabecalho">
+          <span class="coluna-titulo">Em Separação</span>
+          <span id="badge-total-em-separacao" class="coluna-badge-total">0</span>
+        </header>
+        <div id="cards-em-separacao" class="coluna-cards-lista"></div>
+      </article>
+
+      <!-- Coluna: Pronto para Carregar / Faturada -->
+      <article class="coluna-pedidos">
+        <header class="coluna-cabecalho">
+          <span class="coluna-titulo">Pronto / Faturado</span>
+          <span id="badge-total-faturada" class="coluna-badge-total">0</span>
+        </header>
+        <div id="cards-faturada" class="coluna-cards-lista"></div>
+      </article>
+
+      <!-- Coluna: Em Rota -->
+      <article class="coluna-pedidos">
+        <header class="coluna-cabecalho">
+          <span class="coluna-titulo">Em Rota</span>
+          <span id="badge-total-em-rota" class="coluna-badge-total">0</span>
+        </header>
+        <div id="cards-em-rota" class="coluna-cards-lista"></div>
+      </article>
+
+      <!-- Coluna: Concluídos Hoje -->
+      <article class="coluna-concluidos">
+        <span id="contagem-concluidos-hoje" class="concluidos-numero">0</span>
+        <span class="concluidos-label">Concluídos Hoje</span>
+      </article>
+    </section>
+
+    <!-- Faixa Inferior de Indicadores Operacionais (Pátio, Retornos, Fábrica) -->
+    <section id="secao-indicadores" class="monitor-rodape-grid" aria-label="Indicadores Operacionais">
+      <!-- Card Pátio x Demanda -->
+      <article id="card-patio-demanda" class="card-indicador">
+        <header class="indicador-titulo">Pátio × Demanda</header>
+        <div class="indicador-valores">
+          <div class="metrica-grupo">
+            <span id="metrica-cheios" class="metrica-numero metrica-numero-ok">0</span>
+            <span class="metrica-sub">Cheios Disp.</span>
+          </div>
+          <div class="metrica-grupo">
+            <span id="metrica-pedidos" class="metrica-numero">0</span>
+            <span class="metrica-sub">Demandados</span>
+          </div>
+          <div class="metrica-grupo">
+            <span id="metrica-saldo" class="metrica-numero">0</span>
+            <span class="metrica-sub">Balanço</span>
+          </div>
+        </div>
+        <div id="patio-gases-lista" class="patio-gases-container"></div>
+      </article>
+
+      <!-- Card Retornos e Triagem -->
+      <article id="card-retornos" class="card-indicador">
+        <header class="indicador-titulo">Retornos &amp; Triagem</header>
+        <div class="indicador-valores">
+          <div class="metrica-grupo">
+            <span id="metrica-vazios" class="metrica-numero">0</span>
+            <span class="metrica-sub">Vazios Triagem</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card Fábrica / Envase (Condicional a Módulo Envase) -->
+      <article id="card-fabrica" class="card-indicador monitor-oculto">
+        <header class="indicador-titulo">Fábrica &amp; Envase</header>
+        <div class="indicador-valores">
+          <div class="metrica-grupo">
+            <span id="metrica-quarentena" class="metrica-numero metrica-numero-alerta">0</span>
+            <span class="metrica-sub">Quarentena</span>
+          </div>
+          <div class="metrica-grupo">
+            <span id="metrica-inspecoes" class="metrica-numero metrica-numero-alerta">0</span>
+            <span class="metrica-sub">Insp. Pendentes</span>
+          </div>
+          <div id="tanques-lista" class="metrica-grupo"></div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Faixa de Alertas Globais (Rodapé) -->
+    <footer id="faixa-alertas" class="faixa-alertas monitor-oculto" role="status">
+      <div class="alerta-item">
+        <span class="alerta-tag-critico">ALERTA</span>
+        <span id="texto-alerta-reteste"></span>
+      </div>
+      <div id="alerta-sanitario-container" class="alerta-item monitor-oculto">
+        <span class="alerta-tag-critico">SANITÁRIO</span>
+        <span id="texto-alerta-sanitario"></span>
+      </div>
+      <div id="alerta-recall-container" class="alerta-item monitor-oculto">
+        <span class="alerta-tag-critico">RECALL</span>
+        <span id="texto-alerta-recall"></span>
+      </div>
+    </footer>
+  </main>
+
+  <script src="{% static 'core/js/painel_monitor.js' %}"></script>
+</body>
+
+</html>

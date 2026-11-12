@@ -80,6 +80,11 @@ def is_modulo_ativo(tenant: Any, codigo_modulo: str) -> bool:
     """Verifica se um módulo está ativo no tenant."""
     if not tenant:
         return False
+
+    # Suporte a alias de distribuição (logística ou vendas)
+    if codigo_modulo == 'distribuicao':
+        return is_modulo_ativo(tenant, 'logistica') or is_modulo_ativo(tenant, 'vendas')
+
     info = MODULOS_REGISTRO.get(codigo_modulo)
     if not info:
         return False
@@ -103,6 +108,7 @@ def is_modulo_ativo(tenant: Any, codigo_modulo: str) -> bool:
             return True
 
     return False
+
 
 
 def obter_modulos_ativos(tenant: Any) -> list[str]:
