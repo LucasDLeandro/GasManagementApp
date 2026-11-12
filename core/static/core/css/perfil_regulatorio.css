@@ -3,9 +3,7 @@
 ============================================================================== */
 
 .perfil-regulatorio-container {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 24px 20px;
+    min-width: 0;
 }
 
 .perfil-reg-header {

@@ -3,9 +3,7 @@
    ============================================================================== */
 
 .integracoes-container {
-    padding: 24px;
-    max-width: 1300px;
-    margin: 0 auto;
+    min-width: 0;
 }
 
 .integracoes-header {
