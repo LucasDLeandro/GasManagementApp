@@ -28,3 +28,4 @@ Arquivo curto e atualizado a cada sprint (pelo agente, no fim da sprint, e pelo 
 | 03 Retestes e baixa patrimonial | concluída | `sprint-03/produtos-retestes-baixa` | `docs/sprints/relatorios/SPRINT_03.md` |
 | H01 Hotfix tela inicial | concluída | `hotfix-h01/tela-inicial` | `docs/sprints/relatorios/SPRINT_H01.md` |
 | U01 Interface: layout, abas e rolagem | concluída | `sprint-u01/interface-layout` | `docs/sprints/relatorios/SPRINT_U01.md` |
+| U02 Financeiro: primeiros passos | concluída | `sprint-u02/financeiro-primeiros-passos` | `docs/sprints/relatorios/SPRINT_U02.md` |
