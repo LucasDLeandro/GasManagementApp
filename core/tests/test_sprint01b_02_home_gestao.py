@@ -567,3 +567,29 @@ class HomeGestaoTests(TestCase):
         self.assertTrue(resp.context.get('tem_painel_monitor'))
         self.assertIsNotNone(resp.context.get('url_painel_monitor'))
 
+    def test_09_visao_gestao_periodos_datas_fixas(self):
+        """Endpoint /inicio/api/gestao/ retorna datas corretas para mes_anterior e ultimos_30_dias."""
+        from unittest.mock import patch
+        from django.core.cache import cache
+
+        data_fixa = datetime.datetime(2026, 11, 12, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        client = APIClient()
+        client.force_authenticate(user=self.user_gerente)
+
+        with patch('core.services.visao_gestao.timezone.now', return_value=data_fixa):
+            cache.clear()
+            resp_ant = client.get('/inicio/api/gestao/?periodo=mes_anterior')
+            self.assertEqual(resp_ant.status_code, 200)
+            periodo_ant = resp_ant.json()['periodo']
+            self.assertEqual(periodo_ant['tipo'], 'mes_anterior')
+            self.assertEqual(periodo_ant['inicio'], '2026-10-01')
+            self.assertEqual(periodo_ant['fim'], '2026-10-31')
+
+            cache.clear()
+            resp_30 = client.get('/inicio/api/gestao/?periodo=ultimos_30_dias')
+            self.assertEqual(resp_30.status_code, 200)
+            periodo_30 = resp_30.json()['periodo']
+            self.assertEqual(periodo_30['tipo'], 'ultimos_30_dias')
+            self.assertEqual(periodo_30['inicio'], '2026-10-13')
+            self.assertEqual(periodo_30['fim'], '2026-11-12')
+
