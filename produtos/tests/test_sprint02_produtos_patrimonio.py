@@ -289,6 +289,102 @@ class TestTabelaIndenizacaoNovaVigenciaESimulador(BasePatrimonioTestCase):
         self.assertEqual(Decimal(str(res.data['valor_contratual'])), Decimal('1200.00'))
         self.assertEqual(res.data['origem'], 'TABELA_CONTRATUAL')
 
+    def test_nova_vigencia_retroativa_responde_400(self):
+        """nova-vigencia só a partir de hoje: vigencia_inicio < hoje -> 400."""
+        self.client.force_login(self.admin)
+        data_retroativa = self.hoje - datetime.timedelta(days=5)
+        res = self.client.post(
+            f'/produtos/api/patrimonio/indenizacoes/{self.indenizacao.id}/nova-vigencia/',
+            {
+                'valor': '1500.00',
+                'vigencia_inicio': str(data_retroativa),
+            },
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('vigência retroativa não permitida', str(res.data).lower())
+
+    def test_nova_vigencia_em_linha_ja_encerrada_responde_400(self):
+        """nova-vigencia só sobre a linha vigente (sem vigencia_fim)."""
+        self.client.force_login(self.admin)
+        gas_extra = GasQuimico.objects.create(nome='Argônio', sigla='Ar', categoria='INDUSTRIAL')
+        encerrada = TabelaIndenizacaoCilindro.objects.create(
+            tenant=self.tenant,
+            tipo_cilindro=self.modelo,
+            gas=gas_extra,
+            valor=Decimal('1000.00'),
+            vigencia_inicio=self.hoje - datetime.timedelta(days=60),
+            vigencia_fim=self.hoje - datetime.timedelta(days=1),
+        )
+        res = self.client.post(
+            f'/produtos/api/patrimonio/indenizacoes/{encerrada.id}/nova-vigencia/',
+            {
+                'valor': '1400.00',
+                'vigencia_inicio': str(self.hoje),
+            },
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_nova_vigencia_sobreposta_com_linha_futura_responde_400_e_faz_rollback(self):
+        """Antes de criar a nova linha, roda a mesma validação de sobreposição do serializer."""
+        self.client.force_login(self.admin)
+        TabelaIndenizacaoCilindro.objects.create(
+            tenant=self.tenant,
+            tipo_cilindro=self.modelo,
+            gas=self.gas,
+            valor=Decimal('1900.00'),
+            vigencia_inicio=self.hoje + datetime.timedelta(days=15),
+            vigencia_fim=None,
+        )
+        res = self.client.post(
+            f'/produtos/api/patrimonio/indenizacoes/{self.indenizacao.id}/nova-vigencia/',
+            {
+                'valor': '1500.00',
+                'vigencia_inicio': str(self.hoje + datetime.timedelta(days=5)),
+            },
+            format='json'
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('sobreposição', str(res.data).lower())
+        self.indenizacao.refresh_from_db()
+        self.assertIsNone(self.indenizacao.vigencia_fim)
+
+    def test_exclusao_tabela_indenizacao_so_permite_vigencia_futura(self):
+        """Exclusão só se vigencia_inicio > hoje; linha que já vigorou -> 400 orientando nova vigência."""
+        self.client.force_login(self.admin)
+        # Linha que já vigorou (hoje - 60) -> 400
+        res_passada = self.client.delete(f'/produtos/api/patrimonio/indenizacoes/{self.indenizacao.id}/')
+        self.assertEqual(res_passada.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('nova vigência', str(res_passada.data).lower())
+
+        # Linha que entrou em vigor hoje -> 400
+        gas_hoje = GasQuimico.objects.create(nome='Nitrogênio', sigla='N2', categoria='INDUSTRIAL')
+        vigente_hoje = TabelaIndenizacaoCilindro.objects.create(
+            tenant=self.tenant,
+            tipo_cilindro=self.modelo,
+            gas=gas_hoje,
+            valor=Decimal('1100.00'),
+            vigencia_inicio=self.hoje,
+            vigencia_fim=None,
+        )
+        res_hoje = self.client.delete(f'/produtos/api/patrimonio/indenizacoes/{vigente_hoje.id}/')
+        self.assertEqual(res_hoje.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Linha futura (vigencia_inicio > hoje) -> 204
+        gas_futuro = GasQuimico.objects.create(nome='Dióxido de Carbono', sigla='CO2', categoria='INDUSTRIAL')
+        futura = TabelaIndenizacaoCilindro.objects.create(
+            tenant=self.tenant,
+            tipo_cilindro=self.modelo,
+            gas=gas_futuro,
+            valor=Decimal('1300.00'),
+            vigencia_inicio=self.hoje + datetime.timedelta(days=10),
+            vigencia_fim=None,
+        )
+        res_fut = self.client.delete(f'/produtos/api/patrimonio/indenizacoes/{futura.id}/')
+        self.assertEqual(res_fut.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(TabelaIndenizacaoCilindro.objects.filter(id=futura.id).exists())
+
 
 class TestLoteAquisicaoRegrasEValidacoes(BasePatrimonioTestCase):
     """02.2, 02.3 & Ajustes 2, 3 e 5: Validações do lote, edição travada e integração com cadastro de cilindro."""

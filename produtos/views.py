@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.http import HttpResponse, FileResponse, HttpResponseBadRequest
 from django.utils import timezone
 from django.core.exceptions import ValidationError, PermissionDenied
+from django.db import transaction
 from django.db.models import Q, Prefetch, Count
 from rest_framework import viewsets, status
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -2171,6 +2172,18 @@ class TabelaIndenizacaoCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet
     def destroy(self, request, *args, **kwargs):
         assert_tenant_writable(self.request.tenant)
         assert_modulo(self.request.tenant, 'patrimonio')
+        instance = self.get_object()
+        hoje = timezone.localdate()
+        if instance.vigencia_inicio <= hoje:
+            return Response(
+                {
+                    'detail': (
+                        'Não é possível excluir uma linha da tabela de indenização que já entrou em vigor. '
+                        'Para alterar o valor, utilize a ação de nova vigência para encerrá-la.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             return super().destroy(request, *args, **kwargs)
         except ProtectedError:
@@ -2184,6 +2197,13 @@ class TabelaIndenizacaoCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet
         assert_tenant_writable(self.request.tenant)
         assert_modulo(self.request.tenant, 'patrimonio')
         atual = self.get_object()
+
+        if atual.vigencia_fim is not None:
+            return Response(
+                {'error': 'Nova vigência só pode ser gerada sobre a linha vigente (sem data de término).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         novo_valor = request.data.get('valor')
         nova_data_str = request.data.get('vigencia_inicio')
 
@@ -2202,26 +2222,35 @@ class TabelaIndenizacaoCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        hoje = timezone.localdate()
+        if nova_data < hoje:
+            return Response(
+                {'error': 'Vigência retroativa não permitida.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if nova_data <= atual.vigencia_inicio:
             return Response(
                 {'error': 'A nova data de início de vigência deve ser posterior à vigência atual.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Encerra vigência anterior na véspera da nova vigência
-        atual.vigencia_fim = nova_data - datetime.timedelta(days=1)
-        atual.save(update_fields=['vigencia_fim', 'atualizado_em'])
+        with transaction.atomic():
+            # Encerra vigência anterior na véspera da nova vigência
+            atual.vigencia_fim = nova_data - datetime.timedelta(days=1)
+            atual.save(update_fields=['vigencia_fim', 'atualizado_em'])
 
-        novo_registro = TabelaIndenizacaoCilindro.objects.create(
-            tenant=self.request.tenant,
-            tipo_cilindro=atual.tipo_cilindro,
-            gas=atual.gas,
-            valor=novo_valor_dec,
-            vigencia_inicio=nova_data,
-            vigencia_fim=None,
-        )
-        serializer = self.get_serializer(novo_registro)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            serializer = self.get_serializer(data={
+                'tipo_cilindro': atual.tipo_cilindro_id,
+                'gas': atual.gas_id,
+                'valor': novo_valor_dec,
+                'vigencia_inicio': nova_data,
+                'vigencia_fim': None,
+            })
+            serializer.is_valid(raise_exception=True)
+            novo_registro = serializer.save(tenant=self.request.tenant)
+
+        return Response(self.get_serializer(novo_registro).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='simular')
     def simular(self, request):

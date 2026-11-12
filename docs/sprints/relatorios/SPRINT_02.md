@@ -88,11 +88,14 @@
 
 ---
 
-## 4. Decisões tomadas por premissa
+## 4. Decisões tomadas por premissa e Pendências
 
-1. **Imutabilidade de Valores na Tabela de Indenização (Decisão Sprint 02 - Item 1):**
+1. **Imutabilidade de Valores na Tabela de Indenização (Decisão Sprint 02 - Item 1 + Revisão):**
    - Para garantir rastreabilidade histórica e não distorcer cobranças ou sinistros passados, valores de indenização não sofrem PATCH direto.
-   - Nova vigência encerra a anterior (`vigencia_fim = nova_data - 1 dia`) e cria nova linha. A validação do backend rejeita qualquer intersecção ou sobreposição temporal para o mesmo par `(tipo_cilindro, gas)`.
+   - Nova vigência só pode ser gerada sobre a linha vigente (`vigencia_fim is None`), com `vigencia_inicio >= hoje` (vigências retroativas são bloqueadas com 400).
+   - A alteração encerra a anterior (`vigencia_fim = nova_data - 1 dia`) dentro de `transaction.atomic()` e valida a criação da nova linha pelo `TabelaIndenizacaoCilindroSerializer` (impedindo sobreposição temporal para o mesmo par `(tipo_cilindro, gas)`).
+   - Exclusão de linha da tabela de indenização só é permitida para vigências futuras (`vigencia_inicio > hoje`). Linhas que já entraram em vigor respondem 400 orientando encerrar via nova vigência.
+   - **Decisão pendente para o dono:** Definir se haverá no futuro algum fluxo excepcional (com auditoria e motivo) para corrigir ou alterar retroativamente o preço de uma vigência passada caso um lançamento tenha sido cadastrado errado. Por ora, vigências retroativas permanecem bloqueadas.
 2. **Travamento Físico e Financeiro de Lotes em Uso (Decisão Sprint 02 - Item 3):**
    - Uma vez que cilindros no inventário estejam atrelados a um `LoteAquisicaoCilindros`, os campos determinantes de custo unitário, classe contábil e quantidade total são bloqueados para edição contra distorções no razão de ativos.
 3. **Fail-Closed Multi-tenant no Cadastro de Cilindros (Regra 3.2):**
@@ -105,8 +108,8 @@
 ## 5. Resultado da Suíte de Testes e Checagens
 
 - **Suíte Global de Partida:** 748 passed, 4 warnings.
-- **Suíte Global de Chegada (`pytest -q -p no:cacheprovider`):** **764 passed**, 4 warnings (182.66s — 03:02, 100% verde).
-- **Suíte da Sprint 02 (`produtos/tests/test_sprint02_produtos_patrimonio.py`):** **16 passed** (70.16s).
+- **Suíte Global de Chegada (`pytest -q -p no:cacheprovider`):** **768 passed**, 4 warnings (155.29s — 02:35, 100% verde).
+- **Suíte da Sprint 02 (`produtos/tests/test_sprint02_produtos_patrimonio.py`):** **20 passed** (63.67s).
 - **Verificações de Integridade do Django:**
   - `python manage.py check` → `System check identified no issues (0 silenced).`
   - `python manage.py makemigrations --check --dry-run` → `No changes detected`
@@ -129,7 +132,8 @@
 1. `a07915f` — `feat(produtos): permissoes de gestao e regras de negocio do patrimonio`
 2. `40aedeb` — `feat(produtos): interface da central de patrimonio e stepper de aquisicao`
 3. `e05a836` — `test(produtos): suite de testes automatizados do sprint 02 patrimonio`
-4. *(este commit)* — `docs(sprint-02): relatorio de entrega e atualizacao do progresso e decisoes`
+4. `f58a9cb` — `docs(sprint-02): relatorio de entrega e atualizacao do progresso e decisoes`
+5. *(este commit)* — `fix(produtos): validacoes de vigencia e exclusao na tabela de indenizacao`
 
 ---
 
