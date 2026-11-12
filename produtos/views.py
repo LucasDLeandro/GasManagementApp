@@ -1,10 +1,12 @@
 import csv
 import datetime
+from decimal import Decimal
 from django.http import HttpResponse, FileResponse, HttpResponseBadRequest
 from django.utils import timezone
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.db.models import Q, Prefetch, Count
 from rest_framework import viewsets, status
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -12,8 +14,10 @@ from rest_framework.permissions import IsAuthenticated
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 
+from core.money import quantize
 
-from core.guards import assert_modulo, assert_tenant_writable, is_modulo_ativo
+
+from core.guards import assert_modulo, assert_tenant_writable, is_modulo_ativo, ModuloInativoError
 from core.mixins import TenantViewSetMixin
 from core.permissions import (
     IsTenantMember,
@@ -1109,6 +1113,37 @@ class ProdutoTemplateView(LoginRequiredMixin, TemplateView):
         return contexto
 
 
+class PatrimonioTemplateView(LoginRequiredMixin, TemplateView):
+    """
+    Interface Visual de Gestão de Patrimônio: Ativos Imobilizados, Lotes de Aquisição,
+    Classes de Ativo, Fabricantes e Tabela de Indenização (Sprint 02).
+    """
+    template_name = 'produtos/patrimonio/index.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        tenant = getattr(request, 'tenant', None)
+        try:
+            assert_modulo(tenant, 'patrimonio')
+        except ModuloInativoError:
+            raise PermissionDenied("Módulo patrimônio inativo para esta empresa.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        from core.permissions import resolve_request_membership
+        contexto = super().get_context_data(**kwargs)
+        membership = resolve_request_membership(self.request)
+        papel = membership.papel if membership else None
+        superuser = self.request.user.is_superuser
+        pode_editar = superuser or papel in ('ADMIN', 'GERENTE')
+        contexto.update({
+            'pode_editar_patrimonio': pode_editar,
+            'tipos_classe': ClasseAtivo.TIPO_CHOICES,
+            'metodos_depreciacao': ClasseAtivo.METODO_CHOICES,
+            'status_ativos': AtivoImobilizado.STATUS_CHOICES,
+        })
+        return contexto
+
+
 class LotesAnvisaListAPIView(TenantViewSetMixin, APIView):
     """
     API para listagem dos Lotes Químicos/Medicinais do tenant ativo.
@@ -1942,13 +1977,13 @@ class EtiquetaColarinhoView(LoginRequiredMixin, View):
 
 
 # ==============================================================================
-# VIEWSETS DE PATRIMÔNIO E ATIVOS IMOBILIZADOS (SPRINT 8A)
+# VIEWSETS DE PATRIMÔNIO E ATIVOS IMOBILIZADOS (SPRINT 8A / SPRINT 02)
 # ==============================================================================
 
 class FabricanteCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = FabricanteCilindro.unscoped.all()
     serializer_class = FabricanteCilindroSerializer
-    permission_classes = [RequiresModulePatrimonio]
+    permission_classes = [SomenteGestaoAltera, RequiresModulePatrimonio]
 
     def perform_create(self, serializer):
         assert_tenant_writable(self.request.tenant)
@@ -1959,12 +1994,29 @@ class FabricanteCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         assert_tenant_writable(self.request.tenant)
         assert_modulo(self.request.tenant, 'patrimonio')
         serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        instance = self.get_object()
+        if instance.cilindros.exists():
+            return Response(
+                {'detail': 'Este fabricante não pode ser excluído porque está em uso por outros cadastros (cilindros vinculados).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {'detail': 'Este registro não pode ser excluído porque está em uso por outros cadastros.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class ClasseAtivoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = ClasseAtivo.unscoped.all()
     serializer_class = ClasseAtivoSerializer
-    permission_classes = [RequiresModulePatrimonio]
+    permission_classes = [SomenteGestaoAltera, RequiresModulePatrimonio]
 
     def perform_create(self, serializer):
         assert_tenant_writable(self.request.tenant)
@@ -1975,12 +2027,38 @@ class ClasseAtivoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         assert_tenant_writable(self.request.tenant)
         assert_modulo(self.request.tenant, 'patrimonio')
         serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        instance = self.get_object()
+        if instance.cilindros.exists() or instance.ativos_imobilizados.exists() or instance.lotes_aquisicao_cilindros.exists():
+            return Response(
+                {'detail': 'Este registro não pode ser excluído porque está em uso por outros cadastros.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {'detail': 'Este registro não pode ser excluído porque está em uso por outros cadastros.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class AtivoImobilizadoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = AtivoImobilizado.unscoped.all()
     serializer_class = AtivoImobilizadoSerializer
-    permission_classes = [RequiresModulePatrimonio]
+    permission_classes = [SomenteGestaoAltera, RequiresModulePatrimonio]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        if params.get('classe'):
+            qs = qs.filter(classe_id=params['classe'])
+        if params.get('status'):
+            qs = qs.filter(status=params['status'])
+        return qs
 
     def perform_create(self, serializer):
         assert_tenant_writable(self.request.tenant)
@@ -1991,12 +2069,47 @@ class AtivoImobilizadoViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         assert_tenant_writable(self.request.tenant)
         assert_modulo(self.request.tenant, 'patrimonio')
         serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        instance = self.get_object()
+        if instance.depreciacao_acumulada_rs > Decimal('0.00'):
+            return Response(
+                {'detail': 'Este ativo imobilizado possui depreciação calculada e não pode ser excluído. Para desativá-lo, utilize a baixa patrimonial (Sprint 03).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {'detail': 'Este registro não pode ser excluído porque está em uso por outros cadastros.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @action(detail=False, methods=['get'], url_path='resumo')
+    def resumo(self, request):
+        assert_modulo(request.tenant, 'patrimonio')
+        qs = self.get_queryset()
+        total_aquisicao = Decimal('0.00')
+        total_depreciacao = Decimal('0.00')
+        total_liquido = Decimal('0.00')
+        for ativo in qs:
+            total_aquisicao += (ativo.valor_aquisicao or Decimal('0.00'))
+            total_liquido += (ativo.valor_contabil_liquido_atual or Decimal('0.00'))
+            total_depreciacao += (ativo.depreciacao_acumulada_rs or Decimal('0.00'))
+        return Response({
+            'total_aquisicao': total_aquisicao,
+            'total_depreciacao': total_depreciacao,
+            'total_liquido': total_liquido,
+            'quantidade_ativos': qs.count(),
+        })
 
 
 class LoteAquisicaoCilindrosViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = LoteAquisicaoCilindros.unscoped.all()
     serializer_class = LoteAquisicaoCilindrosSerializer
-    permission_classes = [RequiresModulePatrimonio]
+    permission_classes = [SomenteGestaoAltera, RequiresModulePatrimonio]
 
     def perform_create(self, serializer):
         assert_tenant_writable(self.request.tenant)
@@ -2006,13 +2119,44 @@ class LoteAquisicaoCilindrosViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     def perform_update(self, serializer):
         assert_tenant_writable(self.request.tenant)
         assert_modulo(self.request.tenant, 'patrimonio')
+        instance = serializer.instance
+        if instance.cilindros.exists():
+            campos_travados = ['valor_total', 'quantidade', 'valor_unitario', 'classe', 'data_aquisicao']
+            for campo in campos_travados:
+                if campo in self.request.data:
+                    val_enviado = str(self.request.data[campo])
+                    val_atual = getattr(instance, campo)
+                    if hasattr(val_atual, 'id'):
+                        val_atual = val_atual.id
+                    val_atual_str = str(quantize(val_atual, 2) if isinstance(val_atual, Decimal) else val_atual)
+                    if str(val_atual) != val_enviado and val_atual_str != val_enviado:
+                        raise DRFValidationError({
+                            campo: f'O campo {campo} está travado porque este lote já possui cilindros vinculados.'
+                        })
         serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        instance = self.get_object()
+        if instance.cilindros.exists():
+            return Response(
+                {'detail': 'Este lote possui cilindros vinculados e não pode ser excluído. Para dar saída em cilindros, utilize a baixa patrimonial (Sprint 03).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {'detail': 'Este registro não pode ser excluído porque está em uso por outros cadastros.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class TabelaIndenizacaoCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = TabelaIndenizacaoCilindro.unscoped.all()
     serializer_class = TabelaIndenizacaoCilindroSerializer
-    permission_classes = [RequiresModulePatrimonio]
+    permission_classes = [SomenteGestaoAltera, RequiresModulePatrimonio]
 
     def perform_create(self, serializer):
         assert_tenant_writable(self.request.tenant)
@@ -2023,6 +2167,84 @@ class TabelaIndenizacaoCilindroViewSet(TenantViewSetMixin, viewsets.ModelViewSet
         assert_tenant_writable(self.request.tenant)
         assert_modulo(self.request.tenant, 'patrimonio')
         serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {'detail': 'Este registro não pode ser excluído porque está em uso por outros cadastros.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @action(detail=True, methods=['post'], url_path='nova-vigencia')
+    def nova_vigencia(self, request, pk=None):
+        assert_tenant_writable(self.request.tenant)
+        assert_modulo(self.request.tenant, 'patrimonio')
+        atual = self.get_object()
+        novo_valor = request.data.get('valor')
+        nova_data_str = request.data.get('vigencia_inicio')
+
+        if not novo_valor or not nova_data_str:
+            return Response(
+                {'error': 'Campos valor e vigencia_inicio são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            nova_data = datetime.date.fromisoformat(str(nova_data_str))
+            novo_valor_dec = Decimal(str(novo_valor))
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'Valor ou data de início inválidos.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if nova_data <= atual.vigencia_inicio:
+            return Response(
+                {'error': 'A nova data de início de vigência deve ser posterior à vigência atual.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Encerra vigência anterior na véspera da nova vigência
+        atual.vigencia_fim = nova_data - datetime.timedelta(days=1)
+        atual.save(update_fields=['vigencia_fim', 'atualizado_em'])
+
+        novo_registro = TabelaIndenizacaoCilindro.objects.create(
+            tenant=self.request.tenant,
+            tipo_cilindro=atual.tipo_cilindro,
+            gas=atual.gas,
+            valor=novo_valor_dec,
+            vigencia_inicio=nova_data,
+            vigencia_fim=None,
+        )
+        serializer = self.get_serializer(novo_registro)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], url_path='simular')
+    def simular(self, request):
+        assert_modulo(request.tenant, 'patrimonio')
+        cilindro_id = request.query_params.get('cilindro_id')
+        if not cilindro_id:
+            return Response({'error': 'Parâmetro cilindro_id é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        cilindro = Cilindro.objects.filter(pk=cilindro_id, tenant=request.tenant).first()
+        if not cilindro:
+            return Response({'error': 'Cilindro não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        data_ref = None
+        data_str = request.query_params.get('data')
+        if data_str:
+            try:
+                data_ref = datetime.date.fromisoformat(data_str)
+            except ValueError:
+                return Response({'error': 'Formato de data inválido (esperado AAAA-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from produtos.services.indenizacao import calcular_indenizacao
+        res = calcular_indenizacao(cilindro, data=data_ref)
+        return Response(res, status=status.HTTP_200_OK)
 
 
 # ==============================================================================
