@@ -1,6 +1,9 @@
 import datetime
+import logging
 import os
 from decimal import Decimal
+
+logger = logging.getLogger(__name__)
 
 from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import ValidationError
@@ -474,8 +477,20 @@ class BarosAdminToggleModuloView(View):
         setattr(tenant, flag_name, novo_valor)
         tenant.save(update_fields=[flag_name])
 
+        aviso_seed = None
         if novo_valor:
-            executar_seeds(tenant, modulo=modulo)
+            try:
+                executar_seeds(tenant, modulo=modulo)
+            except Exception as exc:
+                logger.exception(
+                    "Erro ao executar seeds do módulo '%s' para tenant '%s'",
+                    modulo,
+                    tenant.id,
+                )
+                aviso_seed = (
+                    f"Módulo ativado, mas o seed padrão não foi aplicado ({exc}). "
+                    "Na tela Financeiro, use o botão 'Aplicar plano de contas padrão' em Primeiros passos."
+                )
 
         # Grava auditoria SaaS
         LogAuditoriaSaaS.objects.create(
@@ -483,7 +498,11 @@ class BarosAdminToggleModuloView(View):
             usuario=request.user,
             acao='TOGGLE_MODULO',
             modulo=modulo,
-            detalhes_json={'modulo': modulo, 'novo_valor': novo_valor},
+            detalhes_json={
+                'modulo': modulo,
+                'novo_valor': novo_valor,
+                'seed_aplicado': aviso_seed is None,
+            },
             ip=get_current_ip(),
             request_id=get_current_request_id(),
             timestamp=timezone.now()
@@ -493,6 +512,8 @@ class BarosAdminToggleModuloView(View):
             'sucesso': True,
             'modulo': modulo,
             'ativo': novo_valor,
+            'seed_aplicado': aviso_seed is None,
+            'aviso_seed': aviso_seed,
             'tenant_id': str(tenant.id)
         })
 

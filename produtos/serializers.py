@@ -685,7 +685,17 @@ class BaixaPatrimonialSerializer(serializers.ModelSerializer):
             'motivo_estorno', 'usuario', 'usuario_nome',
             'usuario_estorno', 'usuario_estorno_nome', 'criado_em'
         ]
-        read_only_fields = ['tenant', 'valor_contabil_baixa', 'resultado', 'estornada', 'data_estorno', 'criado_em']
+        read_only_fields = [
+            'tenant', 'status_anterior', 'usuario', 'usuario_estorno',
+            'motivo_estorno', 'valor_contabil_baixa', 'resultado',
+            'estornada', 'data_estorno', 'criado_em',
+        ]
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance is not None and 'cilindro' in fields:
+            fields['cilindro'].read_only = True
+        return fields
 
 
 class TanqueCriogenicoSerializer(serializers.ModelSerializer):

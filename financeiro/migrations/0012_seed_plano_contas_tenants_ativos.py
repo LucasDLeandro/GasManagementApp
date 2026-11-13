@@ -3,11 +3,6 @@
 from django.db import migrations
 
 
-def seed_tenants_ativos(apps, schema_editor):
-    from financeiro.seeds import aplicar_seed_tenants_plano_vazio
-    aplicar_seed_tenants_plano_vazio()
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -16,5 +11,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(seed_tenants_ativos, migrations.RunPython.noop),
+        migrations.RunPython(migrations.RunPython.noop, migrations.RunPython.noop),
     ]

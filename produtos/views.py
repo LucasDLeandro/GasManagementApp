@@ -30,7 +30,7 @@ from core.permissions import (
     RequiresModulePatrimonio,
     IsTenantAdminOrGerente,
 )
-from core.models import ResponsavelTecnico
+from core.models import Membership, ResponsavelTecnico
 
 from .models import (
     Produto,
@@ -175,6 +175,48 @@ class SomenteGestaoAltera(IsTenantMember):
         if request.method in ('GET', 'HEAD', 'OPTIONS'):
             return True
         return IsTenantAdminOrGerente().has_permission(request, view)
+
+
+PAPEIS_ENVIO_RETESTE = ('ADMIN', 'GERENTE', 'RESPONSAVEL_TECNICO', 'OPERADOR_PATIO')
+PAPEIS_RETIFICACAO_RETESTE = ('ADMIN', 'GERENTE', 'RESPONSAVEL_TECNICO')
+
+
+class SomenteEnvioRetesteAltera(IsTenantMember):
+    """Leitura para qualquer membro; criar envio de reteste só papéis autorizados (D1)."""
+    message = 'Seu papel não tem permissão para registrar envio para reteste.'
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return True
+        if request.user.is_superuser:
+            return True
+        tenant = getattr(request, 'tenant', None)
+        return Membership.objects.filter(
+            user=request.user,
+            tenant=tenant,
+            papel__in=PAPEIS_ENVIO_RETESTE,
+            ativo=True,
+        ).exists()
+
+
+class SomenteRetificacaoReteste(IsTenantMember):
+    """Retificação formal de reteste só para ADMIN, GERENTE e RESPONSAVEL_TECNICO (D2)."""
+    message = 'Somente Administrador, Gerente ou Responsável Técnico podem retificar um reteste.'
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.user.is_superuser:
+            return True
+        tenant = getattr(request, 'tenant', None)
+        return Membership.objects.filter(
+            user=request.user,
+            tenant=tenant,
+            papel__in=PAPEIS_RETIFICACAO_RETESTE,
+            ativo=True,
+        ).exists()
 
 
 class GasQuimicoViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
@@ -2338,14 +2380,45 @@ class HistoricoRetesteHidrostaticoViewSet(TenantViewSetMixin, viewsets.ModelView
     def perform_destroy(self, instance):
         raise ValidationError("Registros de reteste hidrostático são estritamente imutáveis e perpétuos.")
 
-    @action(detail=True, methods=['post'], url_path='retificar')
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='retificar',
+        permission_classes=[SomenteRetificacaoReteste, RequiresModulePatrimonio],
+    )
     def retificar(self, request, pk=None):
-        dados = dict(request.data)
-        if dados.get('motivo') and not dados.get('observacoes'):
-            dados['observacoes'] = dados['motivo']
+        reteste_antigo = self.get_object()
+        motivo = (request.data.get('motivo') or request.data.get('observacoes') or '').strip()
+        if len(motivo) < 10:
+            return Response(
+                {'motivo': ['O motivo da retificação é obrigatório e deve ter ao menos 10 caracteres.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        dados = {'observacoes': motivo}
+        campos_opcionais = (
+            'data_execucao',
+            'numero_certificado',
+            'oficina_nome',
+            'oficina_cnpj',
+            'registro_inmetro',
+            'pressao_teste_bar',
+            'expansao_total_cm3',
+            'expansao_permanente_cm3',
+            'tara_real_kg',
+            'resultado',
+            'motivo_reprovacao',
+            'data_proximo_reteste',
+            'custo_servico_reteste',
+        )
+        for campo in campos_opcionais:
+            val = request.data.get(campo)
+            if val not in (None, ''):
+                dados[campo] = val
+
         try:
             novo = retificar_reteste(
-                reteste_anterior_id=pk,
+                reteste_anterior_id=reteste_antigo.id,
                 novos_dados=dados,
                 usuario=request.user
             )
@@ -2365,7 +2438,8 @@ class HistoricoRetesteHidrostaticoViewSet(TenantViewSetMixin, viewsets.ModelView
 class EnvioRetesteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = EnvioReteste.unscoped.all()
     serializer_class = EnvioRetesteSerializer
-    permission_classes = [RequiresModulePatrimonio]
+    permission_classes = [SomenteEnvioRetesteAltera, RequiresModulePatrimonio]
+    http_method_names = ['get', 'post', 'head', 'options']
 
     def create(self, request, *args, **kwargs):
         oficina_nome = request.data.get('oficina_nome')
@@ -2403,6 +2477,7 @@ class BaixaPatrimonialViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
     queryset = BaixaPatrimonial.unscoped.all()
     serializer_class = BaixaPatrimonialSerializer
     permission_classes = [SomenteGestaoAltera, RequiresModulePatrimonio]
+    http_method_names = ['get', 'post', 'head', 'options']
 
     def create(self, request, *args, **kwargs):
         cilindro_id = request.data.get('cilindro') or request.data.get('cilindro_id')

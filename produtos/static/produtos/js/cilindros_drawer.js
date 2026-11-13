@@ -823,7 +823,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('ret-comp-cilindro-id').value = activeCilindroData.id;
                 document.getElementById('ret-comp-envio-id').value = envio.envio_id || '';
                 document.getElementById('ret-comp-cilindro-label').value = `${activeCilindroData.numero_serie_ogiva} (${activeCilindroData.codigo_qr || 'S/QR'})`;
-                document.getElementById('ret-comp-data').value = new Date().toISOString().slice(0, 10);
+                document.getElementById('ret-comp-data').value = Baros.hojeISO();
                 document.getElementById('ret-comp-oficina-nome').value = envio.oficina_nome || '';
                 document.getElementById('ret-comp-oficina-cnpj').value = envio.oficina_cnpj || '';
                 const campoTaraComp = document.getElementById('ret-comp-tara');
@@ -941,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formBaixaDrawer.reset();
             document.getElementById('baixa-cilindro-id').value = activeCilindroData.id;
             document.getElementById('baixa-cilindro-label').value = `${activeCilindroData.numero_serie_ogiva} (${activeCilindroData.codigo_qr || 'S/QR'})`;
-            document.getElementById('baixa-data').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('baixa-data').value = Baros.hojeISO();
             modalBaixaDrawer.classList.add('active');
             modalBaixaDrawer.removeAttribute('hidden');
         });

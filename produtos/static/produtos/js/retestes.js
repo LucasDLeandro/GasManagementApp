@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const hojeIso = new Date().toISOString().slice(0, 10);
+            const hojeIso = Baros.hojeISO();
 
             lista.forEach(c => {
                 const tr = document.createElement('tr');
@@ -621,7 +621,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!formNovoEnvio) return;
         formNovoEnvio.reset();
         const dtInput = document.getElementById('envio-data');
-        if (dtInput) dtInput.value = new Date().toISOString().slice(0, 10);
+        if (dtInput) dtInput.value = Baros.hojeISO();
         if (stepperEnvio) stepperEnvio.irPara(1);
         renderizarChipsEnvio();
         abrirModal('modal-novo-envio');
@@ -734,7 +734,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('ret-comp-cilindro-id').value = cilindro.id;
         document.getElementById('ret-comp-envio-id').value = (envioInfo && envioInfo.envio_id) || '';
         document.getElementById('ret-comp-cilindro-label').value = `${cilindro.numero_serie_ogiva} (${cilindro.codigo_qr || 'S/QR'})`;
-        document.getElementById('ret-comp-data').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('ret-comp-data').value = Baros.hojeISO();
         if (envioInfo) {
             document.getElementById('ret-comp-oficina-nome').value = envioInfo.oficina_nome || '';
             document.getElementById('ret-comp-oficina-cnpj').value = envioInfo.oficina_cnpj || '';
@@ -768,8 +768,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (cilAtualizado && cilAtualizado.status === 'BAIXADO') {
                         Baros.aviso('Cilindro condenado e baixado por Inutilização Técnica com bloqueio sanitário.');
                     } else if (cilAtualizado) {
-                        Baros.aviso('Cilindro condenado no reteste. Complete a baixa patrimonial a seguir.');
-                        abrirModalBaixa(cilAtualizado, 'INUTILIZACAO_TECNICA');
+                        if (RETESTES_CONFIG.podeEditarPatrimonio) {
+                            Baros.aviso('Cilindro condenado no reteste. Complete a baixa patrimonial a seguir.');
+                            abrirModalBaixa(cilAtualizado, 'INUTILIZACAO_TECNICA');
+                        } else {
+                            Baros.aviso('Cilindro condenado no reteste. Um Administrador ou Gerente precisa registrar a baixa patrimonial.');
+                        }
                     }
                 } else {
                     Baros.sucesso('Retorno aprovado registrado e validade renovada!');
@@ -831,7 +835,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formBaixa.reset();
         document.getElementById('baixa-cilindro-id').value = cilindro.id;
         document.getElementById('baixa-cilindro-label').value = `${cilindro.numero_serie_ogiva} (${cilindro.codigo_qr || 'S/QR'})`;
-        document.getElementById('baixa-data').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('baixa-data').value = Baros.hojeISO();
         if (tipoPadrao) document.getElementById('baixa-tipo').value = tipoPadrao;
         abrirModal('modal-baixa-patrimonial');
     }

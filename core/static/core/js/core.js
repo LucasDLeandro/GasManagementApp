@@ -561,6 +561,14 @@ window.showToast = function({ icon = 'success', title = 'Sucesso', text = '' }) 
         return controle;
     }
 
+    function hojeISO() {
+        const d = new Date();
+        const ano = d.getFullYear();
+        const mes = String(d.getMonth() + 1).padStart(2, '0');
+        const dia = String(d.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+    }
+
     global.Baros = Object.assign(global.Baros || {}, {
         api,
         ApiError,
@@ -572,6 +580,7 @@ window.showToast = function({ icon = 'success', title = 'Sucesso', text = '' }) 
         validarCampos,
         mostrarErrosApi,
         dadosDoForm,
+        hojeISO,
         Stepper,
         moeda: (v) => (global.formatCurrencyBR ? global.formatCurrencyBR(v) : v),
         data: (v) => (global.formatDateBR ? global.formatDateBR(v) : v),

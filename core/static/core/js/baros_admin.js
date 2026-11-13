@@ -65,8 +65,12 @@
             const ativo = input.checked;
             input.disabled = true;
             try {
-                await enviar(input.dataset.url, { modulo: input.dataset.modulo, ativo: String(ativo) });
-                toast('success', (ativo ? 'Ativado: ' : 'Desativado: ') + input.dataset.rotulo);
+                const r = await enviar(input.dataset.url, { modulo: input.dataset.modulo, ativo: String(ativo) });
+                if (r && r.aviso_seed) {
+                    Swal.fire({ icon: 'warning', title: 'Módulo ativado, mas o seed padrão falhou', text: r.aviso_seed });
+                } else {
+                    toast('success', (ativo ? 'Ativado: ' : 'Desativado: ') + input.dataset.rotulo);
+                }
             } catch (e) {
                 input.checked = !ativo;
                 Swal.fire({ icon: 'error', title: 'Não foi possível alterar o módulo', text: e.message });
