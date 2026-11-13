@@ -239,14 +239,16 @@ class CotasConcorrenciaTests(TransactionTestCase):
         """Duas requisições simultâneas disputando a 10ª vaga: uma vence, a outra recebe CotaExcedida."""
         resultados = []
         erros = []
+        from contextlib import nullcontext
         sqlite_lock = threading.Lock()
 
         def worker(num_worker):
             connection.close()
             set_current_tenant(self.tenant)
             try:
-                # Simula a atomicidade com lock de concorrência evitando table lock do SQLite
-                with sqlite_lock:
+                # Simula a atomicidade com lock de concorrência apenas no SQLite; no PostgreSQL corre em paralelo
+                ctx = sqlite_lock if connection.vendor == 'sqlite' else nullcontext()
+                with ctx:
                     with transaction.atomic():
                         # Reserva via checar_cota com select_for_update
                         checar_cota(self.tenant, 'cilindros', incremento=1)

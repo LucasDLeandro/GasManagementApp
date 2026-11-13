@@ -175,7 +175,7 @@ class TestEnvioERetornoReteste(BaseSprint03TestCase):
             },
             format='json',
         )
-        self.assertEqual(res_envio.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res_envio.status_code, status.HTTP_201_CREATED, res_envio.content)
         envio_id = res_envio.data['id']
 
         self.cilindro_vazio.refresh_from_db()

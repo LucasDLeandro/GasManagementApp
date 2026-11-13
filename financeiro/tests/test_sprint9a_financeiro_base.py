@@ -582,16 +582,13 @@ class DatabaseTriggerImutabilidadeTests(TransactionTestCase):
                 """)
 
     def tearDown(self):
-        # Desabilita triggers temporariamente para que o runner do Django consiga flushar as tabelas
+        # No SQLite remove triggers temporários criados no setUp; no PostgreSQL mantém as triggers reais da migração 0002.
         with connection.cursor() as cursor:
             if connection.vendor == 'sqlite':
                 cursor.execute("DROP TRIGGER IF EXISTS prevent_update_lancamento;")
                 cursor.execute("DROP TRIGGER IF EXISTS prevent_delete_lancamento;")
                 cursor.execute("DROP TRIGGER IF EXISTS prevent_update_partida;")
                 cursor.execute("DROP TRIGGER IF EXISTS prevent_delete_partida;")
-            elif connection.vendor == 'postgresql':
-                cursor.execute("DROP TRIGGER IF EXISTS prevent_update_delete_lancamento ON financeiro_lancamentocontabil;")
-                cursor.execute("DROP TRIGGER IF EXISTS prevent_update_delete_partida ON financeiro_partidacontabil;")
         reset_current_tenant(self.token)
         super().tearDown()
 
@@ -656,7 +653,10 @@ class DatabaseTriggerImutabilidadeTests(TransactionTestCase):
                 cursor.execute("UPDATE financeiro_lancamentocontabil SET hash_integridade = 'bad_hash' WHERE id = %s", [lanc.id])
             elif connection.vendor == 'postgresql':
                 cursor.execute("ALTER TABLE financeiro_lancamentocontabil DISABLE TRIGGER USER;")
-                cursor.execute("UPDATE financeiro_lancamentocontabil SET hash_integridade = 'bad_hash' WHERE id = %s", [lanc.id])
+                try:
+                    cursor.execute("UPDATE financeiro_lancamentocontabil SET hash_integridade = 'bad_hash' WHERE id = %s", [lanc.id])
+                finally:
+                    cursor.execute("ALTER TABLE financeiro_lancamentocontabil ENABLE TRIGGER USER;")
 
         # Job de integridade DEVE detectar o erro
         valido_depois, erros = verificar_integridade_razao(self.tenant)

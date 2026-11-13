@@ -490,15 +490,18 @@ class TestNumeracaoConcorrenteELacunas(TransactionTestCase):
         from core.tenancy import tenant_context
 
         def worker():
-            with tenant_context(self.tenant):
-                if connection.vendor == 'sqlite':
-                    with lock:
+            try:
+                with tenant_context(self.tenant):
+                    if connection.vendor == 'sqlite':
+                        with lock:
+                            num, _ = reservar_proximo_numero(self.tenant, self.filial.id, modelo='NFE_55')
+                            numeros_reservados.append(num)
+                    else:
                         num, _ = reservar_proximo_numero(self.tenant, self.filial.id, modelo='NFE_55')
-                        numeros_reservados.append(num)
-                else:
-                    num, _ = reservar_proximo_numero(self.tenant, self.filial.id, modelo='NFE_55')
-                    with lock:
-                        numeros_reservados.append(num)
+                        with lock:
+                            numeros_reservados.append(num)
+            finally:
+                connection.close()
 
         for _ in range(10):
             t = threading.Thread(target=worker)

@@ -656,6 +656,7 @@ class TestConcorrenciaTanque(TransactionTestCase):
         super().tearDown()
 
     def test_baixas_concorrentes_select_for_update_preservam_integridade(self):
+        from contextlib import nullcontext
         from django.db import connection
         erros = []
         sqlite_lock = threading.Lock()
@@ -664,7 +665,8 @@ class TestConcorrenciaTanque(TransactionTestCase):
             connection.close()
             set_current_tenant(self.tenant)
             try:
-                with sqlite_lock:
+                ctx = sqlite_lock if connection.vendor == 'sqlite' else nullcontext()
+                with ctx:
                     registrar_perda_purga(
                         tenant=self.tenant,
                         tanque_id=self.tanque.id,
