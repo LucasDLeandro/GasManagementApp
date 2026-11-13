@@ -1,9 +1,6 @@
 import datetime
-import logging
 import os
 from decimal import Decimal
-
-logger = logging.getLogger(__name__)
 
 from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import ValidationError
@@ -479,16 +476,12 @@ class BarosAdminToggleModuloView(View):
 
         aviso_seed = None
         if novo_valor:
-            try:
-                executar_seeds(tenant, modulo=modulo)
-            except Exception as exc:
-                logger.exception(
-                    "Erro ao executar seeds do módulo '%s' para tenant '%s'",
-                    modulo,
-                    tenant.id,
-                )
+            resultados_seed = executar_seeds(tenant, modulo=modulo, capturar_erros=True)
+            falhas_seed = [r for r in resultados_seed if not r['sucesso']]
+            if falhas_seed:
+                erros_txt = '; '.join(f"{r['seed']}: {r['erro']}" for r in falhas_seed)
                 aviso_seed = (
-                    f"Módulo ativado, mas o seed padrão não foi aplicado ({exc}). "
+                    f"Módulo ativado, mas o seed padrão não foi aplicado ({erros_txt}). "
                     "Na tela Financeiro, use o botão 'Aplicar plano de contas padrão' em Primeiros passos."
                 )
 

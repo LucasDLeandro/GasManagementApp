@@ -16,10 +16,15 @@ def registrar_seed(modulo: str, fn: Callable[[Any], Any]) -> None:
         _seeds_por_modulo[modulo].append(fn)
 
 
-def executar_seeds(tenant: Any, modulo: str | None = None) -> list[tuple[str, str, Any]]:
+def executar_seeds(
+    tenant: Any,
+    modulo: str | None = None,
+    capturar_erros: bool = False,
+) -> list[dict[str, Any]]:
     """
     Executa os seeds idempotentes registrados para os módulos ativos do Tenant.
     Se um módulo específico for informado, executa apenas os seeds daquele módulo.
+    Retorna, para cada seed, se deu certo ou falhou (com a mensagem do erro quando capturar_erros=True).
     Garante execução estritamente sob tenant_context(tenant).
     """
     from core.modulos import MODULOS_REGISTRO, is_modulo_ativo
@@ -29,20 +34,35 @@ def executar_seeds(tenant: Any, modulo: str | None = None) -> list[tuple[str, st
     else:
         modulos_alvo = [m for m in MODULOS_REGISTRO if is_modulo_ativo(tenant, m)]
 
-    resultados = []
+    resultados: list[dict[str, Any]] = []
     with tenant_context(tenant):
         for mod in modulos_alvo:
             seeds = _seeds_por_modulo.get(mod, [])
             for fn in seeds:
+                nome_seed = getattr(fn, '__name__', str(fn))
                 try:
                     res = fn(tenant)
-                    resultados.append((mod, getattr(fn, '__name__', str(fn)), res))
-                except Exception:
+                    resultados.append({
+                        'modulo': mod,
+                        'seed': nome_seed,
+                        'sucesso': True,
+                        'resultado': res,
+                        'erro': None,
+                    })
+                except Exception as exc:
                     logger.exception(
-                        f"[Seeds] Erro ao executar seed '{getattr(fn, '__name__', str(fn))}' "
+                        f"[Seeds] Erro ao executar seed '{nome_seed}' "
                         f"no módulo '{mod}' para tenant '{tenant.nome}'"
                     )
-                    raise
+                    if not capturar_erros:
+                        raise
+                    resultados.append({
+                        'modulo': mod,
+                        'seed': nome_seed,
+                        'sucesso': False,
+                        'resultado': None,
+                        'erro': str(exc),
+                    })
 
     return resultados
 

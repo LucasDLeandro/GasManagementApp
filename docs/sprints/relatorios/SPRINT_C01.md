@@ -121,3 +121,51 @@ E       AssertionError: b'/financeiro/' unexpectedly found in ...
 - O comando novo `python manage.py seed_financeiro_plano_vazio` (aceita `--dry-run`) deve ser rodado **só depois** da validação do plano de contas pelo contador.
 - Executar `python manage.py collectstatic --noinput` por causa da atualização de `?v=20261113_c01` em `core.js`, `baros_admin.js`, `retestes.js` e `cilindros_drawer.js`.
 - No nginx da VM, `/media/` **não** pode ser servido diretamente, porque os laudos de reteste devem passar só pelo endpoint `/produtos/api/patrimonio/retestes/{id}/laudo/`, que checa permissão.
+
+---
+
+## C01.1
+
+### O que foi feito
+- **`core/seeds.py` (`executar_seeds`):** alterado para retornar lista de dicionários por seed (`{'modulo', 'seed', 'sucesso', 'resultado', 'erro'}`), com parâmetro `capturar_erros: bool = False`. No onboarding (`capturar_erros=False`, padrão), qualquer exceção continua sendo logada e propagada (`raise`), mantendo o comportamento existente.
+- **`core/views_baros_admin.py` (`BarosAdminToggleModuloView.post`):** removido o `try/except`; agora chama `executar_seeds(tenant, modulo=modulo, capturar_erros=True)` e monta `aviso_seed` a partir dos itens com `sucesso == False`.
+- **`produtos/tests/test_c01_correcoes.py` (`test_07_backoffice_toggle_modulo_mostra_erro_quando_seed_falha`):** reescrito para fazer o mock dentro de `core.seeds._seeds_por_modulo['financeiro']`, validando o retorno estruturado de `executar_seeds(..., capturar_erros=True)` e a resposta `aviso_seed` do backoffice.
+- **Limpeza de working tree:** descartadas as sobras de fim de linha em `docs/PROGRESSO.md` (`git checkout -- docs/PROGRESSO.md`) e removida a linha em branco extra de `SPRINT_C01.md`.
+
+### Saída do `test_01` no worktree anterior (`C:/Temp/baros_c01_antes`, `sprint-u02/financeiro-primeiros-passos`)
+```text
+>       self.assertEqual(r_patch.status_code, 405)
+E       AssertionError: 200 != 405
+
+produtos\tests\test_c01_correcoes.py:217: AssertionError
+=========================== short test summary info ===========================
+FAILED produtos/tests/test_c01_correcoes.py::C01CorrecoesTests::test_01_baixa_patrimonial_imutavel_sem_patch_put_delete - AssertionError: 200 != 405
+================= 1 failed, 6 deselected in 75.52s (0:01:15) ==================
+```
+
+### Saída do `test_07` antes e depois da C01.1
+- **Antes (código da C01):**
+```text
+>           resultados = executar_seeds(self.tenant, modulo="financeiro", capturar_erros=True)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: executar_seeds() got an unexpected keyword argument 'capturar_erros'
+================= 1 failed, 6 deselected in 71.40s (0:01:11) ==================
+```
+- **Depois (após C01.1, `venv/Scripts/python.exe -m pytest produtos/tests/test_c01_correcoes.py -v`):**
+```text
+produtos/tests/test_c01_correcoes.py::C01CorrecoesTests::test_01_baixa_patrimonial_imutavel_sem_patch_put_delete PASSED [ 14%]
+produtos/tests/test_c01_correcoes.py::C01CorrecoesTests::test_02_envio_reteste_permissoes_d1_e_imutabilidade_patch_put_delete PASSED [ 28%]
+produtos/tests/test_c01_correcoes.py::C01CorrecoesTests::test_03_retificar_reteste_motivo_obrigatorio_papeis_d2_e_404_outro_tenant PASSED [ 42%]
+produtos/tests/test_c01_correcoes.py::C01CorrecoesTests::test_04_estaticos_js_data_local_e_guard_condenado PASSED [ 57%]
+produtos/tests/test_c01_correcoes.py::C01CorrecoesTests::test_05_migracao_0012_nao_importa_financeiro_seeds PASSED [ 71%]
+produtos/tests/test_c01_correcoes.py::C01CorrecoesTests::test_06_comando_seed_financeiro_plano_vazio PASSED [ 85%]
+produtos/tests/test_c01_correcoes.py::C01CorrecoesTests::test_07_backoffice_toggle_modulo_mostra_erro_quando_seed_falha PASSED [100%]
+
+======================== 7 passed in 70.97s (0:01:10) =========================
+```
+
+### Checks finais (C01.1)
+- `venv/Scripts/python.exe manage.py check`: `System check identified no issues (0 silenced).`
+- `venv/Scripts/python.exe manage.py makemigrations --check --dry-run`: `No changes detected`
+- `venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`: `795 passed, 4 warnings in 204.37s`
+- `git status -sb`: limpo (`## correcao-c01/patrimonio-retestes-financeiro`)

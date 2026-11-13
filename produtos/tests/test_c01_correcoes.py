@@ -388,12 +388,26 @@ class C01CorrecoesTests(TestCase):
             self.assertEqual(PlanoContas.objects.count(), count_1)
 
     def test_07_backoffice_toggle_modulo_mostra_erro_quando_seed_falha(self):
+        from core.seeds import _seeds_por_modulo, executar_seeds, seed_financeiro_rbac
+
+        def seed_financeiro_padrao_falha(tenant):
+            raise RuntimeError("Falha simulada no seed")
+
         self.client.force_login(self.superuser)
         session = self.client.session
         session["baros_admin_mfa_verified"] = True
         session.save()
 
-        with patch("core.views_baros_admin.executar_seeds", side_effect=RuntimeError("Falha simulada no seed")):
+        with patch.dict(
+            _seeds_por_modulo,
+            {"financeiro": [seed_financeiro_rbac, seed_financeiro_padrao_falha]},
+        ):
+            resultados = executar_seeds(self.tenant, modulo="financeiro", capturar_erros=True)
+            self.assertEqual(len(resultados), 2)
+            self.assertTrue(resultados[0]["sucesso"])
+            self.assertFalse(resultados[1]["sucesso"])
+            self.assertIn("Falha simulada no seed", resultados[1]["erro"])
+
             resp = self.client.post(
                 f"/baros-admin/tenants/{self.tenant.id}/toggle-modulo/",
                 {"modulo": "financeiro", "ativo": "true"},
