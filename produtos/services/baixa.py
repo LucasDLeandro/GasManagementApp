@@ -44,6 +44,11 @@ def baixar_cilindro_patrimonial(
         if baixa_existente:
             return cilindro, baixa_existente
 
+    if cilindro.status == 'BAIXADO':
+        raise ValidationError(
+            f"O cilindro {cilindro.numero_serie_ogiva} já se encontra BAIXADO e não pode ser baixado novamente."
+        )
+
     validar_transicao_status_cilindro(cilindro, 'BAIXADO')
 
     data_efetiva = data_baixa or timezone.localdate()

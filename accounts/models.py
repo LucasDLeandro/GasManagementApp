@@ -33,7 +33,7 @@ class User(AbstractUser):
 # Create your models here.
 
 class UserProfile(models.Model):
-    cpf = models.CharField(max_length=11, unique=True)
+    cpf = models.CharField(max_length=14, unique=True)
     rg = models.CharField(max_length=9, unique=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     

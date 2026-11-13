@@ -590,7 +590,12 @@ class CilindroViewSet(TenantViewSetMixin, viewsets.ReadOnlyModelViewSet):
         """
         oficina_nome = request.data.get('oficina_nome')
         oficina_cnpj = request.data.get('oficina_cnpj')
-        cilindro_ids = request.data.get('cilindro_ids', [])
+        if hasattr(request.data, 'getlist'):
+            cilindro_ids = request.data.getlist('cilindro_ids')
+        else:
+            cilindro_ids = request.data.get('cilindro_ids', [])
+        if isinstance(cilindro_ids, (str, int)):
+            cilindro_ids = [cilindro_ids]
         data_envio = request.data.get('data_envio')
         observacoes = request.data.get('observacoes', '')
 
@@ -2445,7 +2450,12 @@ class EnvioRetesteViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
         oficina_nome = request.data.get('oficina_nome')
         oficina_cnpj = request.data.get('oficina_cnpj')
         documento_envio = request.data.get('documento_envio', '')
-        cilindro_ids = request.data.get('cilindro_ids', [])
+        if hasattr(request.data, 'getlist'):
+            cilindro_ids = request.data.getlist('cilindro_ids')
+        else:
+            cilindro_ids = request.data.get('cilindro_ids', [])
+        if isinstance(cilindro_ids, (str, int)):
+            cilindro_ids = [cilindro_ids]
         data_envio = request.data.get('data_envio')
         observacoes = request.data.get('observacoes', '')
 

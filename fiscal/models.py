@@ -279,7 +279,7 @@ class DocumentoFiscal(TenantAwareModel):
         verbose_name="Modelo Fiscal"
     )
     tipo_operacao = models.CharField(
-        max_length=10,
+        max_length=30,
         choices=[('SAIDA', 'Saída / Venda'), ('ENTRADA', 'Entrada / Compra')],
         default='SAIDA',
         verbose_name="Tipo de Operação"

@@ -57,13 +57,19 @@ class TenantManager(models.Manager.from_queryset(TenantQuerySet)):
 def get_default_tenant_pk():
     """Retorna o PK do tenant padrão para migrações e backfill."""
     try:
+        from django.db import transaction
         from core.models import Tenant
-        tenant = Tenant.objects.filter(cnpj='00.000.000/0001-00').first()
-        if tenant:
-            return tenant.id
-        tenant = Tenant.objects.first()
-        if tenant:
-            return tenant.id
+        with transaction.atomic():
+            tenant_id = (
+                Tenant.objects.filter(cnpj='00.000.000/0001-00')
+                .values_list('id', flat=True)
+                .first()
+            )
+            if tenant_id:
+                return tenant_id
+            tenant_id = Tenant.objects.values_list('id', flat=True).first()
+            if tenant_id:
+                return tenant_id
     except Exception:
         pass
     return uuid.UUID('00000000-0000-0000-0000-000000000001')

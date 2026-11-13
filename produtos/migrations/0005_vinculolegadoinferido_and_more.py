@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
             field=models.BooleanField(default=False, verbose_name='Registro Legado Anterior'),
         ),
         migrations.RunSQL(
-            sql="UPDATE produtos_movimentacaocilindro SET is_legado = 1;",
+            sql="UPDATE produtos_movimentacaocilindro SET is_legado = TRUE;",
             reverse_sql=""
         ),
         migrations.AlterField(

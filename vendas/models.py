@@ -41,7 +41,7 @@ class Venda(TenantAwareModel):
     forma_pagamento = models.CharField(max_length=30, choices=FORMA_PAGAMENTO_CHOICES, default='BOLETO', blank=True, null=True, verbose_name="Forma de Pagamento")
     condicao_pagamento = models.CharField(max_length=50, default='À Vista', blank=True, null=True, verbose_name="Condição de Pagamento")
     valor_desconto = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor de Desconto (R$)")
-    documento_fiscal_ref = models.CharField(max_length=60, blank=True, null=True, verbose_name="Nº NF-e / Pedido")
+    documento_fiscal_ref = models.CharField(max_length=120, blank=True, null=True, verbose_name="Nº NF-e / Pedido")
     observacoes = models.TextField(blank=True, null=True, verbose_name="Observações / Instruções de Entrega")
     valor_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor Total da Nota")
     prazo_entrega = models.DateField(null=True, blank=True, verbose_name="Prazo de Entrega")
