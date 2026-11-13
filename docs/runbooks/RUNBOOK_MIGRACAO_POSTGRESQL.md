@@ -79,11 +79,13 @@ Este runbook descreve a migração dos dados do **Baros ERP** de SQLite (`db.sql
    python manage.py contar_registros > /tmp/contagem_sqlite.txt
    tail -n 10 /tmp/contagem_sqlite.txt
    ```
-3. Exportar os dados em JSON com chaves naturais (excluindo tabelas internas recriadas pelo `migrate`):
+3. Exportar os dados em JSON com chaves naturais (excluindo tabelas internas recriadas pelo `migrate`) para o diretório de backups fora do projeto, restringindo a permissão logo em seguida:
    ```bash
+   sudo mkdir -p /var/backups/baros
    python manage.py dumpdata --all --natural-foreign --natural-primary \
      -e contenttypes -e auth.permission -e admin.logentry -e sessions \
-     -o /tmp/baros_dump.json
+     -o "/var/backups/baros/baros_dump_$(date +%Y%m%d).json"
+   chmod 600 /var/backups/baros/baros_dump_*.json
    ```
 
 ### Passo 3 — Virada do `.env` e importação no PostgreSQL (`VM de produção/teste`)
@@ -112,7 +114,7 @@ Este runbook descreve a migração dos dados do **Baros ERP** de SQLite (`db.sql
    > **Atenção:** Não use `manage.py flush` antes do `loaddata`, pois `flush` apaga `django_content_type` e quebra a resolução de chaves naturais em `auth.Group`.
 4. Importar o dump JSON:
    ```bash
-   python manage.py loaddata /tmp/baros_dump.json
+   python manage.py loaddata /var/backups/baros/baros_dump_AAAAMMDD.json
    ```
 5. Sincronizar as sequências de chaves primárias no PostgreSQL:
    ```bash
@@ -136,11 +138,16 @@ Este runbook descreve a migração dos dados do **Baros ERP** de SQLite (`db.sql
    sudo journalctl -u baros-gunicorn -n 50 --no-pager
    ```
    Testar login, tela inicial, criação de um registro simples (ex.: cliente ou venda de teste em ambiente de homologação) para confirmar que as sequências e travas funcionam.
-3. Remover arquivos temporários `/tmp/baros_dump.json`, `/tmp/contagem_sqlite.txt` e `/tmp/contagem_pg.txt`.
+3. Depois que a contagem do `contar_registros` bater e o sistema estiver validado, apagar o arquivo de dump JSON (ele contém todos os dados da aplicação) e os arquivos auxiliares de contagem:
+   ```bash
+   rm -f /var/backups/baros/baros_dump_*.json /tmp/contagem_sqlite.txt /tmp/contagem_pg.txt
+   ```
 
 ---
 
 ## 3. Plano de Rollback (`VM de produção/teste`)
+
+> **Regra de segurança do rollback:** voltar para o SQLite só é seguro **antes de liberar o uso do sistema** para os usuários, porque qualquer lançamento gravado no PostgreSQL depois da virada será perdido ao retornar ao `db.sqlite3`. A decisão de rollback precisa acontecer **no mesmo dia da virada**.
 
 Se qualquer falha crítica ocorrer durante ou logo após a virada:
 

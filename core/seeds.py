@@ -1,7 +1,10 @@
 import logging
 from collections import defaultdict
 from collections.abc import Callable
+from contextlib import nullcontext
 from typing import Any
+
+from django.db import transaction
 
 from core.context import tenant_context
 
@@ -41,7 +44,9 @@ def executar_seeds(
             for fn in seeds:
                 nome_seed = getattr(fn, '__name__', str(fn))
                 try:
-                    res = fn(tenant)
+                    ctx = transaction.atomic() if capturar_erros else nullcontext()
+                    with ctx:
+                        res = fn(tenant)
                     resultados.append({
                         'modulo': mod,
                         'seed': nome_seed,

@@ -421,3 +421,49 @@ class C01CorrecoesTests(TestCase):
         self.assertIn("aviso_seed", data)
         self.assertIn("Falha simulada no seed", data["aviso_seed"])
 
+    def test_08_backoffice_toggle_modulo_com_integrity_error_no_seed_grava_auditoria(self):
+        from core.models import LogAuditoriaSaaS, Tenant
+        from core.seeds import _seeds_por_modulo, seed_financeiro_rbac
+
+        def seed_financeiro_integrity_error(tenant):
+            Tenant.objects.create(
+                cnpj=tenant.cnpj,
+                razao_social="Duplicada Seed",
+                nome_fantasia="Duplicada",
+            )
+
+        self.client.force_login(self.superuser)
+        session = self.client.session
+        session["baros_admin_mfa_verified"] = True
+        session.save()
+
+        auditoria_antes = LogAuditoriaSaaS.objects.filter(
+            tenant=self.tenant,
+            acao="TOGGLE_MODULO",
+            modulo="financeiro",
+        ).count()
+
+        with patch.dict(
+            _seeds_por_modulo,
+            {"financeiro": [seed_financeiro_rbac, seed_financeiro_integrity_error]},
+        ):
+            resp = self.client.post(
+                f"/baros-admin/tenants/{self.tenant.id}/toggle-modulo/",
+                {"modulo": "financeiro", "ativo": "true"},
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["sucesso"])
+        self.assertTrue(data["ativo"])
+        self.assertFalse(data["seed_aplicado"])
+        self.assertTrue(data.get("aviso_seed"))
+        self.assertEqual(
+            LogAuditoriaSaaS.objects.filter(
+                tenant=self.tenant,
+                acao="TOGGLE_MODULO",
+                modulo="financeiro",
+            ).count(),
+            auditoria_antes + 1,
+        )
+

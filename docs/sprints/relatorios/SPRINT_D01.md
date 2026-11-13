@@ -71,3 +71,45 @@
 1. **Dependência nova:** `psycopg[binary]>=3.2.0` em `requirements.txt` (`pip install -r requirements.txt` na EC2).
 2. **Banco novo na EC2:** instalar PostgreSQL 16 local (`localhost:5432`), criar usuário/banco e seguir passo a passo `docs/runbooks/RUNBOOK_MIGRACAO_POSTGRESQL.md` (parar aplicação, backup de `db.sqlite3`, `migrate` no SQLite, `contar_registros`, `dumpdata`, configurar `.env` com `DB_ENGINE=django.db.backends.postgresql`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST=localhost`, `DB_PORT=5432`, `DB_CONN_MAX_AGE=60`, `migrate` no PG, `TRUNCATE TABLE core_planosaas, auth_group RESTART IDENTITY CASCADE;`, `loaddata`, `sqlsequencereset`, conferir `contar_registros`, configurar cron diário de `pg_dump -Fc`).
 3. **Migrações novas:** `accounts.0005_alter_userprofile_cpf`, `fiscal.0003_alter_documentofiscal_tipo_operacao`, `vendas.0014_alter_venda_documento_fiscal_ref` (e ajuste booleano `is_legado = TRUE` em `produtos.0005` para bancos novos).
+
+---
+
+## D01.1 — Ajustes finais antes do deploy
+
+### O que foi feito
+1. **`docs/runbooks/RUNBOOK_MIGRACAO_POSTGRESQL.md`:**
+   - Alterado o destino do `dumpdata` de `/tmp` para `/var/backups/baros/baros_dump_AAAAMMDD.json`, com `chmod 600 /var/backups/baros/baros_dump_*.json` logo após a exportação.
+   - Incluído o passo final removendo o dump JSON (`/var/backups/baros/baros_dump_*.json`) após a conferência do `contar_registros`.
+   - Adicionada na seção de rollback a regra explícita de que voltar ao SQLite só é seguro antes de liberar o uso do sistema (lançamentos posteriores no PostgreSQL seriam perdidos) e que a decisão ocorre no mesmo dia da virada.
+2. **`core/seeds.py` e `produtos/tests/test_c01_correcoes.py`:**
+   - Em `executar_seeds(..., capturar_erros=True)`, cada seed agora executa dentro de `with transaction.atomic():` (savepoint), preservando a transação da requisição (`ATOMIC_REQUESTS=True`) no PostgreSQL quando um seed falha com erro de banco (`IntegrityError`).
+   - Adicionado `C01CorrecoesTests.test_08_backoffice_toggle_modulo_com_integrity_error_no_seed_grava_auditoria` simulando `UniqueViolation` dentro do seed e validando resposta `200`, `aviso_seed` e gravação de `LogAuditoriaSaaS`.
+3. Removida a linha em branco extra ao final de `SPRINT_D01.md`.
+
+### Saída do teste `test_08` no PostgreSQL 16 (antes e depois da correção)
+
+**Antes (`core/seeds.py` sem savepoint):**
+```text
+psycopg.errors.UniqueViolation: duplicate key value violates unique constraint "core_tenant_cnpj_key"
+DETAIL:  Key (cnpj)=(12345678000190) already exists.
+...
+  File "C:\Lucas\GasManagementApp\core\views_baros_admin.py", line 489, in post
+    LogAuditoriaSaaS.objects.create(
+...
+django.db.transaction.TransactionManagementError: An error occurred in the current transaction. You can't execute queries until the end of the 'atomic' block.
+FAILED produtos/tests/test_c01_correcoes.py::C01CorrecoesTests::test_08_backoffice_toggle_modulo_com_integrity_error_no_seed_grava_auditoria
+1 failed, 7 deselected in 6.91s
+```
+
+**Depois (`core/seeds.py` com `transaction.atomic()` quando `capturar_erros=True`):**
+```text
+produtos\tests\test_c01_correcoes.py .                                   [100%]
+1 passed, 7 deselected in 2.90s
+```
+
+### Verificação final (D01.1)
+- `manage.py check --database default` (PostgreSQL 16): `System check identified no issues (0 silenced).`
+- `manage.py makemigrations --check --dry-run` (PostgreSQL 16): `No changes detected`
+- **Suíte completa no PostgreSQL 16 (`pytest -q -p no:cacheprovider --create-db`):** `801 passed, 4 warnings in 1054.77s (0:17:34)`
+- **Suíte completa no SQLite (`pytest -q -p no:cacheprovider`):** `797 passed, 4 skipped, 4 warnings in 176.83s (0:02:56)`
+- **`git status --short`:** limpo.
