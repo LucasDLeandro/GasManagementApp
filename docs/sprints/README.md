@@ -15,7 +15,8 @@ Cada arquivo `Sxx_*.md` é uma mensagem pronta: **abra o arquivo, copie o conte�
 | U02 | `U02_financeiro_primeiros_passos.md` | Financeiro: plano de contas padrão ao ligar o módulo, primeiros passos e textos | U01 |
 | 02 | `S02_produtos_patrimonio.md` | Patrimônio: ativos, lotes de aquisição, classes, fabricantes, indenização | 01 |
 | 03 | `S03_produtos_retestes_e_baixa.md` | Retestes em lote (envio e retorno com expansão) e baixa patrimonial | 02 |
-| 04 | `S04_produtos_granel_tanques_estoque_custos.md` | Tanques, granel, estoque de gás e de produto, custo de envase, **nível do tanque em tempo real, autonomia e saída a granel** | 03 |
+| D01 | `D01_postgresql.md` | Banco de dados PostgreSQL 16 (desenvolvimento, testes, EC2, concorrência real e runbook de migração/backup) | C01 |
+| 04 | `S04_produtos_granel_tanques_estoque_custos.md` | Tanques, granel, estoque de gás e de produto, custo de envase, **nível do tanque em tempo real, autonomia e saída a granel** | D01 |
 | 05 | `S05_produtos_legado_para_sku.md` | Aposentar `Produto` legado em favor de `SkuRecarga` | 04 |
 | 06 | `S06_clientes_e_vendas.md` | Vendas redesenhada, estorno de faturamento, ajustes em Clientes | 05 |
 | 07 | `S07_logistica_entregas_e_torre.md` | Dividir a tela de logística, montagem de entrega, torre de controle | 06 |
@@ -26,7 +27,7 @@ Cada arquivo `Sxx_*.md` é uma mensagem pronta: **abra o arquivo, copie o conte�
 | 12 | `S12_fiscal_e_unificacao_faturamento.md` | Fiscal completo e absorção do app Faturamento | 11 + **decisão do gateway** |
 | 13 | `S13_core_accounts_analytics_menu.md` | Troca de senha obrigatória, códigos de recuperação do MFA, pessoal, home, integrações, filiais, LGPD, analytics, menu | 12 |
 | 14 | `S14_app_campo_e_portal_b2b.md` | App de Campo (PWA offline) e Portal B2B | 13 |
-| 15 | `S15_go_live.md` | Segurança, PostgreSQL/Celery, performance, manual e UAT | 14 |
+| 15 | `S15_go_live.md` | Segurança, Celery/Redis, RDS (se produção usar), performance, manual e UAT | 14 |
 | 16 | `S16_laboratorio_controle_qualidade.md` | Laboratório de CQ: especificações por gás, equipamentos e calibração, análises por parâmetro, liberação pelo RT, certificado de análise | 04 + **validação dos parâmetros pelo RT** |
 
 A Sprint 01B fica logo depois da 01 porque a home é a primeira tela que todo usuário vê e o histórico de status que ela cria será usado pela Sprint 06 (vendas) e pela 07 (torre de controle).

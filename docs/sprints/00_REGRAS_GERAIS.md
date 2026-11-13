@@ -59,7 +59,7 @@ Leia este arquivo inteiro antes de começar qualquer sprint. Leia também `CLAUD
 13. **Altere só o necessário:** não reformate arquivos inteiros (desligue a formatação automática ao salvar). Mudanças grandes de formatação escondem erros na revisão, e uma ferramenta de edição já corrompeu um arquivo inteiro de JavaScript neste projeto (commit `5f6e56c`).
 
 ## 5. Testes
-- Rode a suíte completa **no início** (anote o resultado de partida no relatório) e antes do último commit: `venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`. **Ela precisa terminar verde.** Leva cerca de 5 minutos.
+- Rode a suíte completa **no início** (anote o resultado de partida no relatório) e antes do último commit: `venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`. **Ela precisa terminar verde tanto no PostgreSQL 16 (banco oficial) quanto no SQLite (até a Sprint 15).** Leva cerca de 5–10 minutos.
 - **Bug corrigido começa com um teste que falha.** Para cada item de "O que está errado" da sprint, escreva primeiro o teste que reproduz o problema, rode e **confirme que ele falha no código atual**; só então corrija. No relatório, diga quais testes falharam antes e passaram depois.
 - Comportamento de JavaScript que o pytest não executa (ex.: `innerHTML` com dado) ganha um **teste estático** que lê o arquivo e procura o padrão proibido.
 - Toda regra nova de backend ganha teste (sucesso, erro de validação, papel sem permissão, isolamento entre empresas).
@@ -69,6 +69,7 @@ Leia este arquivo inteiro antes de começar qualquer sprint. Leia também `CLAUD
 - Depois de rodar os testes, confira `git status`: nada fora do que você mudou de propósito.
 
 ## 6. Banco de desenvolvimento
+- O banco oficial de desenvolvimento e testes é o **PostgreSQL 16** (configurado via `DB_ENGINE=django.db.backends.postgresql`, conforme `.env.example`). O SQLite (`db.sqlite3`, sem `DB_ENGINE`) segue suportado como opção até a Sprint 15.
 - Não altere dados do `db.sqlite3` de desenvolvimento, nem para "testar rapidinho". Se precisar de dados, crie-os nos testes.
 - **Para verificar no navegador** algo que dependa de dados ou de um módulo desligado, use uma **cópia** do banco fora do projeto e aponte o servidor para ela só naquele terminal:
   ```bash
@@ -92,7 +93,7 @@ Atualize também o bloco "Status" da fase correspondente em `docs/PLANO_CORRECAO
 Copie para o relatório as listas **Testes** e **Critérios de aceite** da sprint, marcando `[x]` no que foi feito e explicando cada `[ ]` que ficou aberto. Nunca marque como feito algo que não verificou.
 
 ## 8. Ambiente de teste na AWS (usado por um Responsável Técnico real)
-- Existe um ambiente de teste numa EC2 (Ubuntu 24.04, gunicorn + nginx, SQLite, `DEBUG=False`, HTTPS, `USE_HTTPS=True`). O dono do projeto o atualiza a partir das branches revisadas e mergeadas. Você **não** tem acesso a ele e não deve tentar acessá-lo.
+- Existe um ambiente de teste numa EC2 (Ubuntu 24.04, gunicorn + nginx, PostgreSQL 16 local escutando apenas em `localhost`, `DEBUG=False`, HTTPS, `USE_HTTPS=True`). O dono do projeto o atualiza a partir das branches revisadas e mergeadas. Você **não** tem acesso a ele e não deve tentar acessá-lo.
 - Configuração nova vai em `config/settings.py`, lida do ambiente com `config(...)` e com padrão seguro para desenvolvimento. **Nunca** coloque host, IP, domínio, porta ou segredo fixo no código.
 - URLs absolutas (QR codes, links em PDF, e-mails, webhooks) são montadas com `request.build_absolute_uri(...)`; fora de uma requisição, use uma configuração `SITE_URL` lida do ambiente. Nunca `localhost` nem `127.0.0.1`.
 - Estáticos sempre por `{% static %}` (funcionam depois do `collectstatic`, servidos pelo nginx em `/static/`). Não sirva arquivo sensível (laudo, certificado) como estático nem por `/media/` direto: use uma view com permissão.

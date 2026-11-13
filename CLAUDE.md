@@ -26,8 +26,9 @@ python -m venv .venv
 .venv/Scripts/python.exe -m pytest -q -p no:cacheprovider   # suíte completa, ~5 min, precisa ficar verde
 ```
 - **Nesta estação o ambiente virtual é `venv/` (Python 3.13)**: troque `.venv` por `venv` nos comandos acima. O servidor de teste usa Python 3.14.
+- **Banco oficial:** PostgreSQL 16 (configurado via `.env` a partir de `.env.example`, com `DB_ENGINE=django.db.backends.postgresql`). Sem `DB_ENGINE`, o projeto usa SQLite (`db.sqlite3`), que segue suportado até a Sprint 15. Veja `docs/runbooks/RUNBOOK_MIGRACAO_POSTGRESQL.md`.
 - Definição de pronto de toda sprint: seção 9 de `docs/sprints/00_REGRAS_GERAIS.md`.
-- O `.env` **não** está no git (SECRET_KEY, DEBUG, superusuário, banco): copie-o de outra máquina ou crie a partir das chaves usadas em `config/settings.py`.
+- O `.env` **não** está no git (SECRET_KEY, DEBUG, superusuário, banco): copie `.env.example` para `.env` e preencha as variáveis locais.
 - `db.sqlite3` e `media/` também não estão no git.
 - Rotas: app da distribuidora em `/inicio/`; backoffice dos donos em `/baros-admin/` (superusuário + MFA TOTP obrigatório; o 1º acesso cadastra o autenticador); portal do cliente em `/portal-b2b/`.
 

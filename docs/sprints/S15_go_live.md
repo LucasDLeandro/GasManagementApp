@@ -22,9 +22,8 @@ Deixar o sistema pronto para a primeira empresa real: segurança revisada sobre 
 - Revisar o acesso livre de superusuário às empresas (decidido em 27/10/2026: continua livre). Confirmar que **toda entrada** de superusuário numa empresa por break-glass fica no `LogAuditoriaSaaS`, e registrar no relatório os riscos remanescentes para o dono decidir.
 
 ### 15.2 Infraestrutura
-- Configuração de produção com **PostgreSQL** (`DB_ENGINE`), **Celery + Redis** (tasks e beat em `config/celery.py`), arquivos estáticos (`collectstatic` com `ManifestStaticFilesStorage`, o que dispensa o `?v=` manual; avalie e documente) e media protegida.
-- Rodar a suíte inteira também em PostgreSQL (`docker compose` com um serviço `db`, ou instruções equivalentes) e corrigir o que só passava no SQLite.
-- Backup e restauração: seguir `core/services/backup_continuidade_service.py` e os runbooks; documentar o teste de restauração.
+- Configuração de produção com **PostgreSQL gerenciado (RDS, se escolhido pelo dono para produção)** — o PostgreSQL 16 local e a suíte no PostgreSQL já foram concluídos na Sprint D01 —, **Celery + Redis** (tasks e beat em `config/celery.py`), arquivos estáticos (`collectstatic` com `ManifestStaticFilesStorage`, o que dispensa o `?v=` manual; avalie e documente) e media protegida.
+- Backup e restauração: seguir `core/services/backup_continuidade_service.py` e os runbooks (incluindo `docs/runbooks/RUNBOOK_MIGRACAO_POSTGRESQL.md`); documentar o teste de restauração.
 
 ### 15.3 Performance
 - Medir as 10 telas e endpoints mais usados (lista de cilindros, vendas, entregas, receber, DRE, recall) com dados volumosos (crie um comando `popular_carga_teste` que gere, por exemplo, 50 mil cilindros e 200 mil movimentos num banco de teste, **nunca no banco de desenvolvimento do dono**). Corrigir N+1 (`select_related`/`prefetch_related`), índices faltantes e paginação. Atualizar `RELATORIO_PERFORMANCE_SLAS.md` com o antes e o depois.
