@@ -8,6 +8,7 @@ asgiref>=3.10.0
 sqlparse>=0.5.3
 tzdata>=2025.2
 python-decouple>=3.8
+psycopg[binary]>=3.2.0
 
 # --- REST Framework & Autenticação ---
 djangorestframework>=3.16.1

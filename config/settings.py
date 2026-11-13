@@ -136,14 +136,16 @@ SIMPLE_JWT = {
 DB_ENGINE = config('DB_ENGINE', default=None)
 
 if DB_ENGINE:
+    _default_port = '5432' if 'postgresql' in DB_ENGINE else ''
     DATABASES = {
         'default': {
             'ENGINE': DB_ENGINE,
-            'NAME': config('DB_NAME', default='gasmanagementapp_db'),
-            'USER': config('DB_USER', default='root'),
+            'NAME': config('DB_NAME', default='baros'),
+            'USER': config('DB_USER', default=''),
             'PASSWORD': config('DB_PASSWORD', default=''),
             'HOST': config('DB_HOST', default='localhost'),
-            'PORT': config('DB_PORT', default='3306'),
+            'PORT': config('DB_PORT', default=_default_port),
+            'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
             'ATOMIC_REQUESTS': True,
         }
     }
