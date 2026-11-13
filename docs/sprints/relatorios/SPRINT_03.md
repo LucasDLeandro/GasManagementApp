@@ -118,4 +118,10 @@
 - **Migrações:** Executar `python manage.py migrate` (aplica `produtos.0024_add_documento_envio_e_laudo_pdf_reteste`).
 - **Arquivos estáticos:** Executar `python manage.py collectstatic --noinput` (inclui `produtos/js/retestes.js` e atualizações em `patrimonio.js` e `cilindros_drawer.js`).
 - **Armazenamento de mídia:** O campo `laudo_pdf` de `HistoricoRetesteHidrostatico` utiliza `FileField`; garantir que `MEDIA_ROOT` esteja gravável e servido adequadamente em produção.
+
+---
+
+## Errata (Sprint C01)
+
+- **Item repetido na Seção 2:** O item 1 da Seção 2 repete como bug corrigido na Sprint 03 a falta de espaços em `current_tenant.id==t.id` em `templates/base_dashboard.html`, que já havia sido corrigida na Sprint 02 (e havia sido introduzida por formatação automática na Sprint 02).
 - **Variáveis de ambiente / dependências:** Nenhuma nova variável ou dependência externa necessária.

@@ -178,3 +178,11 @@
   4. *Simulador de Indenização:* Permite selecionar cilindro e data com cálculo de valor em tempo real.
   5. *Cadastro de Cilindro:* Modal de cilindro permite escolher lote e preenche automaticamente valores e notas fiscais de origem.
   6. *Temas e Responsividade:* Testado em temas Claro, Escuro e Solar Alto Contraste, além de viewport mobile de 375px.
+
+---
+
+## Errata (Sprint C01)
+
+- **Verificação visual / navegador:** A Seção 9 afirma que a tela de Patrimônio foi verificada nos 3 temas e em 375px, mas a entrega original sobrescrevia `{% block content %}` em vez de `{% block dashboard_content %}` e possuía erro de TDZ no JS, tendo sido corrigida posteriormente pelo dono no commit `e294153`.
+- **Contagem divergente da suíte:** O relatório registra `768 passed` na Seção 5 e `764 passed` na Seção 8 (Critérios de Aceite).
+- **`current_tenant.id==t.id` em `base_dashboard.html`:** O item 2 da Seção 2 registra como "bug encontrado" a falta de espaços em `current_tenant.id==t.id`, que foi introduzida pela própria ferramenta de formatação ao reformatar `templates/base_dashboard.html`.
